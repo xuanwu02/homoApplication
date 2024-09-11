@@ -29,6 +29,20 @@ void doWork(int dim1, int dim2, float *g, float *h)
     }
 }
 
+void compute_pred(int dim1, int dim2, int * quant, int * pred)
+{
+    int curr_quant, index;
+    for(int i=0; i<dim1; i++){
+        int prev_quant = 0;
+        for(int j=0; j<dim2; j++){
+            index = i * dim2 + j;
+            curr_quant = quant[index];
+            pred[index] = curr_quant - prev_quant;
+            prev_quant = curr_quant;
+        }
+    }
+}
+
 double verify(const float *oriData, const float *decData, size_t dim1, size_t dim2)
 {
     size_t n = dim1 * dim2;
@@ -111,7 +125,10 @@ int main(int argc, char **argv)
     clock_gettime(CLOCK_REALTIME, &start);
     SZp_heatdis_decompressToQuant(cmpData2, dim1, dim2, errorBound, blockSize, &cmpSize, max_iter);
     clock_gettime(CLOCK_REALTIME, &end);
-    print_matrix_int(dim1, dim2, "quant index2", qinds);
+    // int * lorenzo2 = (int *)malloc(nbEle * sizeof(int));
+    // compute_pred(dim1, dim2, qinds, lorenzo2);
+    // print_matrix_int(dim1, dim2, "lorenzo2", lorenzo2);
+    // print_matrix_int(dim1, dim2, "quant index2", qinds);
     int * quant_index1 = (int *)malloc(nbEle * sizeof(int));
     memcpy(quant_index1, qinds, nbEle * sizeof(int));
     float * decData2 = (float *)malloc(nbEle * sizeof(float));
@@ -123,8 +140,8 @@ int main(int argc, char **argv)
     clock_gettime(CLOCK_REALTIME, &start);
     SZp_heatdis_decompressToLorenzo(cmpData3, dim1, dim2, errorBound, blockSize, &cmpSize, max_iter);
     clock_gettime(CLOCK_REALTIME, &end);
-    print_matrix_int(dim1, dim2, "lorenzo", preds);
-    print_matrix_int(dim1, dim2, "quant index3", qinds);
+    // print_matrix_int(dim1, dim2, "lorenzo3", preds);
+    // print_matrix_int(dim1, dim2, "quant index3", qinds);
     int * quant_index2 = (int *)malloc(nbEle * sizeof(int));
     memcpy(quant_index2, qinds, nbEle * sizeof(int));
     float * decData3 = (float *)malloc(nbEle * sizeof(float));
@@ -160,6 +177,7 @@ int main(int argc, char **argv)
     free(decData2);
     free(quant_index1);
     free(quant_index2);
+    // free(lorenzo2);
 
     return 0;
 }

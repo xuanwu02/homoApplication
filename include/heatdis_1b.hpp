@@ -440,7 +440,8 @@ void update_lorenzoPred(unsigned char **cmpData, int **offsets, int **fixedRate,
                         int current, int next, int max_iter)
 {
     int x, j;
-    double center;
+    double center, residual;
+    int carry;
     size_t prefix_length = 0;
     int block_num = dim1;
     int currRow_second, currRow_last;
@@ -455,6 +456,8 @@ void update_lorenzoPred(unsigned char **cmpData, int **offsets, int **fixedRate,
     // first row
     {
         prefix_sum = 0;
+        residual = 0;
+        carry = 0;
         x = 0;
         decomressToLorenzo_single_block(x, blockSize, offsets[current], fixedRate[current], cmpData_pos,
                                         signFlag, absLorenzo, &currRow_second, &currRow_last, currRow_lorenzo);
@@ -463,26 +466,70 @@ void update_lorenzoPred(unsigned char **cmpData, int **offsets, int **fixedRate,
                                         signFlag, absLorenzo, &nextRow_second, &nextRow_last, nextRow_lorenzo);
         j = 0;
         center = 0.25 * (q_W + currRow_second + q_S + nextRow_lorenzo[j]);
-        update_lorenzo[j] = center + (center >= -0.5 ? 0.5 : -0.5);
+        residual += center - (int)center;
+        if(residual >= 1){
+            carry = 1;
+            residual = residual - (int)residual;
+        }
+        else if(residual <= -1){
+            carry = -1;
+            residual = residual - (int)residual;
+        }
+        update_lorenzo[j] = center + carry;
+        carry = 0;
+        // update_lorenzo[j] = center + (center >= -0.5 ? 0.5 : -0.5);
         prefix_sum += update_lorenzo[j];
         qinds[position++] = prefix_sum;
         preds[position2++] = update_lorenzo[j];
         j = 1;
         center = 0.25 * (currRow_lorenzo[j-1] - q_W + currRow_lorenzo[j+1] + nextRow_lorenzo[j]);
-        update_lorenzo[j] = center + (center >= -0.5 ? 0.5 : -0.5);
+        residual += center - (int)center;
+        if(residual >= 1){
+            carry = 1;
+            residual = residual - (int)residual;
+        }
+        else if(residual <= -1){
+            carry = -1;
+            residual = residual - (int)residual;
+        }
+        update_lorenzo[j] = center + carry;
+        carry = 0;
+        // update_lorenzo[j] = center + (center >= -0.5 ? 0.5 : -0.5);
         prefix_sum += update_lorenzo[j];
         qinds[position++] = prefix_sum;
         preds[position2++] = update_lorenzo[j];
         for(j=2; j<blockSize-1; j++){
             center = 0.25 * (currRow_lorenzo[j-1] + currRow_lorenzo[j+1] + nextRow_lorenzo[j]);
-            update_lorenzo[j] = center + (center >= -0.5 ? 0.5 : -0.5);
+            residual += center - (int)center;
+            if(residual >= 1){
+                carry = 1;
+                residual = residual - (int)residual;
+            }
+            else if(residual <= -1){
+                carry = -1;
+                residual = residual - (int)residual;
+            }
+            update_lorenzo[j] = center + carry;
+            carry = 0;
+            // update_lorenzo[j] = center + (center >= -0.5 ? 0.5 : -0.5);
             prefix_sum += update_lorenzo[j];
             qinds[position++] = prefix_sum;
             preds[position2++] = update_lorenzo[j];
         }
         j = blockSize - 1;
         center = 0.25 * (currRow_lorenzo[j-1] + q_W - currRow_last + nextRow_lorenzo[j]);
-        update_lorenzo[j] = center + (center >= -0.5 ? 0.5 : -0.5);
+        residual += center - (int)center;
+        if(residual >= 1){
+            carry = 1;
+            residual = residual - (int)residual;
+        }
+        else if(residual <= -1){
+            carry = -1;
+            residual = residual - (int)residual;
+        }
+        update_lorenzo[j] = center + carry;
+        carry = 0;
+        // update_lorenzo[j] = center + (center >= -0.5 ? 0.5 : -0.5);
         prefix_sum += update_lorenzo[j];
         qinds[position++] = prefix_sum;
         preds[position2++] = update_lorenzo[j];
@@ -493,6 +540,8 @@ void update_lorenzoPred(unsigned char **cmpData, int **offsets, int **fixedRate,
     // row 1 ~ (dim1-2)
     for(x=1; x<dim1-1; x++){
         prefix_sum = 0;
+        residual = 0;
+        carry = 0;
         temp = prevRow_lorenzo;
         prevRow_lorenzo = currRow_lorenzo;
         currRow_lorenzo = nextRow_lorenzo;
@@ -504,26 +553,70 @@ void update_lorenzoPred(unsigned char **cmpData, int **offsets, int **fixedRate,
                                         signFlag, absLorenzo, &nextRow_second, &nextRow_last, nextRow_lorenzo);
         j = 0;
         center = 0.25 * (q_W + currRow_second + prevRow_lorenzo[j] + nextRow_lorenzo[j]);
-        update_lorenzo[j] = center + (center >= -0.5 ? 0.5 : -0.5);
+        residual += center - (int)center;
+        if(residual >= 1){
+            carry = 1;
+            residual = residual - (int)residual;
+        }
+        else if(residual <= -1){
+            carry = -1;
+            residual = residual - (int)residual;
+        }
+        update_lorenzo[j] = center + carry;
+        carry = 0;
+        // update_lorenzo[j] = center + (center >= -0.5 ? 0.5 : -0.5);
         prefix_sum += update_lorenzo[j];
         qinds[position++] = prefix_sum;
         preds[position2++] = update_lorenzo[j];
         j = 1;
         center = 0.25 * (currRow_lorenzo[j-1] - q_W + currRow_lorenzo[j+1] + prevRow_lorenzo[j] + nextRow_lorenzo[j]);
-        update_lorenzo[j] = center + (center >= -0.5 ? 0.5 : -0.5);
+        residual += center - (int)center;
+        if(residual >= 1){
+            carry = 1;
+            residual = residual - (int)residual;
+        }
+        else if(residual <= -1){
+            carry = -1;
+            residual = residual - (int)residual;
+        }
+        update_lorenzo[j] = center + carry;
+        carry = 0;
+        // update_lorenzo[j] = center + (center >= -0.5 ? 0.5 : -0.5);
         prefix_sum += update_lorenzo[j];
         qinds[position++] = prefix_sum;
         preds[position2++] = update_lorenzo[j];
         for(j=2; j<blockSize-1; j++){
             center = 0.25 * (currRow_lorenzo[j-1] + currRow_lorenzo[j+1] + prevRow_lorenzo[j] + nextRow_lorenzo[j]);
-            update_lorenzo[j] = center + (center >= -0.5 ? 0.5 : -0.5);
+            residual += center - (int)center;
+            if(residual >= 1){
+                carry = 1;
+                residual = residual - (int)residual;
+            }
+            else if(residual <= -1){
+                carry = -1;
+                residual = residual - (int)residual;
+            }
+            update_lorenzo[j] = center + carry;
+            carry = 0;
+            // update_lorenzo[j] = center + (center >= -0.5 ? 0.5 : -0.5);
             prefix_sum += update_lorenzo[j];
             qinds[position++] = prefix_sum;
             preds[position2++] = update_lorenzo[j];
         }
         j = blockSize - 1;
         center = 0.25 * (currRow_lorenzo[j-1] + q_W - currRow_last + prevRow_lorenzo[j] + nextRow_lorenzo[j]);
-        update_lorenzo[j] = center + (center >= -0.5 ? 0.5 : -0.5);
+        residual += center - (int)center;
+        if(residual >= 1){
+            carry = 1;
+            residual = residual - (int)residual;
+        }
+        else if(residual <= -1){
+            carry = -1;
+            residual = residual - (int)residual;
+        }
+        update_lorenzo[j] = center + carry;
+        carry = 0;
+        // update_lorenzo[j] = center + (center >= -0.5 ? 0.5 : -0.5);
         prefix_sum += update_lorenzo[j];
         qinds[position++] = prefix_sum;
         preds[position2++] = update_lorenzo[j];
@@ -541,26 +634,70 @@ void update_lorenzoPred(unsigned char **cmpData, int **offsets, int **fixedRate,
         currRow_last = nextRow_last;
         j = 0;
         center = 0.25 * (q_W + currRow_second + prevRow_lorenzo[j] + q_B);
-        update_lorenzo[j] = center + (center >= -0.5 ? 0.5 : -0.5);
+        residual += center - (int)center;
+        if(residual >= 1){
+            carry = 1;
+            residual = residual - (int)residual;
+        }
+        else if(residual <= -1){
+            carry = -1;
+            residual = residual - (int)residual;
+        }
+        update_lorenzo[j] = center + carry;
+        carry = 0;
+        // update_lorenzo[j] = center + (center >= -0.5 ? 0.5 : -0.5);
         prefix_sum += update_lorenzo[j];
         qinds[position++] = prefix_sum;
         preds[position2++] = update_lorenzo[j];
         j = 1;
         center = 0.25 * (currRow_lorenzo[j-1] - q_W + currRow_lorenzo[j+1] + prevRow_lorenzo[j]);
-        update_lorenzo[j] = center + (center >= -0.5 ? 0.5 : -0.5);
+        residual += center - (int)center;
+        if(residual >= 1){
+            carry = 1;
+            residual = residual - (int)residual;
+        }
+        else if(residual <= -1){
+            carry = -1;
+            residual = residual - (int)residual;
+        }
+        update_lorenzo[j] = center + carry;
+        carry = 0;
+        // update_lorenzo[j] = center + (center >= -0.5 ? 0.5 : -0.5);
         prefix_sum += update_lorenzo[j];
         qinds[position++] = prefix_sum;
         preds[position2++] = update_lorenzo[j];
         for(j=2; j<blockSize-1; j++){
             center = 0.25 * (currRow_lorenzo[j-1] + currRow_lorenzo[j+1] + prevRow_lorenzo[j]);
-            update_lorenzo[j] = center + (center >= -0.5 ? 0.5 : -0.5);
+            residual += center - (int)center;
+            if(residual >= 1){
+                carry = 1;
+                residual = residual - (int)residual;
+            }
+            else if(residual <= -1){
+                carry = -1;
+                residual = residual - (int)residual;
+            }
+            update_lorenzo[j] = center + carry;
+            carry = 0;
+            // update_lorenzo[j] = center + (center >= -0.5 ? 0.5 : -0.5);
             prefix_sum += update_lorenzo[j];
             qinds[position++] = prefix_sum;
             preds[position2++] = update_lorenzo[j];
         }
         j = blockSize - 1;
         center = 0.25 * (currRow_lorenzo[j-1] + q_W - currRow_last + prevRow_lorenzo[j]);
-        update_lorenzo[j] = center + (center >= -0.5 ? 0.5 : -0.5);
+        residual += center - (int)center;
+        if(residual >= 1){
+            carry = 1;
+            residual = residual - (int)residual;
+        }
+        else if(residual <= -1){
+            carry = -1;
+            residual = residual - (int)residual;
+        }
+        update_lorenzo[j] = center + carry;
+        carry = 0;
+        // update_lorenzo[j] = center + (center >= -0.5 ? 0.5 : -0.5);
         prefix_sum += update_lorenzo[j];
         qinds[position++] = prefix_sum;
         preds[position2++] = update_lorenzo[j];
