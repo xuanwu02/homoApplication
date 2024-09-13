@@ -29,6 +29,19 @@ void doWork(int dim1, int dim2, float *g, float *h)
     }
 }
 
+void compute_quant(int dim1, int dim2, int * quant, int * pred)
+{
+    int index;
+    for(int i=0; i<dim1; i++){
+        int prefix_sum = 0;
+        for(int j=0; j<dim2; j++){
+            index = i * dim2 + j;
+            prefix_sum += pred[index];
+            quant[index] = prefix_sum;
+        }
+    }
+}
+
 double verify(const float *oriData, const float *decData, size_t dim1, size_t dim2)
 {
     size_t n = dim1 * dim2;
@@ -41,7 +54,7 @@ double verify(const float *oriData, const float *decData, size_t dim1, size_t di
             pos = i;
         }  
     }
-    // printf("max error position: (%lu, %lu)\n", pos/dim2 + 1, pos%dim2 + 1);
+    printf("max error position: (%lu, %lu)\n", pos/dim2 + 1, pos%dim2 + 1);
     return max_error;
 }
 
@@ -93,6 +106,7 @@ int main(int argc, char **argv)
         doWork(dim1, dim2, oriData, h);
     }
 
+    // DOC
     float * decData1 = (float *)malloc(nbEle * sizeof(float));
     clock_gettime(CLOCK_REALTIME, &start);
     for(int i=0; i<max_iter; i++){
@@ -106,6 +120,7 @@ int main(int argc, char **argv)
     elapsed_time1 = (double)(end.tv_sec - start.tv_sec) + (double)(end.tv_nsec - start.tv_nsec)/(double)1000000000;
     printf("cr1 = %f, max_err1 = %.14f, elapsed_time1 = %.6f\n", 1.0 * sizeof(float) * nbEle / cmpSize, max_err1, elapsed_time1);
 
+    // recover to lorenzo prediction
     clock_gettime(CLOCK_REALTIME, &start);
     SZp_heatdis_decompressToLorenzo(cmpData2, dim1, dim2, errorBound, blockSize, &cmpSize, max_iter);
     clock_gettime(CLOCK_REALTIME, &end);
@@ -114,6 +129,10 @@ int main(int argc, char **argv)
     max_err2 = verify(oriData, decData2, dim1, dim2);
     elapsed_time2 = (double)(end.tv_sec - start.tv_sec) + (double)(end.tv_nsec - start.tv_nsec)/(double)1000000000;
     printf("cr2 = %f, max_err2 = %.14f, elapsed_time2 = %.6f\n", 1.0 * sizeof(float) * nbEle / cmpSize, max_err2, elapsed_time2);
+    // print
+    int qinds3[nbEle];
+    compute_quant(dim1, dim2, qinds3, preds3);
+    print_matrix_int(dim1, dim2, "quant index3", qinds3);
 
     // print_matrix_float(dim1, dim2, "oriData", oriData);
     // print_matrix_float(dim1, dim2, "decData1", decData1);

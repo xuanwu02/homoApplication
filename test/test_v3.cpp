@@ -43,6 +43,19 @@ void compute_pred(int dim1, int dim2, int * quant, int * pred)
     }
 }
 
+void compute_quant(int dim1, int dim2, int * quant, int * pred)
+{
+    int index;
+    for(int i=0; i<dim1; i++){
+        int prefix_sum = 0;
+        for(int j=0; j<dim2; j++){
+            index = i * dim2 + j;
+            prefix_sum += pred[index];
+            quant[index] = prefix_sum;
+        }
+    }
+}
+
 double verify(const float *oriData, const float *decData, size_t dim1, size_t dim2)
 {
     size_t n = dim1 * dim2;
@@ -55,7 +68,7 @@ double verify(const float *oriData, const float *decData, size_t dim1, size_t di
             pos = i;
         }  
     }
-    // printf("max error position: (%lu, %lu)\n", pos/dim2 + 1, pos%dim2 + 1);
+    printf("max error position: (%lu, %lu)\n", pos/dim2 + 1, pos%dim2 + 1);
     return max_error;
 }
 
@@ -109,6 +122,7 @@ int main(int argc, char **argv)
         doWork(dim1, dim2, oriData, h);
     }
 
+    // DOC
     float * decData1 = (float *)malloc(nbEle * sizeof(float));
     clock_gettime(CLOCK_REALTIME, &start);
     for(int i=0; i<max_iter; i++){
@@ -122,52 +136,54 @@ int main(int argc, char **argv)
     elapsed_time1 = (double)(end.tv_sec - start.tv_sec) + (double)(end.tv_nsec - start.tv_nsec)/(double)1000000000;
     printf("cr1 = %f, max_err1 = %.14f, elapsed_time1 = %.6f\n", 1.0 * sizeof(float) * nbEle / cmpSize, max_err1, elapsed_time1);
 
+    // recover to quantization index
     clock_gettime(CLOCK_REALTIME, &start);
     SZp_heatdis_decompressToQuant(cmpData2, dim1, dim2, errorBound, blockSize, &cmpSize, max_iter);
     clock_gettime(CLOCK_REALTIME, &end);
-    // int * lorenzo2 = (int *)malloc(nbEle * sizeof(int));
-    // compute_pred(dim1, dim2, qinds, lorenzo2);
-    // print_matrix_int(dim1, dim2, "lorenzo2", lorenzo2);
-    // print_matrix_int(dim1, dim2, "quant index2", qinds);
-    int * quant_index1 = (int *)malloc(nbEle * sizeof(int));
-    memcpy(quant_index1, qinds, nbEle * sizeof(int));
     float * decData2 = (float *)malloc(nbEle * sizeof(float));
     SZp_decompress_1D(decData2, cmpData2, dim1, dim2, errorBound, blockSize);
     max_err2 = verify(oriData, decData2, dim1, dim2);
     elapsed_time2 = (double)(end.tv_sec - start.tv_sec) + (double)(end.tv_nsec - start.tv_nsec)/(double)1000000000;
     printf("cr2 = %f, max_err2 = %.14f, elapsed_time2 = %.6f\n", 1.0 * sizeof(float) * nbEle / cmpSize, max_err2, elapsed_time2);
+    // print
+    int preds2[nbEle];
+    compute_pred(dim1, dim2, qinds2, preds2);
+    print_matrix_int(dim1, dim2, "lorenzo2", preds2);
+    print_matrix_int(dim1, dim2, "quant index2", qinds2);
 
+    // recover to lorenzo prediction
     clock_gettime(CLOCK_REALTIME, &start);
     SZp_heatdis_decompressToLorenzo(cmpData3, dim1, dim2, errorBound, blockSize, &cmpSize, max_iter);
     clock_gettime(CLOCK_REALTIME, &end);
-    // print_matrix_int(dim1, dim2, "lorenzo3", preds);
-    // print_matrix_int(dim1, dim2, "quant index3", qinds);
-    int * quant_index2 = (int *)malloc(nbEle * sizeof(int));
-    memcpy(quant_index2, qinds, nbEle * sizeof(int));
     float * decData3 = (float *)malloc(nbEle * sizeof(float));
     SZp_decompress_1D(decData3, cmpData3, dim1, dim2, errorBound, blockSize);
     max_err3 = verify(oriData, decData3, dim1, dim2);
     elapsed_time3 = (double)(end.tv_sec - start.tv_sec) + (double)(end.tv_nsec - start.tv_nsec)/(double)1000000000;
     printf("cr3 = %f, max_err3 = %.14f, elapsed_time3 = %.6f\n", 1.0 * sizeof(float) * nbEle / cmpSize, max_err3, elapsed_time3);
+    // print
+    int qinds3[nbEle];
+    compute_quant(dim1, dim2, qinds3, preds3);
+    print_matrix_int(dim1, dim2, "lorenzo3", preds3);
+    print_matrix_int(dim1, dim2, "quant index3", qinds3);
 
-    // print_matrix_float(dim1, dim2, "oriData", oriData);
-    // print_matrix_float(dim1, dim2, "decData1", decData1);
-    // print_matrix_float(dim1, dim2, "decData2", decData2);
     {
         int pos = 0;
         int max_error = 0;
         int ref, tar;
         for(size_t i=0; i<nbEle; i++){
-            int diff = fabs(quant_index1[i] - quant_index2[i]);
+            int diff = fabs(qinds2[i] - qinds3[i]);
             if(diff > max_error){
-                ref = quant_index1[i];
-                tar = quant_index2[i];
+                ref = qinds2[i];
+                tar = qinds3[i];
                 max_error = diff;
                 pos = i;
             }  
         }
         printf("max diff position: (%lu, %lu)\nmax diff = %d\n", pos/dim2 + 1, pos%dim2 + 1, max_error);
     }
+    // print_matrix_float(dim1, dim2, "oriData", oriData);
+    // print_matrix_float(dim1, dim2, "decData1", decData1);
+    // print_matrix_float(dim1, dim2, "decData2", decData2);
 
     free(oriData);
     free(cmpData1);
@@ -175,9 +191,6 @@ int main(int argc, char **argv)
     free(h);
     free(decData1);
     free(decData2);
-    free(quant_index1);
-    free(quant_index2);
-    // free(lorenzo2);
 
     return 0;
 }
