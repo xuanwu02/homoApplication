@@ -1,5 +1,5 @@
-#ifndef _STENC_HEATDIS_ENTRY_HPP
-#define _STENC_HEATDIS_ENTRY_HPP
+#ifndef _STENCIL_HEATDIS_ENTRY_HPP
+#define _STENCIL_HEATDIS_ENTRY_HPP
 
 #include <iostream>
 #include "heatdis_1b.hpp"
@@ -36,7 +36,7 @@ void SZp_decompress_1D(float *decData, unsigned char *cmpData,
     free(fixedRate);
 }
 
-void SZp_heatdis_decompressToQuant(unsigned char *& compressed_data, size_t dim1, size_t dim2, double errorBound, int blockSize, size_t *cmpSize, int max_iter)
+void SZp_heatdis_decompressToQuant(unsigned char * compressed_data, size_t dim1, size_t dim2, double errorBound, int blockSize, size_t *cmpSize, int max_iter)
 {
     int block_num = dim1;
     size_t nbEle = dim1 * dim2;
@@ -46,25 +46,33 @@ void SZp_heatdis_decompressToQuant(unsigned char *& compressed_data, size_t dim1
     for(int i=0; i<2; i++){
         offsets[i] = (int *)calloc(block_num, sizeof(int));
         fixedRate[i] = (int *)calloc(block_num, sizeof(int));
-        cmpData[i] = (unsigned char *)calloc(2 * nbEle, sizeof(unsigned char));
+        cmpData[i] = (unsigned char *)calloc(4 * nbEle, sizeof(unsigned char));
     }
-    memcpy(cmpData[0], compressed_data, 2 * nbEle * sizeof(unsigned char));
+    memcpy(cmpData[0], compressed_data, 4 * nbEle * sizeof(unsigned char));
     unsigned int *absLorenzo = (unsigned int *)calloc(blockSize, sizeof(unsigned int));
     unsigned char *signFlag = (unsigned char *)calloc(blockSize, sizeof(unsigned char));
+
+    struct timespec start, end;
+    clock_gettime(CLOCK_REALTIME, &start);
     SZp_heatdis_kernel_decomressToQuant(cmpData, offsets, fixedRate, absLorenzo, signFlag, dim1, dim2, errorBound, blockSize, cmpSize, max_iter);
+    clock_gettime(CLOCK_REALTIME, &end);
+    double elapsed_time = (double)(end.tv_sec - start.tv_sec) + (double)(end.tv_nsec - start.tv_nsec)/(double)1000000000;
+    printf("elapsed_time = %.6f\n", elapsed_time);
     int status = max_iter % 2;
-    compressed_data = cmpData[status];
+    memcpy(compressed_data, cmpData[status], 4 * nbEle * sizeof(unsigned char));
     for(int i=0; i<2; i++){
         free(offsets[i]);
         free(fixedRate[i]);
+        free(cmpData[i]);
     }
     free(offsets);
     free(fixedRate);
+    free(cmpData);
     free(absLorenzo);
     free(signFlag);
 }
 
-void SZp_heatdis_decompressToLorenzo(unsigned char *& compressed_data, size_t dim1, size_t dim2, double errorBound, int blockSize, size_t *cmpSize, int max_iter)
+void SZp_heatdis_decompressToLorenzo(unsigned char * compressed_data, size_t dim1, size_t dim2, double errorBound, int blockSize, size_t *cmpSize, int max_iter)
 {
     int block_num = dim1;
     size_t nbEle = dim1 * dim2;
@@ -74,20 +82,28 @@ void SZp_heatdis_decompressToLorenzo(unsigned char *& compressed_data, size_t di
     for(int i=0; i<2; i++){
         offsets[i] = (int *)calloc(block_num, sizeof(int));
         fixedRate[i] = (int *)calloc(block_num, sizeof(int));
-        cmpData[i] = (unsigned char *)calloc(2 * nbEle, sizeof(unsigned char));
+        cmpData[i] = (unsigned char *)calloc(4 * nbEle, sizeof(unsigned char));
     }
-    memcpy(cmpData[0], compressed_data, 2 * nbEle * sizeof(unsigned char));
+    memcpy(cmpData[0], compressed_data, 4 * nbEle * sizeof(unsigned char));
     unsigned int *absLorenzo = (unsigned int *)calloc(blockSize, sizeof(unsigned int));
     unsigned char *signFlag = (unsigned char *)calloc(blockSize, sizeof(unsigned char));
+
+    struct timespec start, end;
+    clock_gettime(CLOCK_REALTIME, &start);
     SZp_heatdis_kernel_decomressToLorenzo(cmpData, offsets, fixedRate, absLorenzo, signFlag, dim1, dim2, errorBound, blockSize, cmpSize, max_iter);
+    clock_gettime(CLOCK_REALTIME, &end);
+    double elapsed_time = (double)(end.tv_sec - start.tv_sec) + (double)(end.tv_nsec - start.tv_nsec)/(double)1000000000;
+    printf("elapsed_time = %.6f\n", elapsed_time);
     int status = max_iter % 2;
-    compressed_data = cmpData[status];
+    memcpy(compressed_data, cmpData[status], 4 * nbEle * sizeof(unsigned char));
     for(int i=0; i<2; i++){
         free(offsets[i]);
         free(fixedRate[i]);
+        free(cmpData[i]);
     }
     free(offsets);
     free(fixedRate);
+    free(cmpData);
     free(absLorenzo);
     free(signFlag);
 }
