@@ -123,7 +123,6 @@ void SZp_decompress_kernel_1D(float *decData, unsigned char *cmpData, size_t dim
     }
 }
 
-// 09/03/2024
 size_t compute_byteLength(size_t intArrayLength, int bit_count)
 {
     unsigned int byte_count = bit_count / 8;
@@ -337,8 +336,6 @@ void SZp_heatdis_kernel_decomressToQuant(unsigned char **cmpData, int **& offset
     free(update_quant);
 }
 
-
-// 09/05/2024
 void decomressToLorenzo_single_block(int curr_block, int block_size,
                                      int *offsets, int *fixedRate, unsigned char *cmpData_pos,
                                      unsigned char *signFlag, unsigned int *absLorenzo,
@@ -422,9 +419,11 @@ void compressFromLorenzo_single_block(int curr_block, int block_size, size_t& cm
     new_offsets[curr_block] = *prefix_length;
 }
 
-inline int integerize(int iter, double center){
-    if(iter & 1) return center + (center >= -0.5 ? 0.5001 : -0.5001);
-    return center + (center >= -0.5 ? 0.4999 : -0.4999);
+inline void integerize(int bias, int center, int& residual, int& lorenzo)
+{
+    residual += center;
+    lorenzo = (residual + bias) >> 2;
+    residual -= (lorenzo << 2);
 }
 
 void update_lorenzoPred(unsigned char **cmpData, int **offsets, int **fixedRate,
@@ -434,7 +433,8 @@ void update_lorenzoPred(unsigned char **cmpData, int **offsets, int **fixedRate,
                         int current, int next, int iter, size_t& cmpSize)
 {
     int x, j;
-    double center, residual;
+    int center, residual;
+    int bias = (iter & 1) + 1;
     size_t prefix_length = 0;
     int block_num = dim1;
     int currRow_second, currRow_last;
@@ -453,26 +453,18 @@ void update_lorenzoPred(unsigned char **cmpData, int **offsets, int **fixedRate,
         decomressToLorenzo_single_block(x + 1, blockSize, offsets[current], fixedRate[current], nextRow_cmpData,
                                         signFlag, absLorenzo, &nextRow_second, &nextRow_last, nextRow_lorenzo);
         j = 0;
-        center = 0.25 * (q_W + currRow_second + q_S + nextRow_lorenzo[j]);
-        center += residual;
-        update_lorenzo[j] = integerize(iter, center);
-        residual = center - update_lorenzo[j];
+        center = q_W + currRow_second + q_S + nextRow_lorenzo[j];
+        integerize(bias, center, residual, update_lorenzo[j]);
         j = 1;
-        center = 0.25 * (currRow_lorenzo[j-1] - q_W + currRow_lorenzo[j+1] + nextRow_lorenzo[j]);
-        center += residual;
-        update_lorenzo[j] = integerize(iter, center);
-        residual = center - update_lorenzo[j];
+        center = currRow_lorenzo[j-1] - q_W + currRow_lorenzo[j+1] + nextRow_lorenzo[j];
+        integerize(bias, center, residual, update_lorenzo[j]);
         for(j=2; j<blockSize-1; j++){
-            center = 0.25 * (currRow_lorenzo[j-1] + currRow_lorenzo[j+1] + nextRow_lorenzo[j]);
-            center += residual;
-            update_lorenzo[j] = integerize(iter, center);
-            residual = center - update_lorenzo[j];
-            }
+            center = currRow_lorenzo[j-1] + currRow_lorenzo[j+1] + nextRow_lorenzo[j];
+            integerize(bias, center, residual, update_lorenzo[j]);
+        }
         j = blockSize - 1;
-        center = 0.25 * (currRow_lorenzo[j-1] + q_W - currRow_last + nextRow_lorenzo[j]);
-        center += residual;
-        update_lorenzo[j] = integerize(iter, center);
-        residual = center - update_lorenzo[j];
+        center = currRow_lorenzo[j-1] + q_W - currRow_last + nextRow_lorenzo[j];
+        integerize(bias, center, residual, update_lorenzo[j]);
         compressFromLorenzo_single_block(x, blockSize, cmpSize, &prefix_length, offsets[next], fixedRate[next],
                                          cmpData_pos_update, signFlag, absLorenzo, update_lorenzo);
         cmpData[next][x] = (unsigned char)fixedRate[next][x];
@@ -490,26 +482,18 @@ void update_lorenzoPred(unsigned char **cmpData, int **offsets, int **fixedRate,
         decomressToLorenzo_single_block(x + 1, blockSize, offsets[current], fixedRate[current], nextRow_cmpData,
                                         signFlag, absLorenzo, &nextRow_second, &nextRow_last, nextRow_lorenzo);
         j = 0;
-        center = 0.25 * (q_W + currRow_second + prevRow_lorenzo[j] + nextRow_lorenzo[j]);
-        center += residual;
-        update_lorenzo[j] = integerize(iter, center);
-        residual = center - update_lorenzo[j];
+        center = q_W + currRow_second + prevRow_lorenzo[j] + nextRow_lorenzo[j];
+        integerize(bias, center, residual, update_lorenzo[j]);
         j = 1;
-        center = 0.25 * (currRow_lorenzo[j-1] - q_W + currRow_lorenzo[j+1] + prevRow_lorenzo[j] + nextRow_lorenzo[j]);
-        center += residual;
-        update_lorenzo[j] = integerize(iter, center);
-        residual = center - update_lorenzo[j];
+        center = currRow_lorenzo[j-1] - q_W + currRow_lorenzo[j+1] + prevRow_lorenzo[j] + nextRow_lorenzo[j];
+        integerize(bias, center, residual, update_lorenzo[j]);
         for(j=2; j<blockSize-1; j++){
-            center = 0.25 * (currRow_lorenzo[j-1] + currRow_lorenzo[j+1] + prevRow_lorenzo[j] + nextRow_lorenzo[j]);
-            center += residual;
-            update_lorenzo[j] = integerize(iter, center);
-            residual = center - update_lorenzo[j];
-            }
+            center = currRow_lorenzo[j-1] + currRow_lorenzo[j+1] + prevRow_lorenzo[j] + nextRow_lorenzo[j];
+            integerize(bias, center, residual, update_lorenzo[j]);
+        }
         j = blockSize - 1;
-        center = 0.25 * (currRow_lorenzo[j-1] + q_W - currRow_last + prevRow_lorenzo[j] + nextRow_lorenzo[j]);
-        center += residual;
-        update_lorenzo[j] = integerize(iter, center);
-        residual = center - update_lorenzo[j];
+        center = currRow_lorenzo[j-1] + q_W - currRow_last + prevRow_lorenzo[j] + nextRow_lorenzo[j];
+        integerize(bias, center, residual, update_lorenzo[j]);
         compressFromLorenzo_single_block(x, blockSize, cmpSize, &prefix_length, offsets[next], fixedRate[next],
                                          cmpData_pos_update + offsets[next][x-1], signFlag, absLorenzo, update_lorenzo);
         cmpData[next][x] = (unsigned char)fixedRate[next][x];
@@ -522,28 +506,20 @@ void update_lorenzoPred(unsigned char **cmpData, int **offsets, int **fixedRate,
         currRow_second = nextRow_second;
         currRow_last = nextRow_last;
         j = 0;
-        center = 0.25 * (q_W + currRow_second + prevRow_lorenzo[j] + q_B);
-        center += residual;
-        update_lorenzo[j] = integerize(iter, center);
-        residual = center - update_lorenzo[j];
+        center = q_W + currRow_second + prevRow_lorenzo[j] + q_B;
+        integerize(bias, center, residual, update_lorenzo[j]);
         j = 1;
-        center = 0.25 * (currRow_lorenzo[j-1] - q_W + currRow_lorenzo[j+1] + prevRow_lorenzo[j]);
-        center += residual;
-        update_lorenzo[j] = integerize(iter, center);
-        residual = center - update_lorenzo[j];
+        center = currRow_lorenzo[j-1] - q_W + currRow_lorenzo[j+1] + prevRow_lorenzo[j];
+        integerize(bias, center, residual, update_lorenzo[j]);
         for(j=2; j<blockSize-1; j++){
-            center = 0.25 * (currRow_lorenzo[j-1] + currRow_lorenzo[j+1] + prevRow_lorenzo[j]);
-            center += residual;
-            update_lorenzo[j] = integerize(iter, center);
-            residual = center - update_lorenzo[j];
-            }
+            center = currRow_lorenzo[j-1] + currRow_lorenzo[j+1] + prevRow_lorenzo[j];
+            integerize(bias, center, residual, update_lorenzo[j]);
+        }
         j = blockSize - 1;
-        center = 0.25 * (currRow_lorenzo[j-1] + q_W - currRow_last + prevRow_lorenzo[j]);
-        center += residual;
-        update_lorenzo[j] = integerize(iter, center);
-        residual = center - update_lorenzo[j];
+        center = currRow_lorenzo[j-1] + q_W - currRow_last + prevRow_lorenzo[j];
+        integerize(bias, center, residual, update_lorenzo[j]);
         compressFromLorenzo_single_block(x, blockSize, cmpSize, &prefix_length, offsets[next], fixedRate[next],
-                            cmpData_pos_update + offsets[next][x-1], signFlag, absLorenzo, update_lorenzo);
+                                         cmpData_pos_update + offsets[next][x-1], signFlag, absLorenzo, update_lorenzo);
         cmpData[next][x] = (unsigned char)fixedRate[next][x];
     }
 }
