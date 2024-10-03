@@ -12,6 +12,212 @@ const double SRC_TEMP = 100.0;
 const double WALL_TEMP = 0.0;
 const double BACK_TEMP = 0.0;
 
+void SZp_compress_kernel_1D_signed_short(float *oriData, unsigned char *cmpData, size_t dim1, size_t dim2,
+                                        int16_t *signLorenzo, double errorBound, int blockSize, size_t *cmpSize)
+{
+    int row_block_num = (dim2 - 1) / blockSize + 1;
+    int tailSize = dim2 - blockSize * (row_block_num - 1);
+    int block_num = row_block_num * dim1;
+    const double recip_precision = 0.5f / errorBound;
+    unsigned char * cmpData_pos = cmpData;
+    for(int x=0; x<dim1; x++){
+        for(int y=0; y<row_block_num; y++){
+            int curr_block = x * row_block_num + y;
+            int curr_size = (y < row_block_num - 1) ? blockSize : tailSize;  
+            int offset = x * dim2;
+            int prefix = offset + y * blockSize;
+            double data_recip;
+            int s;
+            int16_t curr_quant, lorenzo_pred, prev_quant = 0;
+            int index;
+            for(int j=0; j<curr_size; j++){
+                index = prefix + j;
+                data_recip = oriData[index] * recip_precision;
+                s = data_recip >= -0.5f ? 0 : 1;
+                curr_quant = (int)(data_recip + 0.5f) - s;
+                lorenzo_pred = curr_quant - prev_quant;
+                prev_quant = curr_quant;
+                signLorenzo[j] = lorenzo_pred;
+            }
+            size_t byteLength = 2 * blockSize;
+        	memcpy(cmpData_pos, (unsigned char *) signLorenzo, byteLength);
+            cmpData_pos += byteLength;
+        }
+    }
+    *cmpSize = cmpData_pos - cmpData;
+}
+
+void SZp_decompress_kernel_1D_signed_short(float *decData, unsigned char *cmpData, size_t dim1, size_t dim2,
+                                            int16_t *signLorenzo, double errorBound, int blockSize)
+{
+    int row_block_num = (dim2 - 1) / blockSize + 1;
+    int tailSize = dim2 - blockSize * (row_block_num - 1);
+    int block_num = row_block_num * dim1;
+    unsigned char * cmpData_pos = cmpData;
+    for(int x=0; x<dim1; x++){
+        for(int y=0; y<row_block_num; y++){
+            int curr_block = x * row_block_num + y;
+            int curr_size = (y < row_block_num - 1) ? blockSize : tailSize;  
+            int offset = x * dim2;
+            int prefix = offset + y * blockSize;
+            size_t byteLength = 2 * blockSize;
+        	memcpy((unsigned char *) signLorenzo, cmpData_pos, byteLength);
+            cmpData_pos += byteLength;
+            int16_t curr_quant, lorenzo_pred, prev_quant = 0;
+            int index;
+            for(int j=0; j<curr_size; j++){
+                index = prefix + j;
+                lorenzo_pred = signLorenzo[j];
+                curr_quant = lorenzo_pred + prev_quant;
+                decData[index] = curr_quant * errorBound * 2;
+                prev_quant = curr_quant;
+            }
+        }
+    }
+}
+
+inline void integerize_lorenzo(int bias, int center, int& residual, int index, int16_t * lorenzo)
+{
+    residual += center;
+    lorenzo[index] = (residual + bias) >> 2;
+    residual -= (lorenzo[index] << 2);
+}
+
+void update_lorenzoPred(unsigned char **cmpData, size_t dim1, size_t dim2, 
+                        int q_S, int q_W, int q_B, int blockSize,
+                        int current, int next, int iter, size_t& cmpSize)
+{
+    int x, j;
+    int center, residual;
+    int bias = (iter & 1) + 1;
+    int blockCmpDataLength = 2 * blockSize;
+    int block_num = dim1;
+    int currRow_second, currRow_last;
+    unsigned char * prevRow = NULL, * currRow = NULL, * nextRow = NULL;
+    int16_t * prevRow_lorenzo = NULL, * currRow_lorenzo = NULL, * nextRow_lorenzo = NULL;
+    int16_t * lorenzo_update = NULL;
+    unsigned char * temp = NULL;
+    unsigned char * nextRow_cmpData = NULL;
+    unsigned char * cmpData_pos = cmpData[current];
+    unsigned char * cmpData_pos_update = cmpData[next];
+    int prefix_length;
+    // first row
+    {
+        residual = 0;
+        x = 0;
+        prefix_length = x * blockCmpDataLength;
+        currRow = cmpData_pos + prefix_length;
+        currRow_lorenzo = (int16_t *)(currRow);
+        currRow_second = currRow_lorenzo[0] + currRow_lorenzo[1];
+        currRow_last = currRow_second;
+        nextRow = currRow + blockCmpDataLength;
+        nextRow_lorenzo = (int16_t *)(nextRow);
+        lorenzo_update = (int16_t *)(cmpData_pos_update + prefix_length);
+        j = 0;
+        center = q_W + currRow_second + q_S + nextRow_lorenzo[j];
+        integerize_lorenzo(bias, center, residual, j, lorenzo_update);
+        j = 1;
+        center = currRow_lorenzo[j-1] - q_W + currRow_lorenzo[j+1] + nextRow_lorenzo[j];
+        integerize_lorenzo(bias, center, residual, j, lorenzo_update);
+        for(j=2; j<blockSize-1; j++){
+            center = currRow_lorenzo[j-1] + currRow_lorenzo[j+1] + nextRow_lorenzo[j];
+            integerize_lorenzo(bias, center, residual, j, lorenzo_update);
+            currRow_last += currRow_lorenzo[j];
+        }
+        j = blockSize - 1;
+        currRow_last += currRow_lorenzo[j];
+        center = currRow_lorenzo[j-1] + q_W - currRow_last + nextRow_lorenzo[j];
+        integerize_lorenzo(bias, center, residual, j, lorenzo_update);
+    }
+    // row 1 ~ (dim1-2)
+    for(x=1; x<dim1-1; x++){
+        residual = 0;
+        prefix_length = x * blockCmpDataLength;
+        temp = prevRow;
+        prevRow = currRow;
+        currRow = nextRow;
+        nextRow = currRow + blockCmpDataLength;
+        prevRow_lorenzo = (int16_t *)(prevRow);
+        currRow_lorenzo = (int16_t *)(currRow);
+        nextRow_lorenzo = (int16_t *)(nextRow);
+        lorenzo_update = (int16_t *)(cmpData_pos_update + prefix_length);
+        currRow_second = currRow_lorenzo[0] + currRow_lorenzo[1];
+        currRow_last = currRow_second;
+        j = 0;
+        center = q_W + currRow_second + prevRow_lorenzo[j] + nextRow_lorenzo[j];
+        integerize_lorenzo(bias, center, residual, j, lorenzo_update);
+        j = 1;
+        center = currRow_lorenzo[j-1] - q_W + currRow_lorenzo[j+1] + prevRow_lorenzo[j] + nextRow_lorenzo[j];
+        integerize_lorenzo(bias, center, residual, j, lorenzo_update);
+        for(j=2; j<blockSize-1; j++){
+            center = currRow_lorenzo[j-1] + currRow_lorenzo[j+1] + prevRow_lorenzo[j] + nextRow_lorenzo[j];
+            integerize_lorenzo(bias, center, residual, j, lorenzo_update);
+            currRow_last += currRow_lorenzo[j];
+        }
+        j = blockSize - 1;
+        currRow_last += currRow_lorenzo[j];
+        center = currRow_lorenzo[j-1] + q_W - currRow_last + prevRow_lorenzo[j] + nextRow_lorenzo[j];
+        integerize_lorenzo(bias, center, residual, j, lorenzo_update);
+    }
+    // last row
+    {
+        residual = 0;
+        x = dim1 - 1;
+        prefix_length = x * blockCmpDataLength;
+        temp = prevRow;
+        prevRow = currRow;
+        currRow = nextRow;
+        nextRow = currRow + blockCmpDataLength;
+        currRow_lorenzo = (int16_t *)(currRow);
+        prevRow_lorenzo = (int16_t *)(prevRow);
+        nextRow_lorenzo = (int16_t *)(nextRow);
+        lorenzo_update = (int16_t *)(cmpData_pos_update + prefix_length);
+        currRow_second = currRow_lorenzo[0] + currRow_lorenzo[1];
+        currRow_last = currRow_second;
+        j = 0;
+        center = q_W + currRow_second + prevRow_lorenzo[j] + q_B;
+        integerize_lorenzo(bias, center, residual, j, lorenzo_update);
+        j = 1;
+        center = currRow_lorenzo[j-1] - q_W + currRow_lorenzo[j+1] + prevRow_lorenzo[j] + nextRow_lorenzo[j];
+        integerize_lorenzo(bias, center, residual, j, lorenzo_update);
+        for(j=2; j<blockSize-1; j++){
+            center = currRow_lorenzo[j-1] + currRow_lorenzo[j+1] + prevRow_lorenzo[j] + nextRow_lorenzo[j];
+            integerize_lorenzo(bias, center, residual, j, lorenzo_update);
+            currRow_last += currRow_lorenzo[j];
+        }
+        j = blockSize - 1;
+        currRow_last += currRow_lorenzo[j];
+        center = currRow_lorenzo[j-1] + q_W - currRow_last + prevRow_lorenzo[j] + nextRow_lorenzo[j];
+        integerize_lorenzo(bias, center, residual, j, lorenzo_update);
+    }
+}
+
+void SZp_heatdis_kernel_signed_short(unsigned char **cmpData,
+                                            size_t dim1, size_t dim2, double errorBound, int blockSize,
+                                            size_t *cmpSize, int max_iter)
+{
+    int current = 0, next = 1;
+    const double recip_precision = 0.5f / errorBound;
+    const int q_S = (int)(SRC_TEMP * recip_precision + 0.5f);
+    const int q_W = (int)(WALL_TEMP * recip_precision + 0.5f);
+    const int q_B = (int)(BACK_TEMP * recip_precision + 0.5f);
+    unsigned char * prev_sign = (unsigned char *)calloc(blockSize, sizeof(unsigned char));
+    unsigned char * curr_sign = (unsigned char *)calloc(blockSize, sizeof(unsigned char));
+    unsigned char * next_sign = (unsigned char *)calloc(blockSize, sizeof(unsigned char));
+    unsigned char * sign_update = (unsigned char *)calloc(blockSize, sizeof(unsigned char));
+    size_t compressed_size;
+    for(int iter=0; iter<max_iter; iter++){
+        update_lorenzoPred(cmpData, dim1, dim2, q_S, q_W, q_B, blockSize, current, next, iter, compressed_size);
+        current = next;
+        next = 1 - current;
+    }
+    *cmpSize = dim1 * dim2 * 2;
+    free(prev_sign);
+    free(curr_sign);
+    free(next_sign);
+    free(sign_update);
+}
+
 void SZp_compress_kernel_1D(float *oriData, unsigned char *cmpData, size_t dim1, size_t dim2,
                           unsigned int *absLorenzo, unsigned char *signFlag, int *fixedRate,
                           double errorBound, int blockSize, size_t *cmpSize)
@@ -500,6 +706,7 @@ void update_lorenzoPred(unsigned char **cmpData, int **offsets, int **fixedRate,
     }
     // last row
     {
+        residual = 0;
         x = dim1 - 1;
         prevRow_lorenzo = currRow_lorenzo;
         currRow_lorenzo = nextRow_lorenzo;

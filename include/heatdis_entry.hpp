@@ -4,6 +4,45 @@
 #include <iostream>
 #include "heatdis_1b.hpp"
 
+void SZp_compress_1D_signed_short(float *oriData, unsigned char *cmpData, size_t dim1, size_t dim2, double errorBound, int blockSize, size_t *cmpSize)
+{
+    int16_t  *signLorenzo = (int16_t  *)malloc(sizeof(int16_t) * blockSize);
+    SZp_compress_kernel_1D_signed_short(oriData, cmpData, dim1, dim2, signLorenzo, errorBound, blockSize, cmpSize);
+    free(signLorenzo);
+}
+
+void SZp_decompress_1D_signed_short(float *decData, unsigned char *cmpData, size_t dim1, size_t dim2, double errorBound, int blockSize)
+{
+    int16_t  *signLorenzo = (int16_t  *)malloc(sizeof(int16_t ) * blockSize);
+    SZp_decompress_kernel_1D_signed_short(decData, cmpData, dim1, dim2, signLorenzo, errorBound, blockSize);
+    free(signLorenzo);
+}
+
+void SZp_heatdis_signed_short(unsigned char * compressed_data, size_t dim1, size_t dim2, double errorBound, int blockSize, size_t *cmpSize, int max_iter)
+{
+    size_t nbEle = dim1 * dim2;
+    unsigned char **cmpData = (unsigned char **)malloc(2 * sizeof(unsigned char *));
+    for(int i=0; i<2; i++){
+        cmpData[i] = (unsigned char *)calloc(4 * nbEle, sizeof(unsigned char));
+    }
+    memcpy(cmpData[0], compressed_data, 4 * nbEle * sizeof(unsigned char));
+    unsigned int *signLorenzo = (unsigned int *)calloc(blockSize, sizeof(unsigned int));
+
+    struct timespec start, end;
+    clock_gettime(CLOCK_REALTIME, &start);
+    SZp_heatdis_kernel_signed_short(cmpData, dim1, dim2, errorBound, blockSize, cmpSize, max_iter);
+    clock_gettime(CLOCK_REALTIME, &end);
+    double elapsed_time = (double)(end.tv_sec - start.tv_sec) + (double)(end.tv_nsec - start.tv_nsec)/(double)1000000000;
+    printf("elapsed_time = %.6f\n", elapsed_time);
+    int status = max_iter % 2;
+    memcpy(compressed_data, cmpData[status], 4 * nbEle * sizeof(unsigned char));
+    for(int i=0; i<2; i++){
+        free(cmpData[i]);
+    }
+    free(cmpData);
+    free(signLorenzo);
+}
+
 void SZp_compress_1D(float *oriData, unsigned char *cmpData,
                      size_t dim1, size_t dim2,
                      double errorBound, int blockSize, size_t *cmpSize)

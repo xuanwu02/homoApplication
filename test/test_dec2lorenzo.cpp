@@ -20,18 +20,18 @@ int main(int argc, char **argv)
     initData(dim1, dim2, oriData);
     unsigned char *cmpData = (unsigned char *)calloc(4 * nbEle, sizeof(unsigned char));
     size_t cmpSize = 0;
-    SZp_compress_1D(oriData, cmpData, dim1, dim2, errorBound, blockSize, &cmpSize);
+    SZp_compress_1D_signed_short(oriData, cmpData, dim1, dim2, errorBound, blockSize, &cmpSize);
     float * h = (float *)calloc(nbEle, sizeof(float));
     doWork(dim1, dim2, max_iter, oriData, h);
 
-    SZp_heatdis_decompressToLorenzo(cmpData, dim1, dim2, errorBound, blockSize, &cmpSize, max_iter);
+    SZp_heatdis_signed_short(cmpData, dim1, dim2, errorBound, blockSize, &cmpSize, max_iter);
     writefile("decdata.dec2lorenzo.dat", cmpData, cmpSize);
     free(cmpData);
     // read compressed file
     size_t num;
     std::vector<unsigned char> compressed = readfile<unsigned char>("decdata.dec2lorenzo.dat", num);
     float * decData = (float *)malloc(nbEle * sizeof(float));
-    SZp_decompress_1D(decData, compressed.data(), dim1, dim2, errorBound, blockSize);
+    SZp_decompress_1D_signed_short(decData, compressed.data(), dim1, dim2, errorBound, blockSize);
     double max_err = verify(oriData, decData, dim1, dim2);
     printf("cr = %f, max_err = %.14f\n", 1.0 * sizeof(float) * nbEle / cmpSize, max_err);
 
