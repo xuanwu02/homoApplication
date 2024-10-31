@@ -4,7 +4,7 @@
 #include <cmath>
 #include <ctime>
 #include "heatdis/heatdis_entry.hpp"
-#include "heatdis/utils.hpp"
+#include "utils.hpp"
 
 int main(int argc, char **argv)
 {
@@ -20,7 +20,7 @@ int main(int argc, char **argv)
     initData(dim1, dim2, oriData);
     unsigned char *cmpData = (unsigned char *)calloc(4 * nbEle, sizeof(unsigned char));
     size_t cmpSize = 0;
-    SZp_compress_rowwise_1d_block(oriData, cmpData, dim1, dim2, errorBound, blockSize, &cmpSize);
+    SZp_compress_rowwise_1d_block(oriData, cmpData, dim1, dim2, blockSize, errorBound, &cmpSize);
     float * h = (float *)calloc(nbEle, sizeof(float));
     doWork(dim1, dim2, max_iter, oriData, h);
 
@@ -29,9 +29,9 @@ int main(int argc, char **argv)
     struct timespec start, end;
     clock_gettime(CLOCK_REALTIME, &start);
     for(int i=0; i<max_iter; i++){
-        SZp_decompress_rowwise_1d_block(decData, cmpData, dim1, dim2, errorBound, blockSize);
+        SZp_decompress_rowwise_1d_block(decData, cmpData, dim1, dim2, blockSize, errorBound);
         doWork(dim1, dim2, decData, h);
-        SZp_compress_rowwise_1d_block(decData, cmpData, dim1, dim2, errorBound, blockSize, &cmpSize);
+        SZp_compress_rowwise_1d_block(decData, cmpData, dim1, dim2, blockSize, errorBound, &cmpSize);
     }
     clock_gettime(CLOCK_REALTIME, &end);
     writefile("decdata.doc.dat", cmpData, cmpSize);
@@ -39,7 +39,7 @@ int main(int argc, char **argv)
     // read compressed file
     size_t num;
     std::vector<unsigned char> compressed = readfile<unsigned char>("decdata.doc.dat", num);
-    SZp_decompress_rowwise_1d_block(decData, compressed.data(), dim1, dim2, errorBound, blockSize);
+    SZp_decompress_rowwise_1d_block(decData, compressed.data(), dim1, dim2, blockSize, errorBound);
     double max_err = verify(oriData, decData, dim1, dim2);
     double elapsed_time = (double)(end.tv_sec - start.tv_sec) + (double)(end.tv_nsec - start.tv_nsec)/(double)1000000000;
     printf("elapsed_time = %.6f\n", elapsed_time);

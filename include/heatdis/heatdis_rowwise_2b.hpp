@@ -6,13 +6,15 @@
 #include <cstring>
 #include <string>
 #include <ctime>
-#include "ompSZp_typemanager.hpp"
+#include "SZp_typemanager.hpp"
 #include "heatdis_utils.hpp"
 
-void SZp_compress_kernel_rowwise_2d_block(float *oriData, unsigned char *cmpData, size_t dim1, size_t dim2,
-                                        unsigned int *absLorenzo, unsigned char *signFlag,
-                                        double errorBound, int blockSideLength, size_t *cmpSize)
-{
+void SZp_compress_kernel_rowwise_2d_block(
+    float *oriData, unsigned char *cmpData,
+    size_t dim1, size_t dim2, int blockSideLength,
+    unsigned int *absLorenzo, unsigned char *signFlag,
+    double errorBound, size_t *cmpSize
+){
     int block_dim1 = (dim1 - 1) / blockSideLength + 1;
     int block_dim2 = (dim2 - 1) / blockSideLength + 1;
     int block_num = block_dim1 * block_dim2;
@@ -52,10 +54,12 @@ void SZp_compress_kernel_rowwise_2d_block(float *oriData, unsigned char *cmpData
     *cmpSize = cmpData_pos - cmpData;
 }
 
-void SZp_decompress_kernel_rowwise_2d_block(float *decData, unsigned char *cmpData, size_t dim1, size_t dim2,
-                                            unsigned int *absLorenzo, unsigned char *signFlag,
-                                            double errorBound, int blockSideLength)
-{
+void SZp_decompress_kernel_rowwise_2d_block(
+    float *decData, unsigned char *cmpData,
+    size_t dim1, size_t dim2, int blockSideLength,
+    unsigned int *absLorenzo, unsigned char *signFlag,
+    double errorBound
+){
     int block_dim1 = (dim1 - 1) / blockSideLength + 1;
     int block_dim2 = (dim2 - 1) / blockSideLength + 1;
     int block_num = block_dim1 * block_dim2;
@@ -106,10 +110,12 @@ void SZp_decompress_kernel_rowwise_2d_block(float *decData, unsigned char *cmpDa
     }
 }
 
-void decompressToQuant_blockRow_rowwise_2d_block(int blockRow_ind, int block_dim2, int blockSideLength, int blockSize,
-                                                int *fixedRate, unsigned int *absLorenzo, unsigned char *signFlag,
-                                                unsigned char *cmpData_pos, int *quantInds)
-{
+void decompressToQuant_blockRow_rowwise_2d_block(
+    int blockRow_ind, int block_dim2,
+    int blockSideLength, int blockSize,
+    int *fixedRate, unsigned int *absLorenzo, unsigned char *signFlag,
+    unsigned char *cmpData_pos, int *quantInds
+){
     size_t cmp_block_sign_length = (blockSize + 7) / 8;
     std::vector<int> ending_quant(blockSideLength, 0);
     int y, i, j;
@@ -153,10 +159,13 @@ void decompressToQuant_blockRow_rowwise_2d_block(int blockRow_ind, int block_dim
     }
 }                                    
 
-void compressFromQuant_blockRow_rowwise_2d_block(int blockRow_ind, int block_dim2, int blockSideLength, int blockSize,
-                                                int *offsets, int *fixedRate, unsigned int *absLorenzo, unsigned char *signFlag,
-                                                unsigned char *cmpData, int *quantInds, size_t& prefix_length, size_t& cmpSize)
-{
+void compressFromQuant_blockRow_rowwise_2d_block(
+    int blockRow_ind, int block_dim2,
+    int blockSideLength, int blockSize,
+    int *fixedRate, unsigned int *absLorenzo, unsigned char *signFlag,
+    unsigned char *cmpData, int *quantInds,
+    int *offsets, size_t& prefix_length, size_t& cmpSize
+){
     std::vector<int> ending_quant(blockSideLength, 0);
     int y, i, j;
     unsigned char *cmpData_pos = cmpData;
@@ -196,16 +205,19 @@ void compressFromQuant_blockRow_rowwise_2d_block(int blockRow_ind, int block_dim
     offsets[blockRow_ind] = prefix_length;
 }
 
-inline void integerize_quant(int left, int right, int top, int bottom, int index, int *quantInds)
-{
+inline void integerize_quant(
+    int left, int right, int top, int bottom,
+    int index, int *quantInds
+){
     int center = left + right + top + bottom;
     unsigned char sign = (center >> 31) & 1;
     quantInds[index] = (center + (sign ? -2 : 2)) >> 2;
 }
 
-inline void process_nw_corner_block_edges(int q_S, int q_W, int blockSideLength, int *currBlock,
-                                          int *rightBlock, int *bottomBlock, int *update)
-{
+inline void process_quant_nw_corner_block_edges(
+    int q_S, int q_W, int blockSideLength, int *currBlock,
+    int *rightBlock, int *bottomBlock, int *update
+){
     int i, j;
     int left, right, top, bottom;
     int index;
@@ -267,9 +279,10 @@ inline void process_nw_corner_block_edges(int q_S, int q_W, int blockSideLength,
     }
 }
 
-inline void process_ne_corner_block_edges(int q_S, int q_W, int blockSideLength, int *currBlock,
-                                          int *leftBlock, int *bottomBlock, int *update)
-{
+inline void process_quant_ne_corner_block_edges(
+    int q_S, int q_W, int blockSideLength, int *currBlock,
+    int *leftBlock, int *bottomBlock, int *update
+){
     int i, j;
     int left, right, top, bottom;
     int index;
@@ -331,9 +344,10 @@ inline void process_ne_corner_block_edges(int q_S, int q_W, int blockSideLength,
     }
 }
 
-inline void process_sw_corner_block_edges(int q_B, int q_W, int blockSideLength, int *currBlock,
-                                          int *rightBlock, int *topBlock, int *update)
-{
+inline void process_quant_sw_corner_block_edges(
+    int q_B, int q_W, int blockSideLength, int *currBlock,
+    int *rightBlock, int *topBlock, int *update
+){
     int i, j;
     int left, right, top, bottom;
     int index;
@@ -395,9 +409,10 @@ inline void process_sw_corner_block_edges(int q_B, int q_W, int blockSideLength,
     }
 }
 
-inline void process_se_corner_block_edges(int q_B, int q_W, int blockSideLength, int *currBlock,
-                                          int *leftBlock, int *topBlock, int *update)
-{
+inline void process_quant_se_corner_block_edges(
+    int q_B, int q_W, int blockSideLength, int *currBlock,
+    int *leftBlock, int *topBlock, int *update
+){
     int i, j;
     int left, right, top, bottom;
     int index;
@@ -459,9 +474,11 @@ inline void process_se_corner_block_edges(int q_B, int q_W, int blockSideLength,
     }
 }
 
-inline void process_topRow_block_edges(int q_S, int blockSideLength, int *currBlock, int *bottomBlock,
-                                       int *leftBlock, int *rightBlock, int *update)
-{
+inline void process_quant_topRow_block_edges(
+    int q_S, int blockSideLength,
+    int *currBlock, int *bottomBlock,
+    int *leftBlock, int *rightBlock, int *update
+){
     int i, j;
     int left, right, top, bottom;
     int index;
@@ -522,9 +539,11 @@ inline void process_topRow_block_edges(int q_S, int blockSideLength, int *currBl
     }
 }
 
-inline void process_bottomRow_block_edges(int q_B, int blockSideLength, int *currBlock, int *topBlock,
-                                          int *leftBlock, int *rightBlock, int *update)
-{
+inline void process_quant_bottomRow_block_edges(
+    int q_B, int blockSideLength,
+    int *currBlock, int *topBlock,
+    int *leftBlock, int *rightBlock, int *update
+){
     int i, j;
     int left, right, top, bottom;
     int index;
@@ -585,9 +604,11 @@ inline void process_bottomRow_block_edges(int q_B, int blockSideLength, int *cur
     }
 }
 
-inline void process_leftCol_block_edges(int q_W, int blockSideLength, int *currBlock, int *rightBlock,
-                                        int *topBlock, int *bottomBlock, int *update)
-{
+inline void process_quant_leftCol_block_edges(
+    int q_W, int blockSideLength,
+    int *currBlock, int *rightBlock,
+    int *topBlock, int *bottomBlock, int *update
+){
     int i, j;
     int left, right, top, bottom;
     int index;
@@ -647,9 +668,11 @@ inline void process_leftCol_block_edges(int q_W, int blockSideLength, int *currB
     }
 }
 
-inline void process_rightCol_block_edges(int q_W, int blockSideLength, int *currBlock, int *leftBlock,
-                                         int *topBlock, int *bottomBlock, int *update)
-{
+inline void process_quant_rightCol_block_edges(
+    int q_W, int blockSideLength,
+    int *currBlock, int *leftBlock,
+    int *topBlock, int *bottomBlock, int *update
+){
     int i, j;
     int left, right, top, bottom;
     int index;
@@ -709,9 +732,11 @@ inline void process_rightCol_block_edges(int q_W, int blockSideLength, int *curr
     }
 }
 
-inline void process_inner_block_edges(int blockSideLength, int *currBlock, int *leftBlock, int *rightBlock,
-                                      int *topBlock, int *bottomBlock, int *update)
-{
+inline void process_quant_inner_block_edges(
+    int blockSideLength, int *currBlock,
+    int *leftBlock, int *rightBlock,
+    int *topBlock, int *bottomBlock, int *update
+){
     int i, j;
     int left, right, top, bottom;
     int index;
@@ -771,8 +796,10 @@ inline void process_inner_block_edges(int blockSideLength, int *currBlock, int *
     }
 }
 
-inline void process_block_interior(int blockSideLength, int *currBlock, int *update)
-{
+inline void process_quant_inner_block_edges(
+    int blockSideLength,
+    int *currBlock, int *update
+){
     int i, j;
     int index;
     for(i=1; i<blockSideLength-1; i++){
@@ -783,12 +810,14 @@ inline void process_block_interior(int blockSideLength, int *currBlock, int *upd
     }
 }
 
-void update_quantInds_rowwise_2d_block(unsigned char **cmpData, int **offsets, int **fixedRate,
-                        unsigned int *absLorenzo, unsigned char *signFlag, int *updateBlockRow,
-                        int *prevBlockRow, int *currBlockRow, int *nextBlockRow,
-                        int block_dim1, int block_dim2, int blockSideLength, int q_S, int q_W, int q_B,
-                        int current, int next, int iter, size_t& cmpSize)
-{
+void update_quantInds_rowwise_2d_block(
+    unsigned char **cmpData, int **offsets, int **fixedRate,
+    unsigned int *absLorenzo, unsigned char *signFlag, int *updateBlockRow,
+    int *prevBlockRow, int *currBlockRow, int *nextBlockRow,
+    int block_dim1, int block_dim2, int blockSideLength,
+    int q_S, int q_W, int q_B,
+    int current, int next, int iter, size_t& cmpSize
+){
     int blockSize = blockSideLength * blockSideLength;
     int block_num = block_dim1 * block_dim2;
     size_t prefix_length = 0;
@@ -808,8 +837,8 @@ void update_quantInds_rowwise_2d_block(unsigned char **cmpData, int **offsets, i
             rightBlock = currBlockRow + (y + 1) * blockSize;
             bottomBlock = nextBlockRow + y * blockSize;
             update_pos = updateBlockRow + y * blockSize;
-            process_nw_corner_block_edges(q_S, q_W, blockSideLength, currBlock, rightBlock, bottomBlock, update_pos);
-            process_block_interior(blockSideLength, currBlock, update_pos);
+            process_quant_nw_corner_block_edges(q_S, q_W, blockSideLength, currBlock, rightBlock, bottomBlock, update_pos);
+            process_quant_inner_block_edges(blockSideLength, currBlock, update_pos);
         }
         for(y=1; y<block_dim2-1; y++){
             currBlock = currBlockRow + y * blockSize;
@@ -817,8 +846,8 @@ void update_quantInds_rowwise_2d_block(unsigned char **cmpData, int **offsets, i
             rightBlock = currBlockRow + (y + 1) * blockSize;
             bottomBlock = nextBlockRow + y * blockSize;
             update_pos = updateBlockRow + y * blockSize;
-            process_topRow_block_edges(q_S, blockSideLength, currBlock, bottomBlock, leftBlock, rightBlock, update_pos);
-            process_block_interior(blockSideLength, currBlock, update_pos);
+            process_quant_topRow_block_edges(q_S, blockSideLength, currBlock, bottomBlock, leftBlock, rightBlock, update_pos);
+            process_quant_inner_block_edges(blockSideLength, currBlock, update_pos);
         }
         {
             y = block_dim2 - 1;
@@ -826,11 +855,11 @@ void update_quantInds_rowwise_2d_block(unsigned char **cmpData, int **offsets, i
             leftBlock = currBlockRow + (y - 1) * blockSize;
             bottomBlock = nextBlockRow + y * blockSize;
             update_pos = updateBlockRow + y * blockSize;
-            process_ne_corner_block_edges(q_S, q_W, blockSideLength, currBlock, leftBlock, bottomBlock, update_pos);
-            process_block_interior(blockSideLength, currBlock, update_pos);
+            process_quant_ne_corner_block_edges(q_S, q_W, blockSideLength, currBlock, leftBlock, bottomBlock, update_pos);
+            process_quant_inner_block_edges(blockSideLength, currBlock, update_pos);
         }
-        compressFromQuant_blockRow_rowwise_2d_block(x, block_dim2, blockSideLength, blockSize, offsets[next], fixedRate[next], absLorenzo, signFlag, 
-                                   cmpData_pos_update, updateBlockRow, prefix_length, cmpSize);
+        compressFromQuant_blockRow_rowwise_2d_block(x, block_dim2, blockSideLength, blockSize, fixedRate[next], absLorenzo, signFlag,
+                                                    cmpData_pos_update, updateBlockRow, offsets[next], prefix_length, cmpSize);
         for(y=0; y<block_dim2; y++){
             int block_index = x * block_dim2 + y;
             cmpData[next][block_index] = (unsigned char)fixedRate[next][block_index];
@@ -849,8 +878,8 @@ void update_quantInds_rowwise_2d_block(unsigned char **cmpData, int **offsets, i
             topBlock = prevBlockRow + y * blockSize;
             bottomBlock = nextBlockRow + y * blockSize;
             update_pos = updateBlockRow + y * blockSize;
-            process_leftCol_block_edges(q_W, blockSideLength, currBlock, rightBlock, topBlock, bottomBlock, update_pos);
-            process_block_interior(blockSideLength, currBlock, update_pos);
+            process_quant_leftCol_block_edges(q_W, blockSideLength, currBlock, rightBlock, topBlock, bottomBlock, update_pos);
+            process_quant_inner_block_edges(blockSideLength, currBlock, update_pos);
         }
         for(y=1; y<block_dim2-1; y++){
             currBlock = currBlockRow + y * blockSize;
@@ -859,8 +888,8 @@ void update_quantInds_rowwise_2d_block(unsigned char **cmpData, int **offsets, i
             topBlock = prevBlockRow + y * blockSize;
             bottomBlock = nextBlockRow + y * blockSize;
             update_pos = updateBlockRow + y * blockSize;
-            process_inner_block_edges(blockSideLength, currBlock, leftBlock, rightBlock, topBlock, bottomBlock, update_pos);
-            process_block_interior(blockSideLength, currBlock, update_pos);
+            process_quant_inner_block_edges(blockSideLength, currBlock, leftBlock, rightBlock, topBlock, bottomBlock, update_pos);
+            process_quant_inner_block_edges(blockSideLength, currBlock, update_pos);
         }
         {
             y = block_dim2 - 1;
@@ -869,11 +898,11 @@ void update_quantInds_rowwise_2d_block(unsigned char **cmpData, int **offsets, i
             topBlock = prevBlockRow + y * blockSize;
             bottomBlock = nextBlockRow + y * blockSize;
             update_pos = updateBlockRow + y * blockSize;
-            process_rightCol_block_edges(q_W, blockSideLength, currBlock, leftBlock, topBlock, bottomBlock, update_pos);
-            process_block_interior(blockSideLength, currBlock, update_pos);
+            process_quant_rightCol_block_edges(q_W, blockSideLength, currBlock, leftBlock, topBlock, bottomBlock, update_pos);
+            process_quant_inner_block_edges(blockSideLength, currBlock, update_pos);
         }
-        compressFromQuant_blockRow_rowwise_2d_block(x, block_dim2, blockSideLength, blockSize, offsets[next], fixedRate[next], absLorenzo, signFlag, 
-                                   cmpData_pos_update+offsets[next][x-1], updateBlockRow, prefix_length, cmpSize);
+        compressFromQuant_blockRow_rowwise_2d_block(x, block_dim2, blockSideLength, blockSize, fixedRate[next], absLorenzo, signFlag,
+                                                    cmpData_pos_update+offsets[next][x-1], updateBlockRow, offsets[next], prefix_length, cmpSize);
         for(y=0; y<block_dim2; y++){
             int block_index = x * block_dim2 + y;
             cmpData[next][block_index] = (unsigned char)fixedRate[next][block_index];
@@ -889,8 +918,8 @@ void update_quantInds_rowwise_2d_block(unsigned char **cmpData, int **offsets, i
             rightBlock = currBlockRow + (y + 1) * blockSize;
             topBlock = prevBlockRow + y * blockSize;
             update_pos = updateBlockRow + y * blockSize;
-            process_sw_corner_block_edges(q_B, q_W, blockSideLength, currBlock, rightBlock, topBlock, update_pos);
-            process_block_interior(blockSideLength, currBlock, update_pos);
+            process_quant_sw_corner_block_edges(q_B, q_W, blockSideLength, currBlock, rightBlock, topBlock, update_pos);
+            process_quant_inner_block_edges(blockSideLength, currBlock, update_pos);
         }
         for(y=1; y<block_dim2-1; y++){
             currBlock = currBlockRow + y * blockSize;
@@ -898,8 +927,8 @@ void update_quantInds_rowwise_2d_block(unsigned char **cmpData, int **offsets, i
             rightBlock = currBlockRow + (y + 1) * blockSize;
             topBlock = prevBlockRow + y * blockSize;
             update_pos = updateBlockRow + y * blockSize;
-            process_bottomRow_block_edges(q_B, blockSideLength, currBlock, topBlock, leftBlock, rightBlock, update_pos);
-            process_block_interior(blockSideLength, currBlock, update_pos);
+            process_quant_bottomRow_block_edges(q_B, blockSideLength, currBlock, topBlock, leftBlock, rightBlock, update_pos);
+            process_quant_inner_block_edges(blockSideLength, currBlock, update_pos);
         }
         {
             y = block_dim2 - 1;
@@ -907,11 +936,11 @@ void update_quantInds_rowwise_2d_block(unsigned char **cmpData, int **offsets, i
             leftBlock = currBlockRow + (y - 1) * blockSize;
             topBlock = prevBlockRow + y * blockSize;
             update_pos = updateBlockRow + y * blockSize;
-            process_se_corner_block_edges(q_B, q_W, blockSideLength, currBlock, leftBlock, topBlock, update_pos);
-            process_block_interior(blockSideLength, currBlock, update_pos);
+            process_quant_se_corner_block_edges(q_B, q_W, blockSideLength, currBlock, leftBlock, topBlock, update_pos);
+            process_quant_inner_block_edges(blockSideLength, currBlock, update_pos);
         }
-        compressFromQuant_blockRow_rowwise_2d_block(x, block_dim2, blockSideLength, blockSize, offsets[next], fixedRate[next], absLorenzo, signFlag, 
-                                   cmpData_pos_update+offsets[next][x-1], updateBlockRow, prefix_length, cmpSize);
+        compressFromQuant_blockRow_rowwise_2d_block(x, block_dim2, blockSideLength, blockSize, fixedRate[next], absLorenzo, signFlag,
+                                                    cmpData_pos_update+offsets[next][x-1], updateBlockRow, offsets[next], prefix_length, cmpSize);
         for(y=0; y<block_dim2; y++){
             int block_index = x * block_dim2 + y;
             cmpData[next][block_index] = (unsigned char)fixedRate[next][block_index];
@@ -919,11 +948,12 @@ void update_quantInds_rowwise_2d_block(unsigned char **cmpData, int **offsets, i
     }
 }
 
-void SZp_heatdis_kernel_quant_rowwise_2d_block(unsigned char **cmpData, int **offsets, int **fixedRate,
-                                            unsigned int *absLorenzo, unsigned char *signFlag,
-                                            size_t dim1, size_t dim2, double errorBound, int blockSideLength,
-                                            size_t *cmpSize, int max_iter)
-{
+void SZp_heatdis_kernel_quant_rowwise_2d_block(
+    unsigned char **cmpData, int **offsets, int **fixedRate,
+    unsigned int *absLorenzo, unsigned char *signFlag,
+    size_t dim1, size_t dim2, int blockSideLength,
+    double errorBound, size_t *cmpSize, int max_iter
+){
     int block_dim1 = (dim1 - 1) / blockSideLength + 1;
     int block_dim2 = (dim2 - 1) / blockSideLength + 1;
     int block_num = block_dim1 * block_dim2;
@@ -966,10 +996,13 @@ void SZp_heatdis_kernel_quant_rowwise_2d_block(unsigned char **cmpData, int **of
     free(updateBlockRow);
 }                                            
 
-void decompressToLorenzo_blockRow_rowwise_2d_block(int blockRow_ind, int block_dim2, int blockSideLength, int blockSize,
-                                int *fixedRate, unsigned int *absLorenzo, unsigned char *signFlag,                                 
-                                unsigned char *cmpData_pos, int *lorenzoPred, std::vector<int>& tailofBlockRow)
-{
+void decompressToLorenzo_blockRow_rowwise_2d_block(
+    int blockRow_ind, int block_dim2,
+    int blockSideLength, int blockSize,
+    unsigned int *absLorenzo, unsigned char *signFlag, int *fixedRate,
+    unsigned char *cmpData_pos, int *lorenzoPred,
+    std::vector<int>& tailofBlockRow
+){
     size_t cmp_block_sign_length = (blockSize + 7) / 8;
     int y, i, j;
     memset(tailofBlockRow.data(), 0, sizeof(int)*blockSideLength);
@@ -1010,10 +1043,13 @@ void decompressToLorenzo_blockRow_rowwise_2d_block(int blockRow_ind, int block_d
     }
 }                                    
 
-void compressFromLorenzo_blockRow_rowwise_2d_block(int blockRow_ind, int block_dim2, int blockSideLength, int blockSize,
-                            int *offsets, int *fixedRate, unsigned int *absLorenzo, unsigned char *signFlag,
-                            unsigned char *cmpData, int *lorenzoPred, size_t& prefix_length, size_t& cmpSize)
-{
+void compressFromLorenzo_blockRow_rowwise_2d_block(
+    int blockRow_ind, int block_dim2,
+    int blockSideLength, int blockSize,
+    unsigned int *absLorenzo, unsigned char *signFlag, int *fixedRate, 
+    unsigned char *cmpData, int *lorenzoPred,
+    int *offsets, size_t& prefix_length, size_t& cmpSize
+){
     int y, i, j;
     unsigned char *cmpData_pos = cmpData;
     for(y=0; y<block_dim2; y++){
@@ -1047,19 +1083,22 @@ void compressFromLorenzo_blockRow_rowwise_2d_block(int blockRow_ind, int block_d
     offsets[blockRow_ind] = prefix_length;
 }
 
-inline void integerize_lorenzo(int left, int right, int top, int bottom,
-                               int bias, int& residual, int index, int *lorenzo)
-{
+inline void integerize_lorenzo(
+    int left, int right, int top, int bottom,
+    int bias, int& residual, int index, int *lorenzo
+){
     int center = left + right + top + bottom;
     int predict = center + residual + bias;
     lorenzo[index] = predict >> 2;
     residual = (predict & 0x3) - bias;
 }
 
-inline void process_nw_corner_block(int q_S, int q_W, int bias, int blockSideLength, int *currBlock,
-                                    int *rightBlock, int *bottomBlock, int *update,
-                                    std::vector<int>& residuals)
-{
+inline void process_lorenzo_nw_corner_block(
+    int q_S, int q_W, int bias,
+    int blockSideLength, int *currBlock,
+    int *rightBlock, int *bottomBlock, int *update,
+    std::vector<int>& residuals
+){
     int i, j;
     int left, right, top, bottom;
     int index;
@@ -1142,10 +1181,13 @@ inline void process_nw_corner_block(int q_S, int q_W, int bias, int blockSideLen
     }
 }                                    
 
-inline void process_ne_corner_block(int q_S, int q_W, int bias, int blockSideLength, int *currBlock,
-                                    int *leftBlock, int *bottomBlock, int *update,
-                                    const std::vector<int> tailofBlockRow, std::vector<int>& residuals)
-{
+inline void process_lorenzo_ne_corner_block(
+    int q_S, int q_W, int bias,
+    int blockSideLength, int *currBlock,
+    int *leftBlock, int *bottomBlock, int *update,
+    const std::vector<int> tailofBlockRow,
+    std::vector<int>& residuals
+){
     int i, j;
     int left, right, top, bottom;
     int index;
@@ -1211,10 +1253,12 @@ inline void process_ne_corner_block(int q_S, int q_W, int bias, int blockSideLen
     }
 }                                    
 
-inline void process_sw_corner_block(int q_B, int q_W, int bias, int blockSideLength, int *currBlock,
-                                    int *rightBlock, int *topBlock, int *update,
-                                    std::vector<int>& residuals)
-{
+inline void process_lorenzo_sw_corner_block(
+    int q_B, int q_W, int bias,
+    int blockSideLength, int *currBlock,
+    int *rightBlock, int *topBlock, int *update,
+    std::vector<int>& residuals
+){
     int i, j;
     int left, right, top, bottom;
     int index;
@@ -1300,10 +1344,13 @@ inline void process_sw_corner_block(int q_B, int q_W, int bias, int blockSideLen
     }
 }                                    
 
-inline void process_se_corner_block(int q_B, int q_W, int bias, int blockSideLength, int *currBlock,
-                                    int *leftBlock, int *topBlock, int *update,
-                                    const std::vector<int> tailofBlockRow, std::vector<int>& residuals)
-{
+inline void process_lorenzo_se_corner_block(
+    int q_B, int q_W, int bias,
+    int blockSideLength, int *currBlock,
+    int *leftBlock, int *topBlock, int *update,
+    const std::vector<int> tailofBlockRow,
+    std::vector<int>& residuals
+){
     int i, j;
     int left, right, top, bottom;
     int index;
@@ -1370,10 +1417,12 @@ inline void process_se_corner_block(int q_B, int q_W, int bias, int blockSideLen
     }
 }                                    
 
-inline void process_leftCol_block(int q_W, int bias, int blockSideLength, int *currBlock,
-                                  int *rightBlock, int *topBlock, int *bottomBlock,
-                                  int *update, std::vector<int>& residuals)
-{
+inline void process_lorenzo_leftCol_block(
+    int q_W, int bias, int blockSideLength,
+    int *currBlock, int *rightBlock,
+    int *topBlock, int *bottomBlock,
+    int *update, std::vector<int>& residuals
+){
     int i, j;
     int left, right, top, bottom;
     int index;
@@ -1456,10 +1505,13 @@ inline void process_leftCol_block(int q_W, int bias, int blockSideLength, int *c
     }
 }
 
-inline void process_rightCol_block(int q_W, int bias, int blockSideLength, int *currBlock,
-                                        int *leftBlock, int *topBlock, int *bottomBlock, int *update,
-                                        const std::vector<int> tailofBlockRow, std::vector<int>& residuals)
-{
+inline void process_lorenzo_rightCol_block(
+    int q_W, int bias, int blockSideLength,
+    int *currBlock, int *leftBlock,
+    int *topBlock, int *bottomBlock, int *update,
+    const std::vector<int> tailofBlockRow,
+    std::vector<int>& residuals
+){
     int i, j;
     int left, right, top, bottom;
     int index;
@@ -1525,9 +1577,12 @@ inline void process_rightCol_block(int q_W, int bias, int blockSideLength, int *
     }
 }
 
-inline void process_topRow_block(int bias, int blockSideLength, int *currBlock, int *bottomBlock,
-                                 int *leftBlock, int *rightBlock, int *update, std::vector<int>& residuals)
-{
+inline void process_lorenzo_topRow_block(
+    int bias, int blockSideLength,
+    int *currBlock, int *bottomBlock,
+    int *leftBlock, int *rightBlock, int *update,
+    std::vector<int>& residuals
+){
     int i, j;
     int left, right, top, bottom;
     int index;
@@ -1593,9 +1648,12 @@ inline void process_topRow_block(int bias, int blockSideLength, int *currBlock, 
     }
 }
 
-inline void process_bottomRow_block(int bias, int blockSideLength, int *currBlock, int *topBlock,
-                                    int *leftBlock, int *rightBlock, int *update, std::vector<int>& residuals)
-{
+inline void process_lorenzo_bottomRow_block(
+    int bias, int blockSideLength,
+    int *currBlock, int *topBlock,
+    int *leftBlock, int *rightBlock, int *update,
+    std::vector<int>& residuals
+){
     int i, j;
     int left, right, top, bottom;
     int index;
@@ -1662,9 +1720,12 @@ inline void process_bottomRow_block(int bias, int blockSideLength, int *currBloc
     }
 }
 
-inline void process_inner_block(int bias, int blockSideLength, int *currBlock, int *leftBlock, int *rightBlock,
-                                int *topBlock, int *bottomBlock, int *update, std::vector<int>& residuals)
-{
+inline void process_lorenzo_inner_block(
+    int bias, int blockSideLength,
+    int *currBlock, int *leftBlock, int *rightBlock,
+    int *topBlock, int *bottomBlock, int *update,
+    std::vector<int>& residuals
+){
     int i, j;
     int left, right, top, bottom;
     int index;
@@ -1730,12 +1791,14 @@ inline void process_inner_block(int bias, int blockSideLength, int *currBlock, i
     }
 }
 
-void update_lorenzoPred_rowwise_2d_block(unsigned char **cmpData, int **offsets, int **fixedRate,
-                        unsigned int *absLorenzo, unsigned char *signFlag, int *updateBlockRow,
-                        int *prevBlockRow, int *currBlockRow, int *nextBlockRow,
-                        int block_dim1, int block_dim2, int blockSideLength, int q_S, int q_W, int q_B,
-                        int current, int next, int iter, size_t& cmpSize)
-{
+void update_lorenzoPred_rowwise_2d_block(
+    unsigned char **cmpData, int **offsets, int **fixedRate,
+    unsigned int *absLorenzo, unsigned char *signFlag, int *updateBlockRow,
+    int *prevBlockRow, int *currBlockRow, int *nextBlockRow,
+    int block_dim1, int block_dim2, int blockSideLength,
+    int q_S, int q_W, int q_B, size_t& cmpSize,
+    int current, int next, int iter
+){
     int blockSize = blockSideLength * blockSideLength;
     int block_num = block_dim1 * block_dim2;
     int bias = (iter & 1) + 1;
@@ -1751,15 +1814,15 @@ void update_lorenzoPred_rowwise_2d_block(unsigned char **cmpData, int **offsets,
     int x, y;
     {
         x = 0;
-        decompressToLorenzo_blockRow_rowwise_2d_block(x, block_dim2, blockSideLength, blockSize, fixedRate[current], absLorenzo, signFlag, cmpData_pos, currBlockRow, tailofCurrBlockRow);
-        decompressToLorenzo_blockRow_rowwise_2d_block(x+1, block_dim2, blockSideLength, blockSize, fixedRate[current], absLorenzo, signFlag, cmpData_pos+offsets[current][x], nextBlockRow, tailofNextBlockRow);
+        decompressToLorenzo_blockRow_rowwise_2d_block(x, block_dim2, blockSideLength, blockSize, absLorenzo, signFlag, fixedRate[current], cmpData_pos, currBlockRow, tailofCurrBlockRow);
+        decompressToLorenzo_blockRow_rowwise_2d_block(x+1, block_dim2, blockSideLength, blockSize, absLorenzo, signFlag, fixedRate[current], cmpData_pos+offsets[current][x], nextBlockRow, tailofNextBlockRow);
         {
             y = 0;
             currBlock = currBlockRow + y * blockSize;
             rightBlock = currBlockRow + (y + 1) * blockSize;
             bottomBlock = nextBlockRow + y * blockSize;
             update_pos = updateBlockRow + y * blockSize;
-            process_nw_corner_block(q_S, q_W, bias, blockSideLength, currBlock, rightBlock, bottomBlock, update_pos, residuals);            
+            process_lorenzo_nw_corner_block(q_S, q_W, bias, blockSideLength, currBlock, rightBlock, bottomBlock, update_pos, residuals);            
         }
         for(y=1; y<block_dim2-1; y++){
             currBlock = currBlockRow + y * blockSize;
@@ -1767,7 +1830,7 @@ void update_lorenzoPred_rowwise_2d_block(unsigned char **cmpData, int **offsets,
             rightBlock = currBlockRow + (y + 1) * blockSize;
             bottomBlock = nextBlockRow + y * blockSize;
             update_pos = updateBlockRow + y * blockSize;
-            process_topRow_block(bias, blockSideLength, currBlock, bottomBlock, leftBlock, rightBlock, update_pos, residuals);
+            process_lorenzo_topRow_block(bias, blockSideLength, currBlock, bottomBlock, leftBlock, rightBlock, update_pos, residuals);
         }
         {
             y = block_dim2 - 1;
@@ -1775,10 +1838,10 @@ void update_lorenzoPred_rowwise_2d_block(unsigned char **cmpData, int **offsets,
             leftBlock = currBlockRow + (y - 1) * blockSize;
             bottomBlock = nextBlockRow + y * blockSize;
             update_pos = updateBlockRow + y * blockSize;
-            process_ne_corner_block(q_S, q_W, bias, blockSideLength, currBlock, leftBlock, bottomBlock, update_pos, tailofCurrBlockRow, residuals);
+            process_lorenzo_ne_corner_block(q_S, q_W, bias, blockSideLength, currBlock, leftBlock, bottomBlock, update_pos, tailofCurrBlockRow, residuals);
         }
-        compressFromLorenzo_blockRow_rowwise_2d_block(x, block_dim2, blockSideLength, blockSize, offsets[next], fixedRate[next], absLorenzo, signFlag,
-                                    cmpData_pos_update, updateBlockRow, prefix_length, cmpSize);
+        compressFromLorenzo_blockRow_rowwise_2d_block(x, block_dim2, blockSideLength, blockSize, absLorenzo, signFlag, fixedRate[next],
+                                                    cmpData_pos_update, updateBlockRow, offsets[next], prefix_length, cmpSize);
         for(y=0; y<block_dim2; y++){
             int block_index = x * block_dim2 + y;
             cmpData[next][block_index] = (unsigned char)fixedRate[next][block_index];
@@ -1790,7 +1853,7 @@ void update_lorenzoPred_rowwise_2d_block(unsigned char **cmpData, int **offsets,
         currBlockRow = nextBlockRow;
         nextBlockRow = tempBlockRow;
         memcpy(tailofCurrBlockRow.data(), tailofNextBlockRow.data(), sizeof(int)*blockSideLength);
-        decompressToLorenzo_blockRow_rowwise_2d_block(x+1, block_dim2, blockSideLength, blockSize, fixedRate[current], absLorenzo, signFlag, cmpData_pos+offsets[current][x], nextBlockRow, tailofNextBlockRow);
+        decompressToLorenzo_blockRow_rowwise_2d_block(x+1, block_dim2, blockSideLength, blockSize, absLorenzo, signFlag, fixedRate[current], cmpData_pos+offsets[current][x], nextBlockRow, tailofNextBlockRow);
         {
             y = 0;
             currBlock = currBlockRow + y * blockSize;
@@ -1798,7 +1861,7 @@ void update_lorenzoPred_rowwise_2d_block(unsigned char **cmpData, int **offsets,
             topBlock = prevBlockRow + y * blockSize;
             bottomBlock = nextBlockRow + y * blockSize;
             update_pos = updateBlockRow + y * blockSize;
-            process_leftCol_block(q_W, bias, blockSideLength, currBlock, rightBlock, topBlock, bottomBlock, update_pos, residuals);
+            process_lorenzo_leftCol_block(q_W, bias, blockSideLength, currBlock, rightBlock, topBlock, bottomBlock, update_pos, residuals);
         }
         for(y=1; y<block_dim2-1; y++){
             // {
@@ -1808,7 +1871,7 @@ void update_lorenzoPred_rowwise_2d_block(unsigned char **cmpData, int **offsets,
             //     topBlock = prevBlockRow + y * blockSize;
             //     bottomBlock = nextBlockRow + y * blockSize;
             //     update_pos = updateBlockRow + y * blockSize;
-            //     process_inner_block(bias, blockSideLength, currBlock, leftBlock, rightBlock, topBlock, bottomBlock, update_pos, residuals);
+            //     process_lorenzo_inner_block(bias, blockSideLength, currBlock, leftBlock, rightBlock, topBlock, bottomBlock, update_pos, residuals);
             // }
             {
                 bool do_simplify = true;
@@ -1825,7 +1888,7 @@ void update_lorenzoPred_rowwise_2d_block(unsigned char **cmpData, int **offsets,
                     topBlock = prevBlockRow + y * blockSize;
                     bottomBlock = nextBlockRow + y * blockSize;
                     update_pos = updateBlockRow + y * blockSize;
-                    process_inner_block(bias, blockSideLength, currBlock, leftBlock, rightBlock, topBlock, bottomBlock, update_pos, residuals);
+                    process_lorenzo_inner_block(bias, blockSideLength, currBlock, leftBlock, rightBlock, topBlock, bottomBlock, update_pos, residuals);
                 }
                 else{
                     update_pos = updateBlockRow + y * blockSize;
@@ -1840,10 +1903,10 @@ void update_lorenzoPred_rowwise_2d_block(unsigned char **cmpData, int **offsets,
             topBlock = prevBlockRow + y * blockSize;
             bottomBlock = nextBlockRow + y * blockSize;
             update_pos = updateBlockRow + y * blockSize;
-            process_rightCol_block(q_W, bias, blockSideLength, currBlock, leftBlock, topBlock, bottomBlock, update_pos, tailofCurrBlockRow, residuals);
+            process_lorenzo_rightCol_block(q_W, bias, blockSideLength, currBlock, leftBlock, topBlock, bottomBlock, update_pos, tailofCurrBlockRow, residuals);
         }
-        compressFromLorenzo_blockRow_rowwise_2d_block(x, block_dim2, blockSideLength, blockSize, offsets[next], fixedRate[next], absLorenzo, signFlag,
-                                    cmpData_pos_update+offsets[next][x-1], updateBlockRow, prefix_length, cmpSize);
+        compressFromLorenzo_blockRow_rowwise_2d_block(x, block_dim2, blockSideLength, blockSize, absLorenzo, signFlag, fixedRate[next],
+                                                    cmpData_pos_update+offsets[next][x-1], updateBlockRow, offsets[next], prefix_length, cmpSize);
         for(y=0; y<block_dim2; y++){
             int block_index = x * block_dim2 + y;
             cmpData[next][block_index] = (unsigned char)fixedRate[next][block_index];
@@ -1860,7 +1923,7 @@ void update_lorenzoPred_rowwise_2d_block(unsigned char **cmpData, int **offsets,
             rightBlock = currBlockRow + (y + 1) * blockSize;
             topBlock = prevBlockRow + y * blockSize;
             update_pos = updateBlockRow + y * blockSize;
-            process_sw_corner_block(q_B, q_W, bias, blockSideLength, currBlock, rightBlock, topBlock, update_pos, residuals);
+            process_lorenzo_sw_corner_block(q_B, q_W, bias, blockSideLength, currBlock, rightBlock, topBlock, update_pos, residuals);
         }
         for(y=1; y<block_dim2-1; y++){
             currBlock = currBlockRow + y * blockSize;
@@ -1868,7 +1931,7 @@ void update_lorenzoPred_rowwise_2d_block(unsigned char **cmpData, int **offsets,
             rightBlock = currBlockRow + (y + 1) * blockSize;
             topBlock = prevBlockRow + y * blockSize;
             update_pos = updateBlockRow + y * blockSize;
-            process_bottomRow_block(bias, blockSideLength, currBlock, topBlock, leftBlock, rightBlock, update_pos, residuals);
+            process_lorenzo_bottomRow_block(bias, blockSideLength, currBlock, topBlock, leftBlock, rightBlock, update_pos, residuals);
         }
         {
             y = block_dim2 - 1;
@@ -1876,10 +1939,10 @@ void update_lorenzoPred_rowwise_2d_block(unsigned char **cmpData, int **offsets,
             leftBlock = currBlockRow + (y - 1) * blockSize;
             topBlock = prevBlockRow + y * blockSize;
             update_pos = updateBlockRow + y * blockSize;
-            process_se_corner_block(q_B, q_W, bias, blockSideLength, currBlock, leftBlock, topBlock, update_pos, tailofCurrBlockRow, residuals);
+            process_lorenzo_se_corner_block(q_B, q_W, bias, blockSideLength, currBlock, leftBlock, topBlock, update_pos, tailofCurrBlockRow, residuals);
         }
-        compressFromLorenzo_blockRow_rowwise_2d_block(x, block_dim2, blockSideLength, blockSize, offsets[next], fixedRate[next], absLorenzo, signFlag,
-                                    cmpData_pos_update+offsets[next][x-1], updateBlockRow, prefix_length, cmpSize);
+        compressFromLorenzo_blockRow_rowwise_2d_block(x, block_dim2, blockSideLength, blockSize, absLorenzo, signFlag, fixedRate[next],
+                                                    cmpData_pos_update+offsets[next][x-1], updateBlockRow, offsets[next], prefix_length, cmpSize);
         for(y=0; y<block_dim2; y++){
             int block_index = x * block_dim2 + y;
             cmpData[next][block_index] = (unsigned char)fixedRate[next][block_index];
@@ -1887,11 +1950,12 @@ void update_lorenzoPred_rowwise_2d_block(unsigned char **cmpData, int **offsets,
     }
 }                        
 
-void SZp_heatdis_kernel_lorenzo_rowwise_2d_block(unsigned char **cmpData, int **offsets, int **fixedRate,
-                                            unsigned int *absLorenzo, unsigned char *signFlag,
-                                            size_t dim1, size_t dim2, double errorBound, int blockSideLength,
-                                            size_t *cmpSize, int max_iter)
-{
+void SZp_heatdis_kernel_lorenzo_rowwise_2d_block(
+    unsigned char **cmpData, int **offsets, int **fixedRate,
+    unsigned int *absLorenzo, unsigned char *signFlag,
+    size_t dim1, size_t dim2, int blockSideLength,
+    double errorBound, size_t *cmpSize, int max_iter
+){
     int block_dim1 = (dim1 - 1) / blockSideLength + 1;
     int block_dim2 = (dim2 - 1) / blockSideLength + 1;
     int block_num = block_dim1 * block_dim2;
@@ -1922,8 +1986,8 @@ void SZp_heatdis_kernel_lorenzo_rowwise_2d_block(unsigned char **cmpData, int **
         compressed_size = block_num;
         update_lorenzoPred_rowwise_2d_block(cmpData, offsets, fixedRate, absLorenzo, signFlag,
                             updateBlockRow, prevBlockRow, currBlockRow, nextBlockRow,
-                            block_dim1, block_dim2, blockSideLength, q_S, q_W, q_B,
-                            current, next, iter, compressed_size);
+                            block_dim1, block_dim2, blockSideLength, q_S, q_W, q_B, compressed_size,
+                            current, next, iter);
         current = next;
         next = 1 - current;
     }

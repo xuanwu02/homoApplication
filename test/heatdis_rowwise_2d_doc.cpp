@@ -4,7 +4,7 @@
 #include <cmath>
 #include <ctime>
 #include "heatdis/heatdis_entry.hpp"
-#include "heatdis/utils.hpp"
+#include "utils.hpp"
 
 int main(int argc, char **argv)
 {
@@ -24,7 +24,7 @@ int main(int argc, char **argv)
     initData(dim1, dim2, oriData);
     unsigned char *cmpData = (unsigned char *)calloc(4 * nbEle * 2, sizeof(unsigned char));
     size_t cmpSize = 0;
-    SZp_compress_rowwise_2d_block(oriData, cmpData, dim1, dim2, errorBound, blockSideLength, &cmpSize);
+    SZp_compress_rowwise_2d_block(oriData, cmpData, dim1, dim2, blockSideLength, errorBound, &cmpSize);
     float * h = (float *)calloc(nbEle, sizeof(float));
     doWork(dim1, dim2, max_iter, oriData, h);
     // DOC
@@ -32,9 +32,9 @@ int main(int argc, char **argv)
     struct timespec start, end;
     clock_gettime(CLOCK_REALTIME, &start);
     for(int i=0; i<max_iter; i++){
-        SZp_decompress_rowwise_2d_block(decData, cmpData, dim1, dim2, errorBound, blockSideLength);
+        SZp_decompress_rowwise_2d_block(decData, cmpData, dim1, dim2, blockSideLength, errorBound);
         doWork(dim1, dim2, decData, h);
-        SZp_compress_rowwise_2d_block(decData, cmpData, dim1, dim2, errorBound, blockSideLength, &cmpSize);
+        SZp_compress_rowwise_2d_block(decData, cmpData, dim1, dim2, blockSideLength, errorBound, &cmpSize);
     }
     clock_gettime(CLOCK_REALTIME, &end);
     double elapsed_time = (double)(end.tv_sec - start.tv_sec) + (double)(end.tv_nsec - start.tv_nsec)/(double)1000000000;
@@ -44,7 +44,7 @@ int main(int argc, char **argv)
     // read compressed file
     size_t num;
     std::vector<unsigned char> compressed = readfile<unsigned char>("decdata.doc.dat", num);
-    SZp_decompress_rowwise_2d_block(decData, compressed.data(), dim1, dim2, errorBound, blockSideLength);
+    SZp_decompress_rowwise_2d_block(decData, compressed.data(), dim1, dim2, blockSideLength, errorBound);
     double max_err = verify(oriData, decData, dim1, dim2);
     printf("cr = %f, max_err = %.14f\n", 1.0 * sizeof(float) * nbEle / cmpSize, max_err);
 

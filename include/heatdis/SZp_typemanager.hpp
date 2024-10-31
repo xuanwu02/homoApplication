@@ -4,8 +4,8 @@
  *  @date Oct, 2023
  */
 
-#ifndef _OMPSZP_TYPEMANAGER_HPP
-#define _OMPSZP_TYPEMANAGER_HPP
+#ifndef _SZP_TYPEMANAGER_HPP
+#define _SZP_TYPEMANAGER_HPP
 
 #include <stdio.h>
 #include <cstdlib>

@@ -1,5 +1,5 @@
-#ifndef _STENCIL_HEATDIS_UTILS_HPP
-#define _STENCIL_HEATDIS_UTILS_HPP
+#ifndef _HEATDIS_UTILS_HPP
+#define _HEATDIS_UTILS_HPP
 
 #include <stdio.h>
 #include <iostream>
