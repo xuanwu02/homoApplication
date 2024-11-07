@@ -2,7 +2,7 @@
 #define _SZP_HEATDIS_ENTRY_HPP
 
 #include <iostream>
-#include "SZp_lorenzoPredictor1D.hpp"
+#include "SZp_LorenzoPredictor1D.hpp"
 
 void SZp_compress_1dLorenzo(
     float *oriData, unsigned char *cmpData,
@@ -138,11 +138,11 @@ double SZp_mean_dec2Quant_1dLorenzo(
     unsigned int *absQuantDiff = (unsigned int *)malloc(blockSize * sizeof(unsigned int));
     unsigned char *signFlag = (unsigned char *)malloc(blockSize * sizeof(unsigned char));
     int *quantInds = (int *)malloc(blockSideLength * dim2 * sizeof(int));
-    int quant_sum = SZp_mean_kernel_quant_1dLorenzo(cmpData, dim1, dim2, absQuantDiff, signFlag, quantInds, blockSideLength, errorBound);
+    long int quant_sum = SZp_mean_kernel_quant_1dLorenzo(cmpData, dim1, dim2, absQuantDiff, signFlag, quantInds, blockSideLength, errorBound);
     free(absQuantDiff);
     free(signFlag);
     free(quantInds);
-    return 2 * (quant_sum / nbEle) * errorBound;
+    return 2 * (1.0 * quant_sum / nbEle) * errorBound;
 }
 
 double SZp_mean_dec2Lorenzo_1dLorenzo(
@@ -155,11 +155,11 @@ double SZp_mean_dec2Lorenzo_1dLorenzo(
     unsigned int *absQuantDiff = (unsigned int *)malloc(blockSize * sizeof(unsigned int));
     unsigned char *signFlag = (unsigned char *)malloc(blockSize * sizeof(unsigned char));
     int *lorenzoPred = (int *)malloc(blockSideLength * dim2 * sizeof(int));
-    int quant_sum = SZp_mean_kernel_lorenzo_1dLorenzo(cmpData, dim1, dim2, absQuantDiff, signFlag, lorenzoPred, blockSideLength, errorBound);
+    long int quant_sum = SZp_mean_kernel_lorenzo_1dLorenzo(cmpData, dim1, dim2, absQuantDiff, signFlag, lorenzoPred, blockSideLength, errorBound);
     free(absQuantDiff);
     free(signFlag);
     free(lorenzoPred);
-    return 2 * (quant_sum / nbEle) * errorBound;
+    return 2 * (1.0 * quant_sum / nbEle) * errorBound;
 }
 
 void SZp_derivative_dec2Quant_1dLorenzo(

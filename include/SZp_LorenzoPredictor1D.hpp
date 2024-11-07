@@ -2073,7 +2073,7 @@ void SZp_heatdis_kernel_lorenzo_1dLorenzo(
     free(updateBlockRow);
 }                                            
 
-int SZp_mean_kernel_quant_1dLorenzo(
+long int SZp_mean_kernel_quant_1dLorenzo(
     unsigned char *cmpData, size_t dim1, size_t dim2,
     unsigned int *absQuantDiff, unsigned char *signFlag,
     int *quantInds, int blockSideLength, double errorBound
@@ -2099,7 +2099,7 @@ int SZp_mean_kernel_quant_1dLorenzo(
         offsets[x+1] = prefix_length;
     }
     int x, i;
-    int quant_sum = 0;
+    long int quant_sum = 0;
     int buffer_size = blockSideLength * dim2;
     for(x=0; x<block_dim1; x++){
         SZp_recoverToQuant_blockRow_1dLorenzo(x, block_dim2, blockSideLength, blockSize, fixedRate.data(), absQuantDiff, signFlag, cmpData_pos+offsets[x], quantInds);
@@ -2110,7 +2110,7 @@ int SZp_mean_kernel_quant_1dLorenzo(
     return quant_sum;
 }
 
-int SZp_mean_kernel_lorenzo_1dLorenzo(
+long int SZp_mean_kernel_lorenzo_1dLorenzo(
     unsigned char *cmpData, size_t dim1, size_t dim2,
     unsigned int *absQuantDiff, unsigned char *signFlag,
     int *lorenzoPred, int blockSideLength, double errorBound
@@ -2136,7 +2136,7 @@ int SZp_mean_kernel_lorenzo_1dLorenzo(
         offsets[x+1] = prefix_length;
     }
     int x, y, i, j;
-    int quant_sum = 0;
+    long int quant_sum = 0;
     for(x=0; x<block_dim1; x++){
         std::vector<int> tailofBlockRow(blockSideLength, 0);
         std::vector<int> prefix_sum(blockSideLength, 0);

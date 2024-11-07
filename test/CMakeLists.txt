@@ -9,3 +9,10 @@ foreach(TEST_FILE ${TEST_FILES})
     get_filename_component(TEST_NAME ${TEST_FILE} NAME_WE)
     add_my_executable(${TEST_NAME} ${TEST_FILE})
 endforeach(TEST_FILE)
+
+# add_my_executable(SZp_1dlorenzo_mean_decop SZp_1dlorenzo_mean_decop.cpp)
+# add_my_executable(SZp_1dlorenzo_mean_quant SZp_1dlorenzo_mean_quant.cpp)
+# add_my_executable(SZp_1dlorenzo_mean_lorenzo SZp_1dlorenzo_mean_lorenzo.cpp)
+
+# add_my_executable(SZx_mean_diff SZx_mean_diff.cpp)
+# add_my_executable(SZx_mean_decop SZx_mean_decop.cpp)

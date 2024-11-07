@@ -57,7 +57,8 @@ double SZx_mean_2dblock(
     int block_dim2 = (dim2 - 1) / blockSideLength + 1;
     int block_num = block_dim1 * block_dim2;
     unsigned char * qmean_pos = cmpData + block_num;
-    int global_mean = 0;
+    // size_t global_mean = 0;
+    long int global_mean = 0;
     for(int k=0; k<block_num; k++){
         int quant_mean = (0xff000000 & (*qmean_pos << 24)) |
                         (0x00ff0000 & (*(qmean_pos+1) << 16)) |
@@ -66,8 +67,7 @@ double SZx_mean_2dblock(
         global_mean += quant_mean;
         qmean_pos += 4;
     }
-    global_mean /= block_num;
-    return 2 * global_mean * errorBound;
+    return 2 * (1.0 * global_mean / block_num) * errorBound;
 }
 
 void SZx_derivative_quant_2dblock(

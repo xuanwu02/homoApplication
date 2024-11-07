@@ -5,6 +5,7 @@
 #include <iostream>
 #include <cmath>
 #include <vector>
+#include <random>
 
 const int INT_BITS = 32;
 
@@ -47,6 +48,18 @@ void doWork(int dim1, int dim2, int max_iter, T * g, T * h)
     for(int i=0; i<max_iter; i++){
         doWork<T>(dim1, dim2, g, h);
     }    
+}
+
+/**
+ * random data array generator
+*/
+template <class T>
+void initRandomData(T min, T max, unsigned int seed, size_t n, T *data){
+    std::mt19937 generator(seed);  
+    std::uniform_real_distribution<T> distribution(min, max);
+    for(size_t i=0; i<n; i++){
+        data[i] = distribution(generator);
+    }
 }
 
 /**
@@ -113,7 +126,7 @@ void compute_dxdy(
             dy_pos[j] = curr_row[j] - prev_row[j];
         }
         for(j=1; j<dim2-1; j++){
-            dx_pos[j] = curr_row[j + 1] - curr_row[j - 1] * 0.5;
+            dx_pos[j] = (curr_row[j + 1] - curr_row[j - 1]) * 0.5;
             dy_pos[j] = curr_row[j] - prev_row[j];
         }
         {

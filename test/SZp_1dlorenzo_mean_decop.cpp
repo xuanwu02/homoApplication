@@ -4,6 +4,7 @@
 #include <cmath>
 #include <ctime>
 #include "SZp_application_entry.hpp"
+#include "application_utils.hpp"
 #include "utils.hpp"
 
 int main(int argc, char **argv)
@@ -17,22 +18,21 @@ int main(int argc, char **argv)
         exit(0);
     }
     double errorBound = atof(argv[argv_id++]);
-    int max_iter = atoi(argv[argv_id++]);
     size_t nbEle = dim1 * dim2;
 
-    // compose test data
-    float * oriData = (float *)calloc(nbEle, sizeof(float));
-    initData(dim1, dim2, oriData);
-    float * h = (float *)calloc(nbEle, sizeof(float));
-    doWork(dim1, dim2, max_iter, oriData, h);
-    free(h);
+    using T = float;
+    // compose oriData
+    T * oriData = (T *)malloc(nbEle * sizeof(T));
+    T min = -100, max = 100;
+    int seed = 24;
+    initRandomData(min, max, seed, nbEle, oriData);
     // prepare cmpData
-    unsigned char *cmpData = (unsigned char *)calloc(4 * nbEle, sizeof(unsigned char));
+    unsigned char *cmpData = (unsigned char *)malloc(4 * nbEle * sizeof(unsigned char));
     size_t cmpSize = 0;
     SZp_compress_1dLorenzo(oriData, cmpData, dim1, dim2, blockSideLength, errorBound, &cmpSize);
-    free(oriData);
-    // dcop
-    float * decData = (float *)malloc(nbEle * sizeof(float));
+    printf("cr = %.2f\n", 1.0 * nbEle * sizeof(T) / cmpSize);
+    // decop
+    T * decData = (T *)malloc(nbEle * sizeof(T));
     struct timespec start, end;
     clock_gettime(CLOCK_REALTIME, &start);
     double mean = 0;
@@ -41,6 +41,7 @@ int main(int argc, char **argv)
     double elapsed_time = (double)(end.tv_sec - start.tv_sec) + (double)(end.tv_nsec - start.tv_nsec)/(double)1000000000;
     printf("elapsed_time = %.6f, mean = %.14f\n", elapsed_time, mean);
 
+    free(oriData);
     free(decData);
     free(cmpData);
 

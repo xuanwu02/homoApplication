@@ -20,12 +20,13 @@ int main(int argc, char **argv)
     int max_iter = atoi(argv[argv_id++]);
     size_t nbEle = dim1 * dim2;
 
-    float * oriData = (float *)calloc(nbEle, sizeof(float));
+    using T = float;
+    T * oriData = (T *)calloc(nbEle, sizeof(T));
     initData(dim1, dim2, oriData);
     unsigned char *cmpData = (unsigned char *)calloc(4 * nbEle, sizeof(unsigned char));
     size_t cmpSize = 0;
     SZp_compress_1dLorenzo(oriData, cmpData, dim1, dim2, blockSideLength, errorBound, &cmpSize);
-    float * h = (float *)calloc(nbEle, sizeof(float));
+    T * h = (T *)calloc(nbEle, sizeof(T));
     doWork(dim1, dim2, max_iter, oriData, h);
 
     SZp_heatdis_dec2Lorenzo_1dLorenzo(cmpData, &cmpSize, dim1, dim2, blockSideLength, errorBound, max_iter);
@@ -34,10 +35,10 @@ int main(int argc, char **argv)
     // read compressed file
     size_t num;
     std::vector<unsigned char> compressed = readfile<unsigned char>("decdata.dec2lorenzo.dat", num);
-    float * decData = (float *)malloc(nbEle * sizeof(float));
+    T * decData = (T *)malloc(nbEle * sizeof(T));
     SZp_decompress_1dLorenzo(decData, compressed.data(), dim1, dim2, blockSideLength, errorBound);
     double max_err = verify(oriData, decData, dim1, dim2);
-    printf("cr = %f, max_err = %.14f\n", 1.0 * sizeof(float) * nbEle / cmpSize, max_err);
+    printf("cr = %f, max_err = %.14f\n", 1.0 * sizeof(T) * nbEle / cmpSize, max_err);
 
     free(h);
     free(oriData);

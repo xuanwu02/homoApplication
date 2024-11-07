@@ -130,7 +130,7 @@ void SZx_decompress_kernel_2dblock(
 
 /**
  *  Global mean encapsulated
-*/
+ */
 template <class T>
 void SZx_decompress_kernel_2dblock(
     T *decData, unsigned char *cmpData,
@@ -426,7 +426,7 @@ inline void derivative_process_diff_sw_corner_block(
         {
             j = blockSideLength - 1;
             index = i * blockSideLength + j, res_index = i * dim2 + j;
-            dx_pos[res_index] = (currBlock[index] - currBlock[index - 1]) * errorBound * 2;
+            dx_pos[res_index] = (rightBlock[index - blockSideLength + 1] - currBlock[index - 1] + (right_mean - curr_mean)) * errorBound;
             dy_pos[res_index] = (currBlock[index + blockSideLength] - currBlock[index - blockSideLength]) * errorBound;
         }
     }
@@ -446,7 +446,7 @@ inline void derivative_process_diff_sw_corner_block(
         {
             j = blockSideLength - 1;
             index = i * blockSideLength + j, res_index = i * dim2 + j;
-            dx_pos[res_index] = (currBlock[index] - currBlock[index - 1]) * errorBound * 2;
+            dx_pos[res_index] = (rightBlock[index - blockSideLength + 1] - currBlock[index - 1] + (right_mean - curr_mean)) * errorBound;
             dy_pos[res_index] = (currBlock[index] - currBlock[index - blockSideLength]) * errorBound * 2;
         }
     }
