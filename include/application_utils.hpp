@@ -13,10 +13,13 @@ const double SRC_TEMP = 100.0;
 const double WALL_TEMP = 0.0;
 const double BACK_TEMP = 0.0;
 
+const std::string cldhigh_data_file = "/Users/xuanwu/github/datasets/CESM-ATM-cleared-1800x3600/CLDHGH_1_1800_3600.dat";
+
 /**
  * heatdis: initialize data (all zero)
 */
-void initData(int dim1, int dim2, float *h)
+template <class T>
+void initData(int dim1, int dim2, T *h)
 {
     for (int i = 0; i < dim1; i++) {
         for (int j = 0; j < dim2; j++) {
@@ -50,27 +53,28 @@ void doWork(int dim1, int dim2, int max_iter, T * g, T * h)
     }    
 }
 
-/**
- * random data array generator
-*/
-template <class T>
-void initRandomData(T min, T max, unsigned int seed, size_t n, T *data){
-    std::mt19937 generator(seed);  
-    std::uniform_real_distribution<T> distribution(min, max);
-    for(size_t i=0; i<n; i++){
-        data[i] = distribution(generator);
-    }
-}
+// /**
+//  * random data array generator
+// */
+// template <class T>
+// void initRandomData(T min, T max, unsigned int seed, size_t n, T *data){
+//     std::mt19937 generator(seed);  
+//     std::uniform_real_distribution<T> distribution(min, max);
+//     for(size_t i=0; i<n; i++){
+//         data[i] = distribution(generator);
+//     }
+// }
 
 /**
  * central difference for 2D data
 */
+template <class T>
 void compute_dxdy(
-    int dim1, int dim2, float *data,
-    double *dx_result, double *dy_result
+    int dim1, int dim2, T *data,
+    T *dx_result, T *dy_result
 ){
-    float *curr_row = nullptr, *prev_row = nullptr, *next_row = nullptr;
-    double *dx_pos = nullptr, *dy_pos = nullptr;
+    T *curr_row = nullptr, *prev_row = nullptr, *next_row = nullptr;
+    T *dx_pos = nullptr, *dy_pos = nullptr;
     int i, j;
     {
         i = 0;
@@ -153,18 +157,11 @@ double verify(const T *oriData, const T *decData, size_t dim1, size_t dim2)
     return max_error;
 }
 
-void print_matrix_double(int dim1, int dim2, std::string name, double *mat)
-{
-    std::cout << "--------- " << name << " ---------" << std::endl;
-    for(int i=0; i<dim1; i++){
-        for(int j=0; j<dim2; j++){
-            printf("%.2f  ", mat[i*dim2+j]);
-        }
-        printf("\n");
-    }
-}
-
-void print_matrix_float(int dim1, int dim2, std::string name, float *mat)
+/**
+ * for float & double arrays
+*/
+template <class T>
+void print_matrix_float(int dim1, int dim2, std::string name, T *mat)
 {
     std::cout << "--------- " << name << " ---------" << std::endl;
     for(int i=0; i<dim1; i++){

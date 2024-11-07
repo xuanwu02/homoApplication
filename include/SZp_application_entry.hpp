@@ -30,22 +30,6 @@ void SZp_decompress_1dLorenzo(
     free(signFlag);
 }
 
-/**
- *  Global mean encapsulated
-*/
-void SZp_decompress_1dLorenzo(
-    float *decData, unsigned char *cmpData,
-    size_t dim1, size_t dim2, int blockSideLength,
-    double errorBound, double& mean
-){
-    int blockSize = blockSideLength * blockSideLength;
-    unsigned int *absQuantDiff = (unsigned int *)malloc(blockSize * sizeof(unsigned int));
-    unsigned char *signFlag = (unsigned char *)malloc(blockSize * sizeof(unsigned char));
-    SZp_decompress_kernel_1dLorenzo(decData, cmpData, dim1, dim2, blockSideLength, absQuantDiff, signFlag, errorBound, mean);
-    free(absQuantDiff);
-    free(signFlag);
-}
-
 void SZp_heatdis_dec2Quant_1dLorenzo(
     unsigned char *compressed_data, size_t *cmpSize,
     size_t dim1, size_t dim2, int blockSideLength,
@@ -162,32 +146,34 @@ double SZp_mean_dec2Lorenzo_1dLorenzo(
     return 2 * (1.0 * quant_sum / nbEle) * errorBound;
 }
 
+template <class T>
 void SZp_derivative_dec2Quant_1dLorenzo(
     unsigned char *cmpData, size_t dim1, size_t dim2,
     int blockSideLength, double errorBound,
-    double *dx_result, double *dy_result
+    T *dx_result, T *dy_result
 ){
     size_t nbEle = dim1 * dim2;
     int blockSize = blockSideLength * blockSideLength;
     int block_num = nbEle / blockSize;
     unsigned int *absQuantDiff = (unsigned int *)malloc(blockSize * sizeof(unsigned int));
     unsigned char *signFlag = (unsigned char *)malloc(blockSize * sizeof(unsigned char));
-    SZp_derivative_quant_1dLorenzo(cmpData, dim1, dim2, blockSideLength, errorBound, absQuantDiff, signFlag, dx_result, dy_result);
+    SZp_derivative_quant_1dLorenzo<T>(cmpData, dim1, dim2, blockSideLength, errorBound, absQuantDiff, signFlag, dx_result, dy_result);
     free(absQuantDiff);
     free(signFlag);
 }
 
+template <class T>
 void SZp_derivative_dec2Lorenzo_1dLorenzo(
     unsigned char *cmpData, size_t dim1, size_t dim2,
     int blockSideLength, double errorBound,
-    double *dx_result, double *dy_result
+    T *dx_result, T *dy_result
 ){
     size_t nbEle = dim1 * dim2;
     int blockSize = blockSideLength * blockSideLength;
     int block_num = nbEle / blockSize;
     unsigned int *absQuantDiff = (unsigned int *)malloc(blockSize * sizeof(unsigned int));
     unsigned char *signFlag = (unsigned char *)malloc(blockSize * sizeof(unsigned char));
-    SZp_derivative_lorenzo_1dLorenzo(cmpData, dim1, dim2, blockSideLength, errorBound, absQuantDiff, signFlag, dx_result, dy_result);
+    SZp_derivative_lorenzo_1dLorenzo<T>(cmpData, dim1, dim2, blockSideLength, errorBound, absQuantDiff, signFlag, dx_result, dy_result);
     free(absQuantDiff);
     free(signFlag);
 }

@@ -32,23 +32,6 @@ void SZx_decompress_2dblock(
     free(signFlag);
 }
 
-/**
- * Global mean encapsulated
-*/
-template <class T>
-void SZx_decompress_2dblock(
-    T *decData, unsigned char *cmpData,
-    size_t dim1, size_t dim2, int blockSideLength,
-    double errorBound, double& mean
-){
-    int blockSize = blockSideLength * blockSideLength;
-    unsigned int *absQuantDiff = (unsigned int *)malloc(blockSize * sizeof(unsigned int));
-    unsigned char *signFlag = (unsigned char *)malloc(blockSize * sizeof(unsigned char));
-    SZx_decompress_kernel_2dblock(decData, cmpData, dim1, dim2, blockSideLength, absQuantDiff, signFlag, errorBound, mean);
-    free(absQuantDiff);
-    free(signFlag);
-}
-
 double SZx_mean_2dblock(
     unsigned char *cmpData, size_t dim1, size_t dim2,
     int blockSideLength, double errorBound
@@ -70,9 +53,10 @@ double SZx_mean_2dblock(
     return 2 * (1.0 * global_mean / block_num) * errorBound;
 }
 
+template <class T>
 void SZx_derivative_quant_2dblock(
     unsigned char *cmpData, size_t dim1, size_t dim2,
-    int blockSideLength, double *dx_result, double *dy_result,
+    int blockSideLength, T *dx_result, T *dy_result,
     double errorBound, double& elapsed_time
 ){
     int block_dim1 = (dim1 - 1) / blockSideLength + 1;
@@ -86,7 +70,7 @@ void SZx_derivative_quant_2dblock(
 
     struct timespec start, end;
     clock_gettime(CLOCK_REALTIME, &start);
-    SZx_derivative_quant_kernel_2dblock(cmpData, fixedRate, offsets, absQuantDiff, signFlag, dim1, dim2, blockSideLength, dx_result, dy_result, errorBound);
+    SZx_derivative_quant_kernel_2dblock<T>(cmpData, fixedRate, offsets, absQuantDiff, signFlag, dim1, dim2, blockSideLength, dx_result, dy_result, errorBound);
     clock_gettime(CLOCK_REALTIME, &end);
     elapsed_time = (double)(end.tv_sec - start.tv_sec) + (double)(end.tv_nsec - start.tv_nsec)/(double)1000000000;
 
@@ -96,9 +80,10 @@ void SZx_derivative_quant_2dblock(
     free(signFlag);
 }
 
+template <class T>
 void SZx_derivative_diff_2dblock(
     unsigned char *cmpData, size_t dim1, size_t dim2,
-    int blockSideLength, double *dx_result, double *dy_result,
+    int blockSideLength, T *dx_result, T *dy_result,
     double errorBound, double& elapsed_time
 ){
     int block_dim1 = (dim1 - 1) / blockSideLength + 1;
@@ -112,7 +97,7 @@ void SZx_derivative_diff_2dblock(
 
     struct timespec start, end;
     clock_gettime(CLOCK_REALTIME, &start);
-    SZx_derivative_diff_kernel_2dblock(cmpData, fixedRate, offsets, absQuantDiff, signFlag, dim1, dim2, blockSideLength, dx_result, dy_result, errorBound);
+    SZx_derivative_diff_kernel_2dblock<T>(cmpData, fixedRate, offsets, absQuantDiff, signFlag, dim1, dim2, blockSideLength, dx_result, dy_result, errorBound);
     clock_gettime(CLOCK_REALTIME, &end);
     elapsed_time = (double)(end.tv_sec - start.tv_sec) + (double)(end.tv_nsec - start.tv_nsec)/(double)1000000000;
 

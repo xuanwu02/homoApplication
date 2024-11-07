@@ -119,69 +119,6 @@ void SZp_decompress_kernel_1dLorenzo(
 }
 
 /**
- *  Global mean encapsulated
-*/
-void SZp_decompress_kernel_1dLorenzo(
-    float *decData, unsigned char *cmpData,
-    size_t dim1, size_t dim2, int blockSideLength,
-    unsigned int *absQuantDiff, unsigned char *signFlag,
-    double errorBound, double& mean
-){
-    int block_dim1 = (dim1 - 1) / blockSideLength + 1;
-    int block_dim2 = (dim2 - 1) / blockSideLength + 1;
-    int block_num = block_dim1 * block_dim2;
-    int blockSize = blockSideLength * blockSideLength;
-    size_t cmp_block_sign_length = (blockSize + 7) / 8;
-    unsigned char * cmpData_pos = cmpData + block_num;
-    int x, y, i, j;
-    mean = 0;
-    for(x=0; x<block_dim1; x++){
-        std::vector<int> ending_quant(blockSideLength, 0);
-        for(y=0; y<block_dim2; y++){
-            int block_index = x * block_dim2 + y;
-            int global_index, global_offset, local_index;
-            int quant_diff, prev_quant, max_quant_diff = 0;
-            int temp_fixed_rate = (int)cmpData[block_index];
-            if(temp_fixed_rate){
-                convertByteArray2IntArray_fast_1b_args(blockSize, cmpData_pos, cmp_block_sign_length, signFlag);
-                cmpData_pos += cmp_block_sign_length;
-                unsigned int savedbitsbytelength = Jiajun_extract_fixed_length_bits(cmpData_pos, blockSize, absQuantDiff, temp_fixed_rate);
-                cmpData_pos += savedbitsbytelength;
-                int curr_quant, quant_diff, prev_quant;
-                for(i=0; i<blockSideLength; i++){
-                    prev_quant = ending_quant[i];
-                    global_offset = (x * blockSideLength + i) * dim2 + y * blockSideLength;
-                    for(j=0; j<blockSideLength; j++){
-                        global_index = global_offset + j;
-                        local_index = i * blockSideLength + j;
-                        int sign = -(int)signFlag[local_index];
-                        quant_diff = (absQuantDiff[local_index] ^ sign) - sign;
-                        curr_quant = quant_diff + prev_quant;
-                        decData[global_index] = curr_quant * errorBound * 2;
-                        prev_quant = curr_quant;
-                        mean += decData[global_index];
-                    }
-                    ending_quant[i] = curr_quant;
-                }
-            }
-            else{
-                for(i=0; i<blockSideLength; i++){
-                    global_offset = (x * blockSideLength + i) * dim2 + y * blockSideLength;
-                    int tar_quant = ending_quant[i];
-                    for(int j=0; j<blockSideLength; j++){
-                        global_index = global_offset + j;
-                        decData[global_index] = tar_quant * errorBound * 2;
-                        mean += decData[global_index];
-                    }
-                    ending_quant[i] = tar_quant;
-                }
-            }
-        }
-    }
-    mean /= (dim1 * dim2);
-}
-
-/**
  * blockwise-serial
  */
 void SZp_recoverToQuant_blockRow_1dLorenzo(
@@ -2207,10 +2144,11 @@ void SZp_recoverToQuant_blockRow_1dLorenzo(
     }
 }                                    
 
+template <class T>
 void derivative_process_quant_topDataRow(
     size_t dim2, int *curr_row,
     int *next_row,
-    double *dx_pos, double *dy_pos,
+    T *dx_pos, T *dy_pos,
     double errorBound
 ){
     int j;
@@ -2230,10 +2168,11 @@ void derivative_process_quant_topDataRow(
     }
 }
 
+template <class T>
 inline void derivative_process_quant_bottomDataRow(
     size_t dim2, int *curr_row,
     int *prev_row,
-    double *dx_pos, double *dy_pos,
+    T *dx_pos, T *dy_pos,
     double errorBound
 ){
     int j;
@@ -2253,10 +2192,11 @@ inline void derivative_process_quant_bottomDataRow(
     }
 }
 
+template <class T>
 inline void derivative_process_quant_centralDataRow(
     size_t dim2, int *curr_row,
     int *prev_row, int *next_row,
-    double *dx_pos, double *dy_pos,
+    T *dx_pos, T *dy_pos,
     double errorBound
 ){
     int j;
@@ -2277,11 +2217,12 @@ inline void derivative_process_quant_centralDataRow(
 
 }
 
+template <class T>
 void SZp_derivative_kernel_quant_1dLorenzo(
     unsigned char *cmpData, size_t dim1, size_t dim2,
     unsigned int *absQuantDiff, unsigned char *signFlag,
     int *prevBlockRow, int *currBlockRow, int *nextBlockRow,
-    double *dx_result, double *dy_result,
+    T *dx_result, T *dy_result,
     int blockSideLength, double errorBound
 ){
     int block_dim1 = (dim1 - 1) / blockSideLength + 1;
@@ -2292,7 +2233,7 @@ void SZp_derivative_kernel_quant_1dLorenzo(
     unsigned char * cmpData_pos = cmpData + block_num;
     int *tempBlockRow = nullptr;
     int *curr_row = nullptr, *prev_row = nullptr, *next_row = nullptr;
-    double *dx_pos = nullptr, *dy_pos = nullptr;
+    T *dx_pos = nullptr, *dy_pos = nullptr;
     std::vector<int> fixedRate(block_num, 0);
     std::vector<int> offsets(block_dim1+1, 0);
     size_t prefix_length = 0;
@@ -2407,11 +2348,12 @@ void SZp_derivative_kernel_quant_1dLorenzo(
     }
 }
 
+template <class T>
 void SZp_derivative_quant_1dLorenzo(
     unsigned char *cmpData, size_t dim1, size_t dim2,
     int blockSideLength, double errorBound,
     unsigned int *absQuantDiff, unsigned char *signFlag,
-    double *dx_result, double *dy_result
+    T *dx_result, T *dy_result
 ){
     int block_dim1 = (dim1 - 1) / blockSideLength + 1;
     int block_dim2 = (dim2 - 1) / blockSideLength + 1;
@@ -2420,7 +2362,7 @@ void SZp_derivative_quant_1dLorenzo(
     int * prevBlockRow = (int *)calloc(blockSize * block_dim2, sizeof(int));
     int * currBlockRow = (int *)calloc(blockSize * block_dim2, sizeof(int));
     int * nextBlockRow = (int *)calloc(blockSize * block_dim2, sizeof(int));
-    SZp_derivative_kernel_quant_1dLorenzo(cmpData, dim1, dim2, absQuantDiff, signFlag, prevBlockRow, currBlockRow, nextBlockRow,
+    SZp_derivative_kernel_quant_1dLorenzo<T>(cmpData, dim1, dim2, absQuantDiff, signFlag, prevBlockRow, currBlockRow, nextBlockRow,
                                             dx_result, dy_result, blockSideLength, errorBound);
     free(prevBlockRow);
     free(currBlockRow);
@@ -2473,10 +2415,11 @@ void SZp_recoverToLorenzo_blockRow_1dLorenzo(
     }
 }                                    
 
+template <class T>
 inline void derivative_process_lorenzo_topDataRow(
     size_t dim2, int *curr_row,
     int *next_row,
-    double *dx_pos, double *dy_pos,
+    T *dx_pos, T *dy_pos,
     double errorBound
 ){
     int prefix_sum = 0;
@@ -2500,10 +2443,11 @@ inline void derivative_process_lorenzo_topDataRow(
     }
 }
 
+template <class T>
 inline void derivative_process_lorenzo_bottomDataRow(
     size_t dim2, int *curr_row,
     int *prev_row,
-    double *dx_pos, double *dy_pos,
+    T *dx_pos, T *dy_pos,
     double errorBound
 ){
     int prefix_sum = 0;
@@ -2527,10 +2471,11 @@ inline void derivative_process_lorenzo_bottomDataRow(
     }
 }
 
+template <class T>
 inline void derivative_process_lorenzo_centralDataRow(
     size_t dim2, int *curr_row,
     int *prev_row, int *next_row,
-    double *dx_pos, double *dy_pos,
+    T *dx_pos, T *dy_pos,
     double errorBound
 ){
     int prefix_sum = 0;
@@ -2555,11 +2500,12 @@ inline void derivative_process_lorenzo_centralDataRow(
 
 }
 
+template <class T>
 void SZp_derivative_kernel_lorenzo_1dLorenzo(
     unsigned char *cmpData, size_t dim1, size_t dim2,
     unsigned int *absQuantDiff, unsigned char *signFlag,
     int *prevBlockRow, int *currBlockRow, int *nextBlockRow,
-    double *dx_result, double *dy_result,
+    T *dx_result, T *dy_result,
     int blockSideLength, double errorBound
 ){
     int block_dim1 = (dim1 - 1) / blockSideLength + 1;
@@ -2570,7 +2516,7 @@ void SZp_derivative_kernel_lorenzo_1dLorenzo(
     unsigned char * cmpData_pos = cmpData + block_num;
     int *tempBlockRow = nullptr;
     int *curr_row = nullptr, *prev_row = nullptr, *next_row = nullptr;
-    double *dx_pos = nullptr, *dy_pos = nullptr;
+    T *dx_pos = nullptr, *dy_pos = nullptr;
     std::vector<int> fixedRate(block_num, 0);
     std::vector<int> offsets(block_dim1+1, 0);
     size_t prefix_length = 0;
@@ -2685,11 +2631,12 @@ void SZp_derivative_kernel_lorenzo_1dLorenzo(
     }
 }
 
+template <class T>
 void SZp_derivative_lorenzo_1dLorenzo(
     unsigned char *cmpData, size_t dim1, size_t dim2,
     int blockSideLength, double errorBound,
     unsigned int *absQuantDiff, unsigned char *signFlag,
-    double *dx_result, double *dy_result
+    T *dx_result, T *dy_result
 ){
     int block_dim1 = (dim1 - 1) / blockSideLength + 1;
     int block_dim2 = (dim2 - 1) / blockSideLength + 1;
@@ -2698,8 +2645,8 @@ void SZp_derivative_lorenzo_1dLorenzo(
     int * prevBlockRow = (int *)calloc(blockSize * block_dim2, sizeof(int));
     int * currBlockRow = (int *)calloc(blockSize * block_dim2, sizeof(int));
     int * nextBlockRow = (int *)calloc(blockSize * block_dim2, sizeof(int));
-    SZp_derivative_kernel_lorenzo_1dLorenzo(cmpData, dim1, dim2, absQuantDiff, signFlag, prevBlockRow, currBlockRow, nextBlockRow,
-                                            dx_result, dy_result, blockSideLength, errorBound);
+    SZp_derivative_kernel_lorenzo_1dLorenzo<T>(cmpData, dim1, dim2, absQuantDiff, signFlag, prevBlockRow, currBlockRow, nextBlockRow,
+                                               dx_result, dy_result, blockSideLength, errorBound);
     free(prevBlockRow);
     free(currBlockRow);
     free(nextBlockRow);

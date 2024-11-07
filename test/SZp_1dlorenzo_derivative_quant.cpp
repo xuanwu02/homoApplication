@@ -10,22 +10,19 @@
 int main(int argc, char **argv)
 {
     int argv_id = 1;
-    size_t dim1 = atoi(argv[argv_id++]);
-    size_t dim2 = atoi(argv[argv_id++]);
+    size_t dim1 = 1800;
+    size_t dim2 = 3600;
     int blockSideLength = atoi(argv[argv_id++]);
     if((dim1 % blockSideLength) || (dim2 % blockSideLength)){
         printf("incompatible blockSideLength\n");
         exit(0);
     }
     double errorBound = atof(argv[argv_id++]);
-    size_t nbEle = dim1 * dim2;
 
     using T = float;
-    // compose oriData
-    T * oriData = (T *)malloc(nbEle * sizeof(T));
-    T min = -100, max = 100;
-    int seed = 24;
-    initRandomData(min, max, seed, nbEle, oriData);
+    size_t nbEle;
+    auto oriData_vec = readfile<T>(cldhigh_data_file.c_str(), nbEle);
+    T * oriData = oriData_vec.data();
     // prepare cmpData
     unsigned char *cmpData = (unsigned char *)malloc(4 * nbEle * sizeof(unsigned char));
     size_t cmpSize = 0;
@@ -33,10 +30,10 @@ int main(int argc, char **argv)
     printf("cr = %.2f\n", 1.0 * nbEle * sizeof(T) / cmpSize);
     // quant
     T * decData = (T *)malloc(nbEle * sizeof(T));
-    double *decop_dx_result = (double *)malloc(nbEle * sizeof(double));
-    double *decop_dy_result = (double *)malloc(nbEle * sizeof(double));
-    double *homo_dx_result = (double *)malloc(nbEle * sizeof(double));
-    double *homo_dy_result = (double *)malloc(nbEle * sizeof(double));
+    T *decop_dx_result = (T *)malloc(nbEle * sizeof(T));
+    T *decop_dy_result = (T *)malloc(nbEle * sizeof(T));
+    T *homo_dx_result = (T *)malloc(nbEle * sizeof(T));
+    T *homo_dy_result = (T *)malloc(nbEle * sizeof(T));
     double decop_elapsed_time, lorenzo_elapsed_time, quant_elapsed_time;
     double err_dx, err_dy;
     struct timespec start, end;
@@ -52,7 +49,9 @@ int main(int argc, char **argv)
     err_dy = verify(decop_dy_result, homo_dy_result, dim1, dim2);
     printf("max_err_dx = %.3e\nmax_err_dy = %.3e\n", err_dx, err_dy);
 
-    free(oriData);
+    double dec_error = verify(oriData, decData, dim1, dim2);
+    std::cout << "decompression error = " << dec_error << std::endl;
+
     free(decData);
     free(cmpData);
     free(homo_dx_result);

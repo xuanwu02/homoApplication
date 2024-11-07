@@ -10,37 +10,43 @@
 int main(int argc, char **argv)
 {
     int argv_id = 1;
-    size_t dim1 = atoi(argv[argv_id++]);
-    size_t dim2 = atoi(argv[argv_id++]);
+    size_t dim1 = 1800;
+    size_t dim2 = 3600;
     int blockSideLength = atoi(argv[argv_id++]);
     if((dim1 % blockSideLength) || (dim2 % blockSideLength)){
         printf("incompatible blockSideLength\n");
         exit(0);
     }
     double errorBound = atof(argv[argv_id++]);
-    size_t nbEle = dim1 * dim2;
 
     using T = float;
-    // compose oriData
-    T * oriData = (T *)malloc(nbEle * sizeof(T));
-    T min = -100, max = 100;
-    int seed = 24;
-    initRandomData(min, max, seed, nbEle, oriData);
+    size_t nbEle;
+    auto oriData_vec = readfile<T>(cldhigh_data_file.c_str(), nbEle);
+    T * oriData = oriData_vec.data();
     // prepare cmpData
     unsigned char *cmpData = (unsigned char *)malloc(4 * nbEle * sizeof(unsigned char));
     size_t cmpSize = 0;
     SZx_compress_2dblock(oriData, cmpData, dim1, dim2, blockSideLength, errorBound, &cmpSize);
     printf("cr = %.2f\n", 1.0 * nbEle * sizeof(T) / cmpSize);
-    free(oriData);
     // decop
     T * decData = (T *)malloc(nbEle * sizeof(T));
     struct timespec start, end;
-    double mean;
+    double elapsed_time;
     clock_gettime(CLOCK_REALTIME, &start);
-    SZx_decompress_2dblock(decData, cmpData, dim1, dim2, blockSideLength, errorBound, mean);
+    SZx_decompress_2dblock(decData, cmpData, dim1, dim2, blockSideLength, errorBound);
     clock_gettime(CLOCK_REALTIME, &end);
-    double elapsed_time1 = (double)(end.tv_sec - start.tv_sec) + (double)(end.tv_nsec - start.tv_nsec)/(double)1000000000;
-    printf("elapsed_time = %.10f, mean = %.16f\n", elapsed_time1, mean);
+    elapsed_time = (double)(end.tv_sec - start.tv_sec) + (double)(end.tv_nsec - start.tv_nsec)/(double)1000000000;
+    printf("decompression time = %.6f\n", elapsed_time);
+    clock_gettime(CLOCK_REALTIME, &start);
+    double mean = 0;
+    for(int i=0; i<nbEle; i++) mean += decData[i];
+    mean /= nbEle;
+    clock_gettime(CLOCK_REALTIME, &end);
+    elapsed_time = (double)(end.tv_sec - start.tv_sec) + (double)(end.tv_nsec - start.tv_nsec)/(double)1000000000;
+    printf("operation time = %.10f, mean = %.16f\n", elapsed_time, mean);
+
+    double dec_error = verify(oriData, decData, dim1, dim2);
+    printf("decompression error = %.6f\n", dec_error);
 
     free(decData);
     free(cmpData);

@@ -23,7 +23,7 @@ int main(int argc, char **argv)
     using T = float;
     T * oriData = (T *)calloc(nbEle, sizeof(T));
     initData(dim1, dim2, oriData);
-    unsigned char *cmpData = (unsigned char *)calloc(4 * nbEle, sizeof(unsigned char));
+    unsigned char *cmpData = (unsigned char *)malloc(4 * nbEle * sizeof(unsigned char));
     size_t cmpSize = 0;
     SZp_compress_1dLorenzo(oriData, cmpData, dim1, dim2, blockSideLength, errorBound, &cmpSize);
     T * h = (T *)calloc(nbEle, sizeof(T));
@@ -41,8 +41,8 @@ int main(int argc, char **argv)
     printf("cr = %f, max_err = %.14f\n", 1.0 * sizeof(T) * nbEle / cmpSize, max_err);
 
     free(h);
-    free(oriData);
     free(decData);
+    free(cmpData);
 
     return 0;
 }
