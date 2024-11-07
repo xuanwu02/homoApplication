@@ -1,5 +1,5 @@
-#ifndef _HOMOAPP_UTILS_HPP
-#define _HOMOAPP_UTILS_HPP
+#ifndef _COMP_UTILS_HPP
+#define _COMP_UTILS_HPP
 
 #include <cstdint>
 #include <iostream>
