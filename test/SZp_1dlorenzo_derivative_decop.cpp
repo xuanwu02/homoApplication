@@ -32,7 +32,7 @@ int main(int argc, char **argv)
     T * decData = (T *)malloc(nbEle * sizeof(T));
     T *decop_dx_result = (T *)malloc(nbEle * sizeof(T));
     T *decop_dy_result = (T *)malloc(nbEle * sizeof(T));
-    double elapsed_time;
+    double elapsed_time, total_time = 0;
     double err_dx, err_dy;
     struct timespec start, end;
     clock_gettime(CLOCK_REALTIME, &start);
@@ -40,11 +40,14 @@ int main(int argc, char **argv)
     clock_gettime(CLOCK_REALTIME, &end);
     elapsed_time = (double)(end.tv_sec - start.tv_sec) + (double)(end.tv_nsec - start.tv_nsec)/(double)1000000000;
     printf("decompression time = %.6f\n", elapsed_time);
+    total_time += elapsed_time;
     clock_gettime(CLOCK_REALTIME, &start);
     compute_dxdy(dim1, dim2, decData, decop_dx_result, decop_dy_result);
     clock_gettime(CLOCK_REALTIME, &end);
     elapsed_time = (double)(end.tv_sec - start.tv_sec) + (double)(end.tv_nsec - start.tv_nsec)/(double)1000000000;
     printf("operation time = %.6f\n", elapsed_time);
+    total_time += elapsed_time;
+    printf("total time = %.6f\n", total_time);
 
     double dec_error = verify(oriData, decData, dim1, dim2);
     printf("decompression error = %.6f\n", dec_error);

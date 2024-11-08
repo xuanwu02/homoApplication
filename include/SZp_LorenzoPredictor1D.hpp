@@ -2105,42 +2105,52 @@ void SZp_recoverToQuant_blockRow_1dLorenzo(
     size_t cmp_block_sign_length = (blockSize + 7) / 8;
     std::vector<int> ending_quant(blockSideLength, 0);
     int y, i, j;
+    int * recover_pos = quantInds;
     for(y=0; y<block_dim2; y++){
         int block_index = blockRow_ind * block_dim2 + y;
         int temp_fixed_rate = fixedRate[block_index];
         int global_offset = blockSize * y;
-        int local_offset, local_index, global_index;
+        int local_index, global_index;
         if(temp_fixed_rate){
             convertByteArray2IntArray_fast_1b_args(blockSize, cmpData_pos, cmp_block_sign_length, signFlag);
             cmpData_pos += cmp_block_sign_length;
             unsigned int savedbitsbytelength = Jiajun_extract_fixed_length_bits(cmpData_pos, blockSize, absQuantDiff, temp_fixed_rate);
             cmpData_pos += savedbitsbytelength;
             int curr_quant, quant_diff, prev_quant;
+            int * row_pos = recover_pos;
+            local_index = 0;
             for(i=0; i<blockSideLength; i++){
                 prev_quant = ending_quant[i];
-                local_offset = i * blockSideLength;
+                int * col_pos = row_pos;
                 for(j=0; j<blockSideLength; j++){
-                    local_index = local_offset + j;
-                    global_index = i * dim2 + y * blockSideLength + j;
                     int sign = -(int)signFlag[local_index];
                     quant_diff = (absQuantDiff[local_index] ^ sign) - sign;
+                    local_index++;
                     curr_quant = quant_diff + prev_quant;
                     prev_quant = curr_quant;
-                    quantInds[global_index] = curr_quant;
+                    *(col_pos++) = curr_quant;
+                    // global_index = i * dim2 + y * blockSideLength + j;
+                    // quantInds[global_index] = curr_quant;
                 }
                 ending_quant[i] = curr_quant;
+                row_pos += dim2;
             }
         }
         else{
+            int * row_pos = recover_pos;
             for(i=0; i<blockSideLength; i++){
                 int tar_quant = ending_quant[i];
+                int * col_pos = row_pos;
                 for(j=0; j<blockSideLength; j++){
-                    global_index = i * dim2 + y * blockSideLength + j;
-                    quantInds[global_index] = tar_quant;
+                    *(col_pos++) = tar_quant;
+                    // global_index = i * dim2 + y * blockSideLength + j;
+                    // quantInds[global_index] = tar_quant;
                 }
                 ending_quant[i] = tar_quant;
+                row_pos += dim2;
             }
         }
+        recover_pos += blockSideLength;
     }
 }                                    
 
@@ -2380,6 +2390,7 @@ void SZp_recoverToLorenzo_blockRow_1dLorenzo(
 ){
     size_t cmp_block_sign_length = (blockSize + 7) / 8;
     int y, i, j;
+    int * recover_pos = lorenzoPred;
     for(y=0; y<block_dim2; y++){
         int block_index = blockRow_ind * block_dim2 + y;
         int temp_fixed_rate = fixedRate[block_index];
@@ -2391,27 +2402,38 @@ void SZp_recoverToLorenzo_blockRow_1dLorenzo(
             cmpData_pos += cmp_block_sign_length;
             unsigned int savedbitsbytelength = Jiajun_extract_fixed_length_bits(cmpData_pos, blockSize, absQuantDiff, temp_fixed_rate);
             cmpData_pos += savedbitsbytelength;
+            int * row_pos = recover_pos;
+            local_index = 0;
             for(i=0; i<blockSideLength; i++){
-                local_offset = i * blockSideLength;
+                // local_offset = i * blockSideLength;
                 tail = 0;
+                int * col_pos = row_pos;
                 for(j=0; j<blockSideLength; j++){
-                    local_index = local_offset + j;
-                    global_index = i * dim2 + y * blockSideLength + j;
+                    // local_index = local_offset + j;
                     int sign = -(int)signFlag[local_index];
                     quant_diff = (absQuantDiff[local_index] ^ sign) - sign;
-                    lorenzoPred[global_index] = quant_diff;
+                    local_index++;
+                    // global_index = i * dim2 + y * blockSideLength + j;
+                    // lorenzoPred[global_index] = quant_diff;
+                    *(col_pos++) = quant_diff;
                     tail += quant_diff;
                 }
+                row_pos += dim2;
             }
         }
         else{
+            int * row_pos = recover_pos;
             for(i=0; i<blockSideLength; i++){
+                int * col_pos = row_pos;
                 for(j=0; j<blockSideLength; j++){
-                    global_index = i * dim2 + y * blockSideLength + j;
-                    lorenzoPred[global_index] = 0;
+                    *(col_pos++) = 0;
+                    // global_index = i * dim2 + y * blockSideLength + j;
+                    // lorenzoPred[global_index] = 0;
                 }
+                row_pos += dim2;
             }
         }
+        recover_pos += blockSideLength;
     }
 }                                    
 

@@ -31,12 +31,13 @@ int main(int argc, char **argv)
     // decop
     T * decData = (T *)malloc(nbEle * sizeof(T));
     struct timespec start, end;
-    double elapsed_time;
+    double elapsed_time, total_time = 0;
     clock_gettime(CLOCK_REALTIME, &start);
     SZx_decompress_2dblock(decData, cmpData, dim1, dim2, blockSideLength, errorBound);
     clock_gettime(CLOCK_REALTIME, &end);
     elapsed_time = (double)(end.tv_sec - start.tv_sec) + (double)(end.tv_nsec - start.tv_nsec)/(double)1000000000;
     printf("decompression time = %.6f\n", elapsed_time);
+    total_time += elapsed_time;
     clock_gettime(CLOCK_REALTIME, &start);
     double mean = 0;
     for(int i=0; i<nbEle; i++) mean += decData[i];
@@ -44,6 +45,8 @@ int main(int argc, char **argv)
     clock_gettime(CLOCK_REALTIME, &end);
     elapsed_time = (double)(end.tv_sec - start.tv_sec) + (double)(end.tv_nsec - start.tv_nsec)/(double)1000000000;
     printf("operation time = %.10f, mean = %.16f\n", elapsed_time, mean);
+    total_time += elapsed_time;
+    printf("total time = %.6f\n", total_time);
 
     double dec_error = verify(oriData, decData, dim1, dim2);
     printf("decompression error = %.6f\n", dec_error);
