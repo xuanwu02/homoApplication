@@ -183,4 +183,10 @@ void print_matrix_int(int dim1, int dim2, std::string name, int *mat)
     }
 }
 
+template <class T>
+inline int SZp_quantize(const T& data, double errorBound)
+{
+    return static_cast<int>(std::floor((data + errorBound) / (2 * errorBound)));
+}
+
 #endif

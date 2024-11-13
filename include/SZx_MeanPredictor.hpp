@@ -10,12 +10,6 @@
 #include "application_utils.hpp"
 
 template <class T>
-inline int SZp_quantize(const T& data, double errorBound)
-{
-    return static_cast<int>(std::floor((data + errorBound) / (2 * errorBound)));
-}
-
-template <class T>
 void SZx_compress_kernel_2dblock(
     T *oriData, unsigned char *cmpData,
     size_t dim1, size_t dim2, int blockSideLength,
