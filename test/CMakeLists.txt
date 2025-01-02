@@ -9,6 +9,3 @@ foreach(TEST_FILE ${TEST_FILES})
     get_filename_component(TEST_NAME ${TEST_FILE} NAME_WE)
     add_my_executable(${TEST_NAME} ${TEST_FILE})
 endforeach(TEST_FILE)
-
-# add_my_executable(SZp_2dlorenzo_dxdy_decop SZp_2dlorenzo_dxdy_decop.cpp)
-# add_my_executable(SZp_2dlorenzo_dxdy_postPred SZp_2dlorenzo_dxdy_postPred.cpp)

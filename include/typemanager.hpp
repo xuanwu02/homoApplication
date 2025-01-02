@@ -2095,6 +2095,15 @@ size_t Jiajun_extract_fixed_length_bits(unsigned char *result, size_t intArrayLe
 	return byteLength;
 }
 
+inline void convert2SignIntArray(
+    const unsigned char *signFlag,
+    int *signPrediction, int n
+){
+    for(int i=0; i<n; i++){
+        if(signFlag[i]) signPrediction[i] *= -1;
+    }
+}
+
 inline size_t compute_encoding_byteLength(size_t intArrayLength, int bit_count)
 {
     unsigned int byte_count = bit_count / 8;
