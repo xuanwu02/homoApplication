@@ -9,3 +9,6 @@ foreach(TEST_FILE ${TEST_FILES})
     get_filename_component(TEST_NAME ${TEST_FILE} NAME_WE)
     add_my_executable(${TEST_NAME} ${TEST_FILE})
 endforeach(TEST_FILE)
+
+# add_my_executable(SZx_2d_mean_decop SZx_2d_mean_decop.cpp)
+# add_my_executable(SZx_2d_mean_fast SZx_2d_mean_fast.cpp)

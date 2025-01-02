@@ -33,7 +33,7 @@ int main(int argc, char **argv)
     printf("cr = %.2f\n", 1.0 * nbEle * sizeof(T) / cmpSize);
 
     clock_gettime(CLOCK_REALTIME, &start);
-    T mean = SZp_mean_2dLorenzo_recover2PrePred<T>(cmpData, dim1, dim2, blockSideLength, errorBound);
+    double mean = SZp_mean_2dLorenzo_recover2PrePred(cmpData, dim1, dim2, blockSideLength, errorBound);
     clock_gettime(CLOCK_REALTIME, &end);
     elapsed_time = get_elapsed_time(start, end);
     printf("elapsed_time = %.6f\n", elapsed_time);

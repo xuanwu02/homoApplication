@@ -41,7 +41,7 @@ int main(int argc, char **argv)
     total_time += elapsed_time;
 
     clock_gettime(CLOCK_REALTIME, &start);
-    T mean = 0, var = 0;
+    double mean = 0, var = 0;
     for(size_t i=0; i<nbEle; i++) mean += decData[i];
     mean /= nbEle;
     for(size_t i=0; i<nbEle; i++) var += (decData[i] - mean) * (decData[i] - mean);

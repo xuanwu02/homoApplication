@@ -209,8 +209,7 @@ inline int compute_block_mean_quant(
     return mean_quant;
 }
 
-template <class T>
-inline T compute_mean_2d(
+inline double compute_mean_2d(
     DSize_2d& size, const unsigned char *cmpData_pos, double errorBound
 ){
     const unsigned char * qmean_pos = cmpData_pos;
@@ -228,7 +227,7 @@ inline T compute_mean_2d(
             sum += mean * block_size;
         }
     }
-    T mean = sum * 2 * errorBound / size.nbEle;
+    double mean = sum * 2 * errorBound / size.nbEle;
     return mean;
 }
 
@@ -257,8 +256,7 @@ inline T compute_integer_mean_2d(
     return int_mean;
 }
 
-template <class T>
-inline T compute_mean_3d(
+inline double compute_mean_3d(
     DSize_3d& size, const unsigned char *cmpData_pos, double errorBound
 ){
     const unsigned char * qmean_pos = cmpData_pos;
@@ -279,7 +277,7 @@ inline T compute_mean_3d(
             }
         }
     }
-    T mean = sum * 2 * errorBound / size.nbEle;
+    double mean = sum * 2 * errorBound / size.nbEle;
     return mean;
 }
 

@@ -118,19 +118,17 @@ void SZx_decompress_2dMeanbased(
     free(blocks_mean_quant);
 }
 
-template <class T>
-T SZx_mean_2dMeanbased(
+double SZx_mean_2dMeanbased(
     unsigned char *cmpData, size_t dim1, size_t dim2,
     int blockSideLength, double errorBound
 ){
     DSize_2d size(dim1, dim2, blockSideLength);
     unsigned char * qmean_pos = cmpData + FIXED_RATE_PER_BLOCK_BYTES * size.num_blocks;
-    T mean = compute_mean_2d<T>(size, qmean_pos, errorBound);
+    double mean = compute_mean_2d(size, qmean_pos, errorBound);
     return mean;
 }
 
-template <class T>
-T SZx_variance_2dMeanbased(
+double SZx_variance_2dMeanbased(
     unsigned char *cmpData, size_t dim1, size_t dim2,
     int blockSideLength, double errorBound
 ){
@@ -171,7 +169,7 @@ T SZx_variance_2dMeanbased(
     free(signFlag);
     free(blocks_mean_quant);
     free(block_quant_inds);
-    T var = (2 * errorBound) * (2 * errorBound) * squared_sum / (size.nbEle - 1);
+    double var = (2 * errorBound) * (2 * errorBound) * squared_sum / (size.nbEle - 1);
     return var;
 }
 

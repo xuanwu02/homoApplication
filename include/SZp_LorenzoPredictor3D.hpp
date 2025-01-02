@@ -149,8 +149,7 @@ void SZp_decompress_3dLorenzo(
     free(signFlag);
 }
 
-template <class T>
-T SZp_mean_3dLorenzo_recover2PostPred(
+double SZp_mean_3dLorenzo_recover2PostPred(
     unsigned char *cmpData, size_t dim1, size_t dim2, size_t dim3,
     int blockSideLength, double errorBound
 ){
@@ -198,12 +197,11 @@ T SZp_mean_3dLorenzo_recover2PostPred(
     }
     free(signPredError);
     free(signFlag);
-    T mean = quant_sum * 2 * errorBound / size.nbEle;
+    double mean = quant_sum * 2 * errorBound / size.nbEle;
     return mean;
 }
 
-template <class T>
-T SZp_mean_3dLorenzo_recover2PrePred(
+double SZp_mean_3dLorenzo_recover2PrePred(
     unsigned char *cmpData, size_t dim1, size_t dim2, size_t dim3,
     int blockSideLength, double errorBound
 ){
@@ -257,7 +255,7 @@ T SZp_mean_3dLorenzo_recover2PrePred(
     }
     free(signPredError);
     free(signFlag);
-    T mean = quant_sum * 2 * errorBound / size.nbEle;
+    double mean = quant_sum * 2 * errorBound / size.nbEle;
     return mean;
 }
 

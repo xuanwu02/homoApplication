@@ -15,7 +15,8 @@ int main(int argc, char **argv)
     double errorBound = atof(argv[argv_id++]);
 
     using T = float;
-    size_t dim1 = 100, dim2 = 500, dim3 = 500;
+    size_t dim1 = 512, dim2 = 512, dim3 = 512;
+    // size_t dim1 = 100, dim2 = 500, dim3 = 500;
     double elapsed_time, total_time = 0;
     struct timespec start, end;
 
@@ -33,7 +34,7 @@ int main(int argc, char **argv)
     writefile("test.dat", cmpData, cmpSize);
     std::vector<unsigned char> compressed = readfile<unsigned char>("test.dat", nbEle);
     clock_gettime(CLOCK_REALTIME, &start);
-    auto mean = SZp_mean_3dLorenzo_recover2PrePred<T>(compressed.data(), dim1, dim2, dim3, blockSideLength, errorBound);
+    double mean = SZp_mean_3dLorenzo_recover2PrePred(compressed.data(), dim1, dim2, dim3, blockSideLength, errorBound);
     clock_gettime(CLOCK_REALTIME, &end);
     elapsed_time = get_elapsed_time(start, end);
     printf("elapsed_time = %.6f\n", elapsed_time);

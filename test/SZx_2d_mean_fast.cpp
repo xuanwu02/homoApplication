@@ -34,7 +34,7 @@ int main(int argc, char **argv)
     printf("cr = %.2f\n", 1.0 * nbEle * sizeof(T) / cmpSize);
 
     clock_gettime(CLOCK_REALTIME, &start);
-    T mean = SZx_mean_2dMeanbased<T>(cmpData, dim1, dim2, blockSideLength, errorBound);
+    double mean = SZx_mean_2dMeanbased(cmpData, dim1, dim2, blockSideLength, errorBound);
     clock_gettime(CLOCK_REALTIME, &end);
     elapsed_time = get_elapsed_time(start, end);
     printf("elapsed_time = %.6f\n", elapsed_time);

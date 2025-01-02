@@ -15,7 +15,8 @@ int main(int argc, char **argv)
     double errorBound = atof(argv[argv_id++]);
 
     using T = float;
-    size_t dim1 = 100, dim2 = 500, dim3 = 500;
+    size_t dim1 = 512, dim2 = 512, dim3 = 512;
+    // size_t dim1 = 100, dim2 = 500, dim3 = 500;
     double elapsed_time, total_time = 0;
     struct timespec start, end;
 
@@ -33,7 +34,7 @@ int main(int argc, char **argv)
     printf("cr = %.2f\n", 1.0 * nbEle * sizeof(T) / cmpSize);
 
     clock_gettime(CLOCK_REALTIME, &start);
-    T var = SZx_variance_3dMeanbased<T>(cmpData, dim1, dim2, dim3, blockSideLength, errorBound);
+    double var = SZx_variance_3dMeanbased(cmpData, dim1, dim2, dim3, blockSideLength, errorBound);
     clock_gettime(CLOCK_REALTIME, &end);
     elapsed_time = get_elapsed_time(start, end);
     printf("elapsed_time = %.6f\n", elapsed_time);

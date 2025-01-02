@@ -15,7 +15,8 @@ int main(int argc, char **argv)
     double errorBound = atof(argv[argv_id++]);
 
     using T = float;
-    size_t dim1 = 100, dim2 = 500, dim3 = 500;
+    size_t dim1 = 512, dim2 = 512, dim3 = 512;
+    // size_t dim1 = 100, dim2 = 500, dim3 = 500;
     double elapsed_time, total_time = 0;
     struct timespec start, end;
 
@@ -39,7 +40,7 @@ int main(int argc, char **argv)
     printf("  decompression time = %.6f\n", elapsed_time);
     total_time += elapsed_time;
     clock_gettime(CLOCK_REALTIME, &start);
-    T mean = 0;
+    double mean = 0;
     for(size_t i=0; i<nbEle; i++) mean += decData[i];
     mean /= nbEle;
     clock_gettime(CLOCK_REALTIME, &end);
