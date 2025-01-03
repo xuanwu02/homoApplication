@@ -217,7 +217,51 @@ double SZp_mean_2dLorenzo_recover2PrePred(
     return mean;
 }
 
-struct timespec start, end;
+template <class T>
+double SZp_mean_2dLorenzo_decOp(
+    unsigned char *cmpData, size_t dim1, size_t dim2,
+    T *decData, int blockSideLength, double errorBound
+){
+    size_t nbEle = dim1 * dim2;
+    SZp_decompress_2dLorenzo(decData, cmpData, dim1, dim2, blockSideLength, errorBound);
+    double mean = 0;
+    for(size_t i=0; i<nbEle; i++) mean += decData[i];
+    mean /= nbEle;
+    return mean;
+}
+
+template <class T>
+double SZp_mean_2dLorenzo(
+    unsigned char *cmpData, size_t dim1, size_t dim2,
+    T *decData, int blockSideLength, double errorBound, decmpState state
+){
+    double mean;
+
+    struct timespec start, end;
+    double elapsed_time;
+    clock_gettime(CLOCK_REALTIME, &start);
+    switch(state){
+        case decmpState::postPred:{
+            mean = SZp_mean_2dLorenzo_recover2PostPred(cmpData, dim1, dim2, blockSideLength, errorBound);
+            break;
+        }
+        case decmpState::prePred:{
+            mean = SZp_mean_2dLorenzo_recover2PrePred(cmpData, dim1, dim2, blockSideLength, errorBound);
+            break;
+        }
+        case decmpState::full:{
+            mean = SZp_mean_2dLorenzo_decOp(cmpData, dim1, dim2, decData, blockSideLength, errorBound);
+            break;
+        }
+    }
+    clock_gettime(CLOCK_REALTIME, &end);
+    elapsed_time = get_elapsed_time(start, end);
+    printf("elapsed_time = %.6f\n", elapsed_time);
+
+    return mean;
+}
+
+// struct timespec start, end;
 double postPred_decmp_time = 0;
 double postPred_op_time = 0;
 double postPred_cmp_time = 0;
@@ -230,7 +274,7 @@ inline void recoverBlockRow2PostPred(
     SZpCmpBufferSet *cmpkit_set, unsigned char *& encode_pos,
     int *buffer_data_pos, size_t buffer_dim0_offset, int *decmp_buffer
 ){
-clock_gettime(CLOCK_REALTIME, &start);
+// clock_gettime(CLOCK_REALTIME, &start);
     int block_ind = x * size.block_dim2;
     int size_x = ((x+1)*size.Bsize < size.dim1) ? size.Bsize : size.dim1 - x*size.Bsize;
     int * buffer_start_pos = buffer_data_pos;
@@ -261,8 +305,8 @@ clock_gettime(CLOCK_REALTIME, &start);
         }        
         buffer_start_pos += size.Bsize;
     }
-clock_gettime(CLOCK_REALTIME, &end);
-postPred_decmp_time += (double)(end.tv_sec - start.tv_sec) + (double)(end.tv_nsec - start.tv_nsec)/(double)1000000000;
+// clock_gettime(CLOCK_REALTIME, &end);
+// postPred_decmp_time += (double)(end.tv_sec - start.tv_sec) + (double)(end.tv_nsec - start.tv_nsec)/(double)1000000000;
 }
 
 inline void recoverBlockRow2PrePred(
@@ -270,7 +314,7 @@ inline void recoverBlockRow2PrePred(
     SZpCmpBufferSet *cmpkit_set, unsigned char *& encode_pos,
     int *buffer_data_pos, size_t buffer_dim0_offset, int *decmp_buffer
 ){
-clock_gettime(CLOCK_REALTIME, &start);
+// clock_gettime(CLOCK_REALTIME, &start);
     int block_ind = x * size.block_dim2;
     int size_x = ((x+1)*size.Bsize < size.dim1) ? size.Bsize : size.dim1 - x*size.Bsize;
     int * buffer_start_pos = buffer_data_pos;
@@ -304,8 +348,8 @@ clock_gettime(CLOCK_REALTIME, &start);
         buffer_start_pos += size.Bsize;
     }
     memcpy(decmp_buffer, buffer_data_pos+(size.Bsize-1)*buffer_dim0_offset-1, buffer_dim0_offset*sizeof(int));
-clock_gettime(CLOCK_REALTIME, &end);
-prePred_decmp_time += (double)(end.tv_sec - start.tv_sec) + (double)(end.tv_nsec - start.tv_nsec)/(double)1000000000;
+// clock_gettime(CLOCK_REALTIME, &end);
+// prePred_decmp_time += (double)(end.tv_sec - start.tv_sec) + (double)(end.tv_nsec - start.tv_nsec)/(double)1000000000;
 }
 
 template <class T>
@@ -314,7 +358,7 @@ inline void dxdyProcessBlockRowPostPred(
     T *dx_start_pos, T *dy_start_pos, double errorBound,
     bool isTopRow, bool isBottomRow
 ){
-clock_gettime(CLOCK_REALTIME, &start);
+// clock_gettime(CLOCK_REALTIME, &start);
     int size_x = ((x+1) * size.Bsize < size.dim1) ? size.Bsize : size.dim1 - x * size.Bsize;
     const int * buffer_pos = buffer_set->currRow_data_pos;
     T *dx_pos = dx_start_pos;
@@ -336,8 +380,8 @@ clock_gettime(CLOCK_REALTIME, &start);
         dy_pos += size.dim2;
         buffer_pos += buffer_set->buffer_dim0_offset;
     }
-clock_gettime(CLOCK_REALTIME, &end);
-postPred_op_time += (double)(end.tv_sec - start.tv_sec) + (double)(end.tv_nsec - start.tv_nsec)/(double)1000000000;
+// clock_gettime(CLOCK_REALTIME, &end);
+// postPred_op_time += (double)(end.tv_sec - start.tv_sec) + (double)(end.tv_nsec - start.tv_nsec)/(double)1000000000;
 }
 
 template <class T>
@@ -346,7 +390,7 @@ inline void dxdyProcessBlockRowPrePred(
     T *dx_start_pos, T *dy_start_pos, double errorBound,
     bool isTopRow, bool isBottomRow
 ){
-clock_gettime(CLOCK_REALTIME, &start);
+// clock_gettime(CLOCK_REALTIME, &start);
     int size_x = ((x+1) * size.Bsize < size.dim1) ? size.Bsize : size.dim1 - x * size.Bsize;
     const int * buffer_pos = buffer_set->currRow_data_pos;
     T *dx_pos = dx_start_pos;
@@ -370,8 +414,8 @@ clock_gettime(CLOCK_REALTIME, &start);
         dx_pos += size.dim2;
         buffer_pos += buffer_set->buffer_dim0_offset;
     }
-clock_gettime(CLOCK_REALTIME, &end);
-prePred_op_time += (double)(end.tv_sec - start.tv_sec) + (double)(end.tv_nsec - start.tv_nsec)/(double)1000000000;
+// clock_gettime(CLOCK_REALTIME, &end);
+// prePred_op_time += (double)(end.tv_sec - start.tv_sec) + (double)(end.tv_nsec - start.tv_nsec)/(double)1000000000;
 }
 
 template <class T>
@@ -449,12 +493,17 @@ void SZp_dxdy_2dLorenzo(
     int * Buffer_2d = (int *)malloc(buffer_size * 3 * sizeof(int));
     int * Buffer_1d = (int *)malloc(buffer_dim2 * 2 * sizeof(int));
     int * signPredError = (int *)malloc(size.max_num_block_elements*sizeof(int));
+    T * decData = (T *)malloc(size.nbEle * sizeof(T));
     unsigned char * signFlag = (unsigned char *)malloc(size.max_num_block_elements*sizeof(unsigned char));
     SZpAppBufferSet_2d * buffer_set = new SZpAppBufferSet_2d(buffer_dim1, buffer_dim2, Buffer_2d, Buffer_1d, appType::CENTRALDIFF);
     SZpCmpBufferSet * cmpkit_set = new SZpCmpBufferSet(cmpData, signPredError, signFlag);
     unsigned char * encode_pos = cmpData + FIXED_RATE_PER_BLOCK_BYTES * size.num_blocks;
     T * dx_pos = dx_result;
     T * dy_pos = dy_result;
+
+    struct timespec start, end;
+    double elapsed_time;
+    clock_gettime(CLOCK_REALTIME, &start);
     switch(state){
         case decmpState::postPred:{
             dxdyProcessBlocksPostPred(size, cmpkit_set, buffer_set, encode_pos, dx_pos, dy_pos, errorBound);
@@ -464,13 +513,24 @@ void SZp_dxdy_2dLorenzo(
             dxdyProcessBlocksPrePred(size, cmpkit_set, buffer_set, encode_pos, dx_pos, dy_pos, errorBound);
             break;
         }
+        case decmpState::full:{
+            SZp_decompress_2dLorenzo(decData, cmpData, dim1, dim2, blockSideLength, errorBound);
+            compute_dxdy(dim1, dim2, decData, dx_pos, dy_pos);
+            break;
+        }
+
     }
+    clock_gettime(CLOCK_REALTIME, &end);
+    elapsed_time = get_elapsed_time(start, end);
+    printf("elapsed_time = %.6f\n", elapsed_time);
+
     delete buffer_set;
     delete cmpkit_set;
     free(Buffer_2d);
     free(Buffer_1d);
     free(signPredError);
     free(signFlag);
+    free(decData);
 }
 
 inline void heatdisRecoverBlockRow2PostPred(
@@ -566,7 +626,7 @@ inline void heatdisProcessBlockRowPrePred(
     SZpAppBufferSet_2d *buffer_set, int iter,
     bool isTopRow, bool isBottomRow
 ){
-clock_gettime(CLOCK_REALTIME, &start);
+// clock_gettime(CLOCK_REALTIME, &start);
     int size_x = ((x+1) * size.Bsize < size.dim1) ? size.Bsize : size.dim1 - x * size.Bsize;
     const int * prevBlockRowBottom_pos = isTopRow ? nullptr : buffer_set->prevRow_data_pos + (size.Bsize - 1) * buffer_set->buffer_dim0_offset - 1;
     const int * nextBlockRowTop_pos = isBottomRow ? nullptr : buffer_set->nextRow_data_pos - 1;
@@ -591,8 +651,8 @@ clock_gettime(CLOCK_REALTIME, &start);
         buffer_start_pos += size_y;
         update_start_pos += size_y;
     }
-clock_gettime(CLOCK_REALTIME, &end);
-prePred_op_time += (double)(end.tv_sec - start.tv_sec) + (double)(end.tv_nsec - start.tv_nsec)/(double)1000000000;
+// clock_gettime(CLOCK_REALTIME, &end);
+// prePred_op_time += (double)(end.tv_sec - start.tv_sec) + (double)(end.tv_nsec - start.tv_nsec)/(double)1000000000;
 }
 
 inline void compressBlockRowFromPostPred(
@@ -600,7 +660,7 @@ inline void compressBlockRowFromPostPred(
     SZpCmpBufferSet *cmpkit_set, int current, int next,
     int iter, bool isTopRow
 ){
-clock_gettime(CLOCK_REALTIME, &start);
+// clock_gettime(CLOCK_REALTIME, &start);
     int size_x = ((x+1) * size.Bsize < size.dim1) ? size.Bsize : size.dim1 - x * size.Bsize;
     int block_ind = x * size.block_dim2;
     unsigned char * cmpData = cmpkit_set->cmpData[next];
@@ -639,8 +699,8 @@ clock_gettime(CLOCK_REALTIME, &start);
     cmpkit_set->cmpSize += increment;
     cmpkit_set->prefix_length += increment;
     cmpkit_set->offsets[next][x+1] = cmpkit_set->prefix_length;
-clock_gettime(CLOCK_REALTIME, &end);
-postPred_cmp_time += (double)(end.tv_sec - start.tv_sec) + (double)(end.tv_nsec - start.tv_nsec)/(double)1000000000;
+// clock_gettime(CLOCK_REALTIME, &end);
+// postPred_cmp_time += (double)(end.tv_sec - start.tv_sec) + (double)(end.tv_nsec - start.tv_nsec)/(double)1000000000;
 }
 
 inline void compressBlockRowFromPrePred(
@@ -648,7 +708,7 @@ inline void compressBlockRowFromPrePred(
     SZpCmpBufferSet *cmpkit_set, int current, int next,
     int iter, bool isTopRow
 ){
-clock_gettime(CLOCK_REALTIME, &start);
+// clock_gettime(CLOCK_REALTIME, &start);
     buffer_set->set_cmp_buffer(isTopRow);
     int size_x = ((x+1) * size.Bsize < size.dim1) ? size.Bsize : size.dim1 - x * size.Bsize;
     int block_ind = x * size.block_dim2;
@@ -689,8 +749,8 @@ clock_gettime(CLOCK_REALTIME, &start);
     cmpkit_set->cmpSize += increment;
     cmpkit_set->prefix_length += increment;
     cmpkit_set->offsets[next][x+1] = cmpkit_set->prefix_length;
-clock_gettime(CLOCK_REALTIME, &end);
-prePred_cmp_time += (double)(end.tv_sec - start.tv_sec) + (double)(end.tv_nsec - start.tv_nsec)/(double)1000000000;
+// clock_gettime(CLOCK_REALTIME, &end);
+// prePred_cmp_time += (double)(end.tv_sec - start.tv_sec) + (double)(end.tv_nsec - start.tv_nsec)/(double)1000000000;
 }
 
 inline void heatdisUpdatePostPred(
@@ -805,6 +865,8 @@ void SZp_heatdis_2dLorenzo(
     unsigned int * absPredError = (unsigned int *)malloc(size.max_num_block_elements * sizeof(unsigned int));
     int * signPredError = (int *)malloc(size.max_num_block_elements * sizeof(int));
     unsigned char * signFlag = (unsigned char *)malloc(size.max_num_block_elements * sizeof(unsigned char));
+    T * decData = (T *)malloc(size.nbEle * sizeof(T));
+    T * h = (T *)malloc(size.nbEle * sizeof(T));
     unsigned char **cmpData = (unsigned char **)malloc(2 * sizeof(unsigned char *));
     int **offsets = (int **)malloc(2*sizeof(int *));
     for(int i=0; i<2; i++){
@@ -832,6 +894,11 @@ void SZp_heatdis_2dLorenzo(
     Temperature_info temp_info(source_temp, wall_temp, ratio, errorBound);
     SZpAppBufferSet_2d * buffer_set = new SZpAppBufferSet_2d(buffer_dim1, buffer_dim2, Buffer_2d, Buffer_1d, appType::HEATDIS);
     SZpCmpBufferSet * cmpkit_set = new SZpCmpBufferSet(cmpData, offsets, absPredError, signPredError, signFlag);
+    int status = max_iter % 2;
+
+    struct timespec start, end;
+    double elapsed_time;
+    clock_gettime(CLOCK_REALTIME, &start);
     switch(state){
         case decmpState::postPred:{
             temp_info.prepare_src_row(size.dim2, buffer_set->decmp_buffer, buffer_set->lorenzo_buffer);
@@ -842,9 +909,33 @@ void SZp_heatdis_2dLorenzo(
             heatdisUpdatePrePred(size, cmpkit_set, buffer_set, temp_info, max_iter);
             break;
         }
+        case decmpState::full:{
+            unsigned char * compressed = cmpData[status];
+            for(int i=0; i<max_iter; i++){
+                SZp_decompress_2dLorenzo(decData, compressed, dim1, dim2, blockSideLength, errorBound);
+                doWork(dim1, dim2, decData, h, source_temp, wall_temp, ratio);
+                SZp_compress_2dLorenzo(decData, compressed, dim1, dim2, blockSideLength, errorBound, cmpSize);
+            }
+            break;
+        }
     }
-    cmpSize = size.num_blocks + cmpkit_set->cmpSize;
-    int status = max_iter % 2;
+    clock_gettime(CLOCK_REALTIME, &end);
+    elapsed_time = get_elapsed_time(start, end);
+    printf("elapsed_time = %.6f\n", elapsed_time);
+
+    switch(state){
+        case decmpState::postPred:{
+            cmpSize = size.num_blocks + cmpkit_set->cmpSize;
+            break;
+        }
+        case decmpState::prePred:{
+            cmpSize = size.num_blocks + cmpkit_set->cmpSize;
+            break;
+        }
+        case decmpState::full:{
+            break;
+        }
+    }
     memmove(compressed_data, cmpData[status], size.nbEle*sizeof(T));
 
     delete buffer_set;
@@ -854,6 +945,8 @@ void SZp_heatdis_2dLorenzo(
     free(absPredError);
     free(signPredError);
     free(signFlag);
+    free(decData);
+    free(h);
     for(int i=0; i<2; i++){
         free(cmpData[i]);
         free(offsets[i]);

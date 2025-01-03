@@ -13,13 +13,12 @@ int main(int argc, char **argv)
     int argv_id = 1;
     int blockSideLength = atoi(argv[argv_id++]);
     double errorBound = atof(argv[argv_id++]);
+    int type = atoi(argv[argv_id++]);
+    decmpState state = intToDecmpState(type);
 
     using T = float;
     size_t dim1 = 512, dim2 = 512, dim3 = 512;
     // size_t dim1 = 100, dim2 = 500, dim3 = 500;
-    double elapsed_time, total_time = 0;
-    struct timespec start, end;
-
     size_t nbEle;
     auto oriData_vec = readfile<T>(data_file_3d.c_str(), nbEle);
     assert(nbEle == dim1 * dim2 * dim3);
@@ -32,16 +31,17 @@ int main(int argc, char **argv)
     size_t cmpSize = 0;
     SZr_compress_3dRegression(oriData, cmpData, dim1, dim2, dim3, blockSideLength, errorBound, cmpSize);
     printf("cr = %.2f\n", 1.0 * nbEle * sizeof(T) / cmpSize);
-    clock_gettime(CLOCK_REALTIME, &start);
-    double mean = SZr_mean_3dRegression(cmpData, dim1, dim2, dim3, blockSideLength, errorBound);
-    clock_gettime(CLOCK_REALTIME, &end);
-    elapsed_time = get_elapsed_time(start, end);
-    printf("elapsed_time = %.6f\n", elapsed_time);
-    printf("mean = %.6f\n", mean);
 
-    SZr_decompress_3dRegression(decData, cmpData, dim1, dim2, dim3, blockSideLength, errorBound);
-    double dec_error = verify(oriData, decData, dim1, dim2);
-    printf("dec_error = %.6f\n", dec_error);
+    double var = SZr_variance_3d(cmpData, dim1, dim2, dim3, decData, blockSideLength, errorBound, state);
+    printf("variance = %.6f\n", var);
+
+    double act_mean = 0;
+    for(size_t i=0; i<nbEle; i++) act_mean += oriData[i];
+    act_mean /= nbEle;
+    double act_var = 0;
+    for(size_t i=0; i<nbEle; i++) act_var += (oriData[i] - act_mean) * (oriData[i] - act_mean);
+    act_var /= (nbEle - 1);
+    printf("error = %.6f\n", fabs(act_var - var));
 
     free(decData);
     free(cmpData);

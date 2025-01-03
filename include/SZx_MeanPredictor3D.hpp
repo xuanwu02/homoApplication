@@ -8,6 +8,7 @@
 #include <vector>
 #include "typemanager.hpp"
 #include "SZx_app_utils.hpp"
+#include "utils.hpp"
 
 template <class T>
 void SZx_compress_3dMeanbased(
@@ -136,6 +137,19 @@ void SZx_decompress_3dMeanbased(
     free(blocks_mean_quant);
 }
 
+template <class T>
+double SZx_mean_3d_decOp(
+    unsigned char *cmpData, size_t dim1, size_t dim2, size_t dim3,
+    T *decData, int blockSideLength, double errorBound
+){
+    size_t nbEle = dim1 * dim2 * dim3;
+    SZx_decompress_3dMeanbased(decData, cmpData, dim1, dim2, dim3, blockSideLength, errorBound);
+    double mean = 0;
+    for(size_t i=0; i<nbEle; i++) mean += decData[i];
+    mean /= nbEle;
+    return mean;
+}
+
 double SZx_mean_3dMeanbased(
     unsigned char *cmpData, size_t dim1, size_t dim2, size_t dim3,
     int blockSideLength, double errorBound
@@ -144,6 +158,53 @@ double SZx_mean_3dMeanbased(
     unsigned char * qmean_pos = cmpData + FIXED_RATE_PER_BLOCK_BYTES * size.num_blocks;
     double mean = compute_mean_3d(size, qmean_pos, errorBound);
     return mean;
+}
+
+template <class T>
+double SZx_mean_3d(
+    unsigned char *cmpData, size_t dim1, size_t dim2, size_t dim3, T *decData,
+    int blockSideLength, double errorBound, decmpState state
+){
+    double mean;
+
+    struct timespec start, end;
+    double elapsed_time;
+    clock_gettime(CLOCK_REALTIME, &start);
+    switch(state){
+        case decmpState::full:{
+            mean = SZx_mean_3d_decOp(cmpData, dim1, dim2, dim3, decData, blockSideLength, errorBound);            
+            break;
+        }
+        case decmpState::prePred:{
+            mean = SZx_mean_3dMeanbased(cmpData, dim1, dim2, dim3, blockSideLength, errorBound);            
+            break;
+        }
+        case decmpState::postPred:{
+            exit(0);
+            break;
+        }
+    }
+    clock_gettime(CLOCK_REALTIME, &end);
+    elapsed_time = get_elapsed_time(start, end);
+    printf("elapsed_time = %.6f\n", elapsed_time);
+
+    return mean;
+}
+
+template <class T>
+double SZx_variance_3d_decOp(
+    unsigned char *cmpData, size_t dim1, size_t dim2, size_t dim3,
+    T *decData, int blockSideLength, double errorBound
+){
+    size_t nbEle = dim1 * dim2 * dim3;
+    SZx_decompress_3dMeanbased(decData, cmpData, dim1, dim2, dim3, blockSideLength, errorBound);
+    double mean = 0;
+    for(size_t i=0; i<nbEle; i++) mean += decData[i];
+    mean /= nbEle;
+    double var = 0;
+    for(size_t i=0; i<nbEle; i++) var += (decData[i] - mean) * (decData[i] - mean);
+    var /= (nbEle - 1);
+    return var;
 }
 
 double SZx_variance_3dMeanbased(
@@ -191,6 +252,37 @@ double SZx_variance_3dMeanbased(
     free(blocks_mean_quant);
     free(block_quant_inds);
     double var = (2 * errorBound) * (2 * errorBound) * squared_sum / (size.nbEle - 1);
+    return var;
+}
+
+template <class T>
+double SZx_variance_3d(
+    unsigned char *cmpData, size_t dim1, size_t dim2, size_t dim3, T *decData,
+    int blockSideLength, double errorBound, decmpState state
+){
+    double var;
+
+    struct timespec start, end;
+    double elapsed_time;
+    clock_gettime(CLOCK_REALTIME, &start);
+    switch(state){
+        case decmpState::full:{
+            var = SZx_variance_3d_decOp(cmpData, dim1, dim2, dim3, decData, blockSideLength, errorBound);            
+            break;
+        }
+        case decmpState::prePred:{
+            var = SZx_variance_3dMeanbased(cmpData, dim1, dim2, dim3, blockSideLength, errorBound);            
+            break;
+        }
+        case decmpState::postPred:{
+            exit(0);
+            break;
+        }
+    }
+    clock_gettime(CLOCK_REALTIME, &end);
+    elapsed_time = get_elapsed_time(start, end);
+    printf("elapsed_time = %.6f\n", elapsed_time);
+
     return var;
 }
 

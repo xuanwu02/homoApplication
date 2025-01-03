@@ -13,12 +13,11 @@ int main(int argc, char **argv)
     int argv_id = 1;
     int blockSideLength = atoi(argv[argv_id++]);
     double errorBound = atof(argv[argv_id++]);
-    size_t dim1 = 1800;
-    size_t dim2 = 3600;
+    int type = atoi(argv[argv_id++]);
+    decmpState state = intToDecmpState(type);
 
     using T = float;
-    double elapsed_time, total_time = 0;
-    struct timespec start, end;
+    size_t dim1 = 1800, dim2 = 3600;
 
     size_t nbEle;
     auto oriData_vec = readfile<T>(data_file_2d.c_str(), nbEle);
@@ -27,18 +26,21 @@ int main(int argc, char **argv)
     set_relative_eb(oriData_vec, errorBound);
 
     unsigned char *cmpData = (unsigned char *)malloc(nbEle * sizeof(T));
+    T * decData = (T *)malloc(nbEle * sizeof(T));
 
     size_t cmpSize = 0;
     SZp_compress_2dLorenzo(oriData, cmpData, dim1, dim2, blockSideLength, errorBound, cmpSize);
     printf("cr = %.2f\n", 1.0 * nbEle * sizeof(T) / cmpSize);
 
-    clock_gettime(CLOCK_REALTIME, &start);
-    double mean = SZp_mean_2dLorenzo_recover2PrePred(cmpData, dim1, dim2, blockSideLength, errorBound);
-    clock_gettime(CLOCK_REALTIME, &end);
-    elapsed_time = get_elapsed_time(start, end);
-    printf("elapsed_time = %.6f\n", elapsed_time);
+    double mean = SZp_mean_2dLorenzo(cmpData, dim1, dim2, decData, blockSideLength, errorBound, state);
     printf("mean = %.6f\n", mean);
 
+    double act_mean = 0;
+    for(size_t i=0; i<nbEle; i++) act_mean += oriData[i];
+    act_mean /= nbEle;
+    printf("error = %.6f\n", fabs(act_mean - mean));
+
+    free(decData);
     free(cmpData);
 
     return 0;

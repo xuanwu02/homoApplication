@@ -13,13 +13,12 @@ int main(int argc, char **argv)
     int argv_id = 1;
     int blockSideLength = atoi(argv[argv_id++]);
     double errorBound = atof(argv[argv_id++]);
+    int type = atoi(argv[argv_id++]);
+    decmpState state = intToDecmpState(type);
 
     using T = float;
     size_t dim1 = 512, dim2 = 512, dim3 = 512;
     // size_t dim1 = 100, dim2 = 500, dim3 = 500;
-    double elapsed_time, total_time = 0;
-    struct timespec start, end;
-
     size_t nbEle;
     auto oriData_vec = readfile<T>(data_file_3d.c_str(), nbEle);
     assert(nbEle == dim1 * dim2 * dim3);
@@ -33,28 +32,13 @@ int main(int argc, char **argv)
     SZx_compress_3dMeanbased(oriData, cmpData, dim1, dim2, dim3, blockSideLength, errorBound, cmpSize);
     printf("cr = %.2f\n", 1.0 * nbEle * sizeof(T) / cmpSize);
 
-    clock_gettime(CLOCK_REALTIME, &start);
-    SZx_decompress_3dMeanbased(decData, cmpData, dim1, dim2, dim3, blockSideLength, errorBound);
-    clock_gettime(CLOCK_REALTIME, &end);
-    elapsed_time = get_elapsed_time(start, end);
-    printf("  decompression time = %.6f\n", elapsed_time);
-    total_time += elapsed_time;
+    double mean = SZx_mean_3d(cmpData, dim1, dim2, dim3, decData, blockSideLength, errorBound, state);
+    printf("mean = %.6f\n", mean);
 
-    clock_gettime(CLOCK_REALTIME, &start);
-    double mean = 0, var = 0;
-    for(size_t i=0; i<nbEle; i++) mean += decData[i];
-    mean /= nbEle;
-    for(size_t i=0; i<nbEle; i++) var += (decData[i] - mean) * (decData[i] - mean);
-    var /= (nbEle - 1);
-    clock_gettime(CLOCK_REALTIME, &end);
-    elapsed_time = get_elapsed_time(start, end);
-    printf("  operation time = %.6f\n", elapsed_time);
-    total_time += elapsed_time;
-    printf("elapsed_time = %.6f\n", total_time);
-    printf("variance = %.6f\n", var);
-
-    double dec_error = verify(oriData, decData, dim1, dim2);
-    printf("dec_error = %.6f\n", dec_error);
+    double act_mean = 0;
+    for(size_t i=0; i<nbEle; i++) act_mean += oriData[i];
+    act_mean /= nbEle;
+    printf("error = %.6f\n", fabs(act_mean - mean));
 
     free(decData);
     free(cmpData);

@@ -8,6 +8,7 @@
 #include <ctime>
 #include "typemanager.hpp"
 #include "SZp_app_utils.hpp"
+#include "utils.hpp"
 
 template <class T>
 void SZp_compress_3dLorenzo(
@@ -256,6 +257,50 @@ double SZp_mean_3dLorenzo_recover2PrePred(
     free(signPredError);
     free(signFlag);
     double mean = quant_sum * 2 * errorBound / size.nbEle;
+    return mean;
+}
+
+template <class T>
+double SZp_mean_3dLorenzo_decOp(
+    unsigned char *cmpData, size_t dim1, size_t dim2, size_t dim3,
+    T *decData, int blockSideLength, double errorBound
+){
+    size_t nbEle = dim1 * dim2 * dim3;
+    SZp_decompress_3dLorenzo(decData, cmpData, dim1, dim2, dim3, blockSideLength, errorBound);
+    double mean = 0;
+    for(size_t i=0; i<nbEle; i++) mean += decData[i];
+    mean /= nbEle;
+    return mean;
+}
+
+template <class T>
+double SZp_mean_3dLorenzo(
+    unsigned char *cmpData, size_t dim1, size_t dim2, size_t dim3,
+    T *decData, int blockSideLength, double errorBound, decmpState state
+){
+    double mean;
+
+    struct timespec start, end;
+    double elapsed_time;
+    clock_gettime(CLOCK_REALTIME, &start);
+    switch(state){
+        case decmpState::postPred:{
+            mean = SZp_mean_3dLorenzo_recover2PostPred(cmpData, dim1, dim2, dim3, blockSideLength, errorBound);
+            break;
+        }
+        case decmpState::prePred:{
+            mean = SZp_mean_3dLorenzo_recover2PrePred(cmpData, dim1, dim2, dim3, blockSideLength, errorBound);
+            break;
+        }
+        case decmpState::full:{
+            mean = SZp_mean_3dLorenzo_decOp(cmpData, dim1, dim2, dim3, decData, blockSideLength, errorBound);
+            break;
+        }
+    }
+    clock_gettime(CLOCK_REALTIME, &end);
+    elapsed_time = get_elapsed_time(start, end);
+    printf("elapsed_time = %.6f\n", elapsed_time);
+
     return mean;
 }
 
@@ -527,12 +572,17 @@ void SZp_dxdydz_3dLorenzo(
     int * Buffer_2d = (int *)malloc(buffer_dim2 * buffer_dim3 * sizeof(int));
     int * signPredError = (int *)malloc(size.max_num_block_elements*sizeof(int));
     unsigned char * signFlag = (unsigned char *)malloc(size.max_num_block_elements*sizeof(unsigned char));
+    T * decData = (T *)malloc(size.nbEle * sizeof(T));
     SZpAppBufferSet_3d * buffer_set = new SZpAppBufferSet_3d(buffer_dim1, buffer_dim2, buffer_dim3, Buffer_3d, Buffer_2d, appType::CENTRALDIFF);
     SZpCmpBufferSet * cmpkit_set = new SZpCmpBufferSet(cmpData, signPredError, signFlag);
     unsigned char * encode_pos = cmpData + FIXED_RATE_PER_BLOCK_BYTES * size.num_blocks;
     T * dx_pos = dx_result;
     T * dy_pos = dy_result;
     T * dz_pos = dz_result;
+
+    struct timespec start, end;
+    double elapsed_time;
+    clock_gettime(CLOCK_REALTIME, &start);
     switch(state){
         case decmpState::postPred:{
             int * dx_buffer = allocateAndZero1D((size.dim2+1) * (size.dim3+1));
@@ -554,13 +604,23 @@ void SZp_dxdydz_3dLorenzo(
             dxdydzProcessBlocksPrePred(size, cmpkit_set, buffer_set, encode_pos, dx_pos, dy_pos, dz_pos, errorBound);
             break;
         }
+        case decmpState::full:{
+            SZp_decompress_3dLorenzo(decData, cmpData, dim1, dim2, dim3, blockSideLength, errorBound);
+            compute_dxdydz(dim1, dim2, dim3, decData, dx_pos, dy_pos, dz_pos);
+            break;
+        }
     }
+    clock_gettime(CLOCK_REALTIME, &end);
+    elapsed_time = get_elapsed_time(start, end);
+    printf("elapsed_time = %.6f\n", elapsed_time);
+
     delete buffer_set;
     delete cmpkit_set;
     free(Buffer_3d);
     free(Buffer_2d);
     free(signPredError);
     free(signFlag);
+    free(decData);
 }
 
 #endif

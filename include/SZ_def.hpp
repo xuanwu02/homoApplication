@@ -24,9 +24,20 @@ enum class appType
 
 enum class decmpState
 {
+	full,
 	prePred,
     postPred
 };
+
+decmpState intToDecmpState(int value){
+    switch(value){
+        case 0: return decmpState::full;
+        case 1: return decmpState::prePred;
+        case 2: return decmpState::postPred;
+        default: 
+            throw std::invalid_argument("Invalid integer for decmpState");
+    }
+}
 
 struct DSize_2d
 {

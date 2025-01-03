@@ -8,6 +8,7 @@
 #include <vector>
 #include "typemanager.hpp"
 #include "SZr_app_utils.hpp"
+#include "utils.hpp"
 
 template <class T>
 void SZr_compress_3dRegression(
@@ -139,6 +140,19 @@ void SZr_decompress_3dRegression(
     free(reg_coeff);
 }
 
+template <class T>
+double SZr_mean_3d_decOp(
+    unsigned char *cmpData, size_t dim1, size_t dim2, size_t dim3,
+    T *decData, int blockSideLength, double errorBound
+){
+    size_t nbEle = dim1 * dim2 * dim3;
+    SZr_decompress_3dRegression(decData, cmpData, dim1, dim2, dim3, blockSideLength, errorBound);
+    double mean = 0;
+    for(size_t i=0; i<nbEle; i++) mean += decData[i];
+    mean /= nbEle;
+    return mean;
+}
+
 double SZr_mean_3dRegression(
     unsigned char *cmpData, size_t dim1, size_t dim2, size_t dim3,
     int blockSideLength, double errorBound
@@ -149,6 +163,53 @@ double SZr_mean_3dRegression(
     double mean = compute_mean_3d(size, reg_coeff_pos, reg_coeff);
     free(reg_coeff);
     return mean;
+}
+
+template <class T>
+double SZr_mean_3d(
+    unsigned char *cmpData, size_t dim1, size_t dim2, size_t dim3, T *decData,
+    int blockSideLength, double errorBound, decmpState state
+){
+    double mean;
+
+    struct timespec start, end;
+    double elapsed_time;
+    clock_gettime(CLOCK_REALTIME, &start);
+    switch(state){
+        case decmpState::full:{
+            mean = SZr_mean_3d_decOp(cmpData, dim1, dim2, dim3, decData, blockSideLength, errorBound);            
+            break;
+        }
+        case decmpState::prePred:{
+            mean = SZr_mean_3dRegression(cmpData, dim1, dim2, dim3, blockSideLength, errorBound);            
+            break;
+        }
+        case decmpState::postPred:{
+            exit(0);
+            break;
+        }
+    }
+    clock_gettime(CLOCK_REALTIME, &end);
+    elapsed_time = get_elapsed_time(start, end);
+    printf("elapsed_time = %.6f\n", elapsed_time);
+
+    return mean;
+}
+
+template <class T>
+double SZr_variance_3d_decOp(
+    unsigned char *cmpData, size_t dim1, size_t dim2, size_t dim3,
+    T *decData, int blockSideLength, double errorBound
+){
+    size_t nbEle = dim1 * dim2 * dim3;
+    SZr_decompress_3dRegression(decData, cmpData, dim1, dim2, dim3, blockSideLength, errorBound);
+    double mean = 0;
+    for(size_t i=0; i<nbEle; i++) mean += decData[i];
+    mean /= nbEle;
+    double var = 0;
+    for(size_t i=0; i<nbEle; i++) var += (decData[i] - mean) * (decData[i] - mean);
+    var /= (nbEle - 1);
+    return var;
 }
 
 template <class T>
@@ -199,6 +260,37 @@ double SZr_variance_3dRegression(
         }
     }
     var /= (size.nbEle - 1);
+    return var;
+}
+
+template <class T>
+double SZr_variance_3d(
+    unsigned char *cmpData, size_t dim1, size_t dim2, size_t dim3, T *decData,
+    int blockSideLength, double errorBound, decmpState state
+){
+    double var;
+
+    struct timespec start, end;
+    double elapsed_time;
+    clock_gettime(CLOCK_REALTIME, &start);
+    switch(state){
+        case decmpState::full:{
+            var = SZr_variance_3d_decOp(cmpData, dim1, dim2, dim3, decData, blockSideLength, errorBound);            
+            break;
+        }
+        case decmpState::prePred:{
+            var = SZr_variance_3dRegression<T>(cmpData, dim1, dim2, dim3, blockSideLength, errorBound);            
+            break;
+        }
+        case decmpState::postPred:{
+            exit(0);
+            break;
+        }
+    }
+    clock_gettime(CLOCK_REALTIME, &end);
+    elapsed_time = get_elapsed_time(start, end);
+    printf("elapsed_time = %.6f\n", elapsed_time);
+
     return var;
 }
 

@@ -13,12 +13,11 @@ int main(int argc, char **argv)
     int argv_id = 1;
     int blockSideLength = atoi(argv[argv_id++]);
     double errorBound = atof(argv[argv_id++]);
-    size_t dim1 = 1800;
-    size_t dim2 = 3600;
+    int type = atoi(argv[argv_id++]);
+    decmpState state = intToDecmpState(type);
 
     using T = float;
-    double elapsed_time, total_time = 0;
-    struct timespec start, end;
+    size_t dim1 = 1800, dim2 = 3600;
 
     size_t nbEle;
     auto oriData_vec = readfile<T>(data_file_2d.c_str(), nbEle);
@@ -28,22 +27,16 @@ int main(int argc, char **argv)
 
     unsigned char *cmpData = (unsigned char *)malloc(nbEle * sizeof(T));
     T * decData = (T *)malloc(nbEle * sizeof(T));
-    T * decop_dx_result = (T *)malloc((dim1+1)*(dim2+1)*sizeof(T));
-    T * decop_dy_result = (T *)malloc((dim1+1)*(dim2+1)*sizeof(T));
-    T * dx_result = (T *)malloc(dim1*dim2*sizeof(T));
-    T * dy_result = (T *)malloc(dim1*dim2*sizeof(T));
+    T * dx_result = (T *)malloc(nbEle * sizeof(T));
+    T * dy_result = (T *)malloc(nbEle * sizeof(T));
+    T * decop_dx_result = (T *)malloc(nbEle * sizeof(T));
+    T * decop_dy_result = (T *)malloc(nbEle * sizeof(T));
 
     size_t cmpSize = 0;
     SZp_compress_2dLorenzo(oriData, cmpData, dim1, dim2, blockSideLength, errorBound, cmpSize);
     printf("cr = %.2f\n", 1.0 * nbEle * sizeof(T) / cmpSize);
 
-    clock_gettime(CLOCK_REALTIME, &start);
-    SZp_dxdy_2dLorenzo(cmpData, dim1, dim2, blockSideLength, errorBound, dx_result, dy_result, decmpState::prePred);
-    clock_gettime(CLOCK_REALTIME, &end);
-    elapsed_time = get_elapsed_time(start, end);
-    printf("  decompression time = %.6f\n", postPred_decmp_time);
-    printf("  operation time = %.6f\n", postPred_op_time);
-    printf("elapsed_time = %.6f\n", elapsed_time);
+    SZp_dxdy_2dLorenzo(cmpData, dim1, dim2, blockSideLength, errorBound, dx_result, dy_result, state);
 
     SZp_decompress_2dLorenzo(decData, cmpData, dim1, dim2, blockSideLength, errorBound);
     compute_dxdy(dim1, dim2, decData, decop_dx_result, decop_dy_result);
