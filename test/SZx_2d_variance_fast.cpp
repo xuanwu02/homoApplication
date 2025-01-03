@@ -41,7 +41,7 @@ int main(int argc, char **argv)
     printf("variance = %.6f\n", var);
     SZx_decompress_2dMeanbased(decData, cmpData, dim1, dim2, blockSideLength, errorBound);
     double dec_error = verify(oriData, decData, dim1, dim2);
-    printf("decompression error = %.6f\n", dec_error);
+    printf("dec_error = %.6f\n", dec_error);
 
     free(decData);
     free(cmpData);

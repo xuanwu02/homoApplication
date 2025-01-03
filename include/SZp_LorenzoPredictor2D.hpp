@@ -1,5 +1,5 @@
-#ifndef _SZP_HEATDIS_2DLORENZO_HPP
-#define _SZP_HEATDIS_2DLORENZO_HPP
+#ifndef _SZP_LORENZO_PREDICTOR_2D_HPP
+#define _SZP_LORENZO_PREDICTOR_2D_HPP
 
 #include <cstdio>
 #include <cstdlib>
@@ -595,8 +595,6 @@ clock_gettime(CLOCK_REALTIME, &end);
 prePred_op_time += (double)(end.tv_sec - start.tv_sec) + (double)(end.tv_nsec - start.tv_nsec)/(double)1000000000;
 }
 
-int lorenzo[1000000];
-
 inline void compressBlockRowFromPostPred(
     size_t x, DSize_2d& size, SZpAppBufferSet_2d *buffer_set,
     SZpCmpBufferSet *cmpkit_set, int current, int next,
@@ -620,10 +618,6 @@ clock_gettime(CLOCK_REALTIME, &start);
             const int * curr_err_pos = block_err_pos;
             for(int j=0; j<size_y; j++){
                 int err = *curr_err_pos++;
-                {
-                    int index = (x * size.Bsize + i) * size.dim2 + (y * size.Bsize + j);
-                    lorenzo[index] = err;
-                }
                 *sign_pos++ = (err < 0);
                 abs_err = abs(err);
                 *abs_err_pos++ = abs_err;

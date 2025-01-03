@@ -50,7 +50,7 @@ int main(int argc, char **argv)
     printf("elapsed_time = %.6f\n", total_time);
 
     double dec_error = verify(oriData, decData, dim1, dim2);
-    printf("decompression error = %.6f\n", dec_error);
+    printf("dec_error = %.6f\n", dec_error);
 
     free(decData);
     free(cmpData);

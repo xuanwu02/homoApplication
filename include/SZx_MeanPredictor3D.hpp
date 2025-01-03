@@ -1,5 +1,5 @@
-#ifndef _SZX_MEAN_BASED_2D_HPP
-#define _SZX_MEAN_BASED_2D_HPP
+#ifndef _SZX_MEAN_PREDICTOR_3D_HPP
+#define _SZX_MEAN_PREDICTOR_3D_HPP
 
 #include <stdio.h>
 #include <cstdlib>

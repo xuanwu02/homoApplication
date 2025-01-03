@@ -363,11 +363,6 @@ inline void deriv_lorenzo_2d(
     res_pos[0] = res_integer * errorBound;
 }
 
-/**
- * @param x Block row index
- * @brief For operation on lorenzo predictions.
-*/
-// template <class T>
 inline void set_buffer_border_postpred(
     size_t x, int *integer_buffer, DSize_2d size, int size_x,
     SZpAppBufferSet_2d *buffer_set, Temperature_info temp_info,
@@ -398,10 +393,6 @@ inline void set_buffer_border_postpred(
     }
 }
 
-/**
- * @brief For operation on quant inds.
-*/
-// template <class T>
 inline void set_buffer_border_prepred(
     int *integer_buffer, DSize_2d size, int size_x, size_t buffer_dim0_offset,
     Temperature_info temp_info, bool isTopRow, bool isBottomRow

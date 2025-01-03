@@ -1,5 +1,5 @@
-#ifndef _SZX_MEAN_BASED_2D_HPP
-#define _SZX_MEAN_BASED_2D_HPP
+#ifndef _SZX_MEAN_PREDICTOR_2D_HPP
+#define _SZX_MEAN_PREDICTOR_2D_HPP
 
 #include <stdio.h>
 #include <cstdlib>
@@ -34,14 +34,12 @@ void SZx_compress_2dMeanbased(
             unsigned char * sign_pos = signFlag;
             int * block_buffer_pos = block_quant_inds;
             int mean_quant = compute_block_mean_quant(size_x, size_y, size.dim0_offset, y_data_pos, block_buffer_pos, errorBound);
-            for(int i=0; i<size_x; i++){
-                for(int j=0; j<size_y; j++){
-                    int err = *block_buffer_pos++ - mean_quant;
-                    int abs_err = abs(err);
-                    *sign_pos++ = (err < 0);
-                    *abs_err_pos++ = abs_err;
-                    max_err = max_err > abs_err ? max_err : abs_err;
-                }
+            for(int i=0; i<block_size; i++){
+                int err = *block_buffer_pos++ - mean_quant;
+                int abs_err = abs(err);
+                *sign_pos++ = (err < 0);
+                *abs_err_pos++ = abs_err;
+                max_err = max_err > abs_err ? max_err : abs_err;
             }
             fixed_rate = max_err == 0 ? 0 : INT_BITS - __builtin_clz(max_err);
             cmpData[block_ind++] = (unsigned char)fixed_rate;

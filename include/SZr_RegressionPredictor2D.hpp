@@ -1,5 +1,5 @@
-#ifndef _SZR_MEAN_BASED_2D_HPP
-#define _SZR_MEAN_BASED_2D_HPP
+#ifndef _SZR_REG_PREDICTOR_2D_HPP
+#define _SZR_REG_PREDICTOR_2D_HPP
 
 #include <stdio.h>
 #include <cstdlib>
@@ -15,18 +15,18 @@ void SZr_compress_2dRegression(
     size_t dim1, size_t dim2, int blockSideLength,
     double errorBound, size_t& cmpSize
 ){
-    const DSize_2d size(dim1, dim2, blockSideLength);
+    DSize_2d size(dim1, dim2, blockSideLength);
     unsigned int * absPredError = (unsigned int *)malloc(size.max_num_block_elements*sizeof(unsigned int));
     unsigned char * signFlag = (unsigned char *)malloc(size.max_num_block_elements*sizeof(unsigned char));
-    float * reg_coeff = (float *)malloc(3 * sizeof(float));
+    float * reg_coeff = (float *)malloc(REG_COEFF_SIZE_2D * sizeof(float));
     unsigned char * reg_coeff_pos = cmpData + FIXED_RATE_PER_BLOCK_BYTES * size.num_blocks;
     unsigned char * encode_pos = cmpData + (FIXED_RATE_PER_BLOCK_BYTES + REG_COEFF_SIZE_2D * FLOAT_BYTES) * size.num_blocks;
     const T * x_data_pos = oriData;
     int block_ind = 0;
     for(size_t x=0; x<size.block_dim1; x++){
+        int size_x = ((x+1)*size.Bsize < size.dim1) ? size.Bsize : size.dim1 - x*size.Bsize;
         const T * y_data_pos = x_data_pos;
         for(size_t y=0; y<size.block_dim2; y++){
-            int size_x = ((x+1)*size.Bsize < size.dim1) ? size.Bsize : size.dim1 - x*size.Bsize;
             int size_y = ((y+1)*size.Bsize < size.dim2) ? size.Bsize : size.dim2 - y*size.Bsize;
             int block_size = size_x * size_y;
             int fixed_rate, max_err = 0;
@@ -37,7 +37,7 @@ void SZr_compress_2dRegression(
             for(int i=0; i<size_x; i++){
                 for(int j=0; j<size_y; j++){
                     T pred = predict_regression_2d<T>(i, j, reg_coeff);
-                    int err = SZ_quantize(curr_data_pos[j]-pred, errorBound);
+                    int err = SZ_quantize(curr_data_pos[j] - pred, errorBound);
                     int abs_err = abs(err);
                     *sign_pos++ = (err < 0);
                     *abs_err_pos++ = abs_err;
@@ -56,7 +56,7 @@ void SZr_compress_2dRegression(
                 encode_pos += savedbitsbyteLength;
             }
         }
-        x_data_pos += size.Bsize * size.dim2;
+        x_data_pos += size.Bsize * size.dim0_offset;
     }
     cmpSize = encode_pos - cmpData;
     free(absPredError);
@@ -66,22 +66,22 @@ void SZr_compress_2dRegression(
 
 template <class T>
 void SZr_decompress_2dRegression(
-    const T *decData, unsigned char *cmpData,
+    T *decData, unsigned char *cmpData,
     size_t dim1, size_t dim2, int blockSideLength,
     double errorBound
 ){
-    const DSize_2d size(dim1, dim2, blockSideLength);
+    DSize_2d size(dim1, dim2, blockSideLength);
     int * signPredError = (int *)malloc(size.max_num_block_elements*sizeof(int));
     unsigned char * signFlag = (unsigned char *)malloc(size.max_num_block_elements*sizeof(unsigned char));
-    float * reg_coeff = (float *)malloc(3 * sizeof(float));
+    float * reg_coeff = (float *)malloc(REG_COEFF_SIZE_2D * sizeof(float));
     unsigned char * reg_coeff_pos = cmpData + FIXED_RATE_PER_BLOCK_BYTES * size.num_blocks;
     unsigned char * encode_pos = cmpData + (FIXED_RATE_PER_BLOCK_BYTES + REG_COEFF_SIZE_2D * FLOAT_BYTES) * size.num_blocks;
     T * x_data_pos = decData;
     int block_ind = 0;
     for(size_t x=0; x<size.block_dim1; x++){
+        int size_x = ((x+1)*size.Bsize < size.dim1) ? size.Bsize : size.dim1 - x*size.Bsize;
         T * y_data_pos = x_data_pos;
         for(size_t y=0; y<size.block_dim2; y++){
-            int size_x = ((x+1)*size.Bsize < size.dim1) ? size.Bsize : size.dim1 - x*size.Bsize;
             int size_y = ((y+1)*size.Bsize < size.dim2) ? size.Bsize : size.dim2 - y*size.Bsize;
             int block_size = size_x * size_y;
             int fixed_rate = (int)cmpData[block_ind];
@@ -93,7 +93,7 @@ void SZr_decompress_2dRegression(
                 encode_pos += cmp_block_sign_length;
                 unsigned int savedbitsbytelength = Jiajun_extract_fixed_length_bits(encode_pos, block_size, signPredError, fixed_rate);
                 encode_pos += savedbitsbytelength;
-                convert2SignIntArray(signFlag, signPredError);
+                convert2SignIntArray(signFlag, signPredError, block_size);
                 int * pred_err_pos = signPredError;
                 for(int i=0; i<size_x; i++){
                     for(int j=0; j<size_y; j++){
@@ -104,7 +104,7 @@ void SZr_decompress_2dRegression(
                     pred_err_pos += size_y;
                 }
             }else{
-                T pred = reg_coeff[2];
+                T pred = reg_coeff[REG_COEFF_SIZE_2D-1];
                 for(int i=0; i<size_x; i++){
                     for(int j=0; j<size_y; j++){
                         curr_data_pos[j] = pred;
@@ -122,43 +122,62 @@ void SZr_decompress_2dRegression(
     free(reg_coeff);
 }
 
-template <class T>
-T SZr_mean_Regressionbased(
+double SZr_mean_2dRegression(
     unsigned char *cmpData, size_t dim1, size_t dim2,
     int blockSideLength, double errorBound
 ){
-    const DSize_2d size(dim1, dim2, blockSideLength);
+    DSize_2d size(dim1, dim2, blockSideLength);
+    unsigned char * reg_coeff_pos = cmpData + FIXED_RATE_PER_BLOCK_BYTES * size.num_blocks;
+    float * reg_coeff = (float *)malloc(REG_COEFF_SIZE_2D * sizeof(float));
+    double mean = compute_mean_2d(size, reg_coeff_pos, reg_coeff);
+    free(reg_coeff);
+    return mean;
+}
+
+template <class T>
+double SZr_variance_2dRegression(
+    unsigned char *cmpData, size_t dim1, size_t dim2,
+    int blockSideLength, double errorBound
+){
+    DSize_2d size(dim1, dim2, blockSideLength);
+    unsigned char * encode_pos = cmpData + (FIXED_RATE_PER_BLOCK_BYTES + REG_COEFF_SIZE_2D * FLOAT_BYTES) * size.num_blocks;
+    unsigned char * reg_coeff_pos = cmpData + FIXED_RATE_PER_BLOCK_BYTES * size.num_blocks;
     int * signPredError = (int *)malloc(size.max_num_block_elements*sizeof(int));
     unsigned char * signFlag = (unsigned char *)malloc(size.max_num_block_elements*sizeof(unsigned char));
-    float * reg_coeff = (float *)malloc(3 * sizeof(float));
-    unsigned char * reg_coeff_pos = cmpData + FIXED_RATE_PER_BLOCK_BYTES * size.num_blocks;
-    unsigned char * encode_pos = cmpData + (FIXED_RATE_PER_BLOCK_BYTES + REG_COEFF_SIZE_2D * FLOAT_BYTES) * size.num_blocks;
+    float * reg_coeff = (float *)malloc(REG_COEFF_SIZE_2D * sizeof(float));
+    double mean = compute_mean_2d(size, reg_coeff_pos, reg_coeff);
+    double var = 0;
     int block_ind = 0;
-    T mean = 0;
     for(size_t x=0; x<size.block_dim1; x++){
+        int size_x = ((x+1)*size.Bsize < size.dim1) ? size.Bsize : size.dim1 - x*size.Bsize;
         for(size_t y=0; y<size.block_dim2; y++){
-            int size_x = ((x+1)*size.Bsize < size.dim1) ? size.Bsize : size.dim1 - x*size.Bsize;
             int size_y = ((y+1)*size.Bsize < size.dim2) ? size.Bsize : size.dim2 - y*size.Bsize;
             int block_size = size_x * size_y;
-            int fixed_rate = (int)cmpData[block_ind];
+            int fixed_rate = (int)cmpData[block_ind++];
             extract_regression_coeff_2d(reg_coeff_pos, reg_coeff);
-            mean += compute_prediction_sum(size_x, size_y, reg_coeff);
             if(fixed_rate){
                 size_t cmp_block_sign_length = (block_size + 7) / 8;
                 convertByteArray2IntArray_fast_1b_args(block_size, encode_pos, cmp_block_sign_length, signFlag);
                 encode_pos += cmp_block_sign_length;
                 unsigned int savedbitsbytelength = Jiajun_extract_fixed_length_bits(encode_pos, block_size, signPredError, fixed_rate);
                 encode_pos += savedbitsbytelength;
-                convert2SignIntArray(signFlag, signPredError);
-                mean += compute_prediction_error_sum(block_size, signPredError, errorBound);
+                convert2SignIntArray(signFlag, signPredError, block_size);
+                int * pred_err_pos = signPredError;
+                for(int i=0; i<size_x; i++){
+                    for(int j=0; j<size_y; j++){
+                        T pred = predict_regression_2d<T>(i, j, reg_coeff);
+                        T curr_data = pred + (*pred_err_pos++) * 2 * errorBound;
+                        var += (curr_data - mean) * (curr_data - mean);
+                    }
+                }
+            }else{
+                T pred = reg_coeff[REG_COEFF_SIZE_2D-1];
+                var += (pred - mean) * (pred - mean) * block_size;
             }
-            block_ind++;
         }
     }
-    free(signPredError);
-    free(signFlag);
-    free(reg_coeff);
-    return mean / (T)size.nbEle * 1.0;
+    var /= (size.nbEle - 1);
+    return var;
 }
 
 inline void recoverBlockRow2Integer(

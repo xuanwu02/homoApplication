@@ -1,5 +1,5 @@
-#ifndef _SZP_HEATDIS_3DLORENZO_HPP
-#define _SZP_HEATDIS_3DLORENZO_HPP
+#ifndef _SZP_LORENZO_PREDICTOR_3D_HPP
+#define _SZP_LORENZO_PREDICTOR_3D_HPP
 
 #include <cstdio>
 #include <cstdlib>
