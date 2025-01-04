@@ -263,20 +263,11 @@ double SZx_variance_2d(
     return var;
 }
 
-struct timespec start, end;
-double postPred_decmp_time = 0;
-double postPred_op_time = 0;
-double postPred_cmp_time = 0;
-double prePred_decmp_time = 0;
-double prePred_op_time = 0;
-double prePred_cmp_time = 0;
-
 inline void recoverBlockRow2PrePred(
     size_t x, DSize_2d size, SZxCmpBufferSet *cmpkit_set,
     unsigned char *& encode_pos, int *buffer_data_pos,
     size_t buffer_dim0_offset
 ){
-// clock_gettime(CLOCK_REALTIME, &start);
     int size_x = ((x+1) * size.Bsize < size.dim1) ? size.Bsize : size.dim1 - x * size.Bsize;
     int * buffer_start_pos = buffer_data_pos;
     int block_ind_offset = x * size.block_dim2;
@@ -314,8 +305,6 @@ inline void recoverBlockRow2PrePred(
         }        
         buffer_start_pos += size.Bsize;
     }
-// clock_gettime(CLOCK_REALTIME, &end);
-// prePred_decmp_time += (double)(end.tv_sec - start.tv_sec) + (double)(end.tv_nsec - start.tv_nsec)/(double)1000000000;
 }
 
 inline void recoverBlockRow2PostPred(
@@ -323,7 +312,6 @@ inline void recoverBlockRow2PostPred(
     unsigned char *& encode_pos, int *buffer_data_pos,
     size_t buffer_dim0_offset
 ){
-// clock_gettime(CLOCK_REALTIME, &start);
     int size_x = ((x+1) * size.Bsize < size.dim1) ? size.Bsize : size.dim1 - x * size.Bsize;
     int * buffer_start_pos = buffer_data_pos;
     int block_ind = x * size.block_dim2;
@@ -352,8 +340,6 @@ inline void recoverBlockRow2PostPred(
         }        
         buffer_start_pos += size.Bsize;
     }
-// clock_gettime(CLOCK_REALTIME, &end);
-// postPred_decmp_time += (double)(end.tv_sec - start.tv_sec) + (double)(end.tv_nsec - start.tv_nsec)/(double)1000000000;
 }
 
 template <class T>
@@ -362,7 +348,6 @@ inline void dxdyProcessBlockRowPrePred(
     SZxCmpBufferSet *cmpkit_set, T *dx_start_pos, T *dy_start_pos,
     double errorBound, bool isTopRow, bool isBottomRow
 ){
-// clock_gettime(CLOCK_REALTIME, &start);
     int block_ind_offset = x * size.block_dim2;
     int size_x = ((x+1) * size.Bsize < size.dim1) ? size.Bsize : size.dim1 - x * size.Bsize;
     int * prevBlockBottom_pos = buffer_set->prevRow_data_pos + (size.Bsize - 1) * size.dim2;
@@ -404,8 +389,6 @@ inline void dxdyProcessBlockRowPrePred(
         dy_pos += size.dim2;
         curr_row += buffer_set->buffer_dim0_offset;
     }
-// clock_gettime(CLOCK_REALTIME, &end);
-// prePred_op_time += (double)(end.tv_sec - start.tv_sec) + (double)(end.tv_nsec - start.tv_nsec)/(double)1000000000;
 }
 
 template <class T>
@@ -414,7 +397,6 @@ inline void dxdyProcessBlockRowPostPred(
     SZxCmpBufferSet *cmpkit_set, T *dx_start_pos, T *dy_start_pos,
     double errorBound, bool isTopRow, bool isBottomRow
 ){
-// clock_gettime(CLOCK_REALTIME, &start);
     int block_ind_offset = x * size.block_dim2;
     int size_x = ((x+1) * size.Bsize < size.dim1) ? size.Bsize : size.dim1 - x * size.Bsize;
     int * prevBlockBottom_pos = buffer_set->prevRow_data_pos + (size.Bsize - 1) * size.dim2;
@@ -470,8 +452,6 @@ inline void dxdyProcessBlockRowPostPred(
         dy_pos += size.dim2;
         curr_row += buffer_set->buffer_dim0_offset;
     }
-// clock_gettime(CLOCK_REALTIME, &end);
-// postPred_op_time += (double)(end.tv_sec - start.tv_sec) + (double)(end.tv_nsec - start.tv_nsec)/(double)1000000000;
 }
 
 template <class T>
@@ -591,7 +571,6 @@ inline void recoverBlockRow2PrePred(
     unsigned char *& encode_pos, int *buffer_data_pos, int current,
     size_t buffer_dim0_offset
 ){
-// clock_gettime(CLOCK_REALTIME, &start);
     int size_x = ((x+1) * size.Bsize < size.dim1) ? size.Bsize : size.dim1 - x * size.Bsize;
     int * buffer_start_pos = buffer_data_pos;
     int block_ind_offset = x * size.block_dim2;
@@ -628,8 +607,6 @@ inline void recoverBlockRow2PrePred(
         }        
         buffer_start_pos += size.Bsize;
     }
-// clock_gettime(CLOCK_REALTIME, &end);
-// prePred_decmp_time += (double)(end.tv_sec - start.tv_sec) + (double)(end.tv_nsec - start.tv_nsec)/(double)1000000000;
 }
 
 inline void heatdisProcessCompressBlockRowPrePred(
@@ -638,7 +615,6 @@ inline void heatdisProcessCompressBlockRowPrePred(
     double errorBound, int iter, int next,
     bool isTopRow, bool isBottomRow
 ){
-// clock_gettime(CLOCK_REALTIME, &start);
     int size_x = ((x+1) * size.Bsize < size.dim1) ? size.Bsize : size.dim1 - x * size.Bsize;
     int block_ind_offset = x * size.block_dim2;
     const int * prevBlockRowBottom_pos = isTopRow ? nullptr : buffer_set->prevRow_data_pos + (size.Bsize - 1) * buffer_set->buffer_dim0_offset - 1;
@@ -689,8 +665,6 @@ inline void heatdisProcessCompressBlockRowPrePred(
     cmpkit_set->cmpSize += increment;
     cmpkit_set->prefix_length += increment;
     cmpkit_set->offsets[next][x+1] = cmpkit_set->prefix_length;
-// clock_gettime(CLOCK_REALTIME, &end);
-// prePred_op_time += (double)(end.tv_sec - start.tv_sec) + (double)(end.tv_nsec - start.tv_nsec)/(double)1000000000;
 }
 
 inline void heatdisUpdatePrePred(

@@ -73,6 +73,7 @@ struct SZpAppBufferSet_2d
     size_t buffer_dim2;
     size_t buffer_size;
     size_t buffer_dim0_offset;
+    int residual;
     int * buffer_2d;
     int * prevBlockRow;
     int * currBlockRow;
@@ -84,7 +85,6 @@ struct SZpAppBufferSet_2d
     int * cmp_buffer;
     int * rowSum;
     int * colSum;
-    int * residuals;
     int * lorenzo_buffer;
     int * updateRow_data_pos;
     int * currRow_data_pos;
@@ -115,8 +115,7 @@ struct SZpAppBufferSet_2d
                 cmp_buffer = buffer_1d + buffer_dim0_offset;
                 rowSum = buffer_1d + 2 * buffer_dim0_offset;
                 colSum = buffer_1d + 3 * buffer_dim0_offset;
-                residuals = buffer_1d + 4 * buffer_dim0_offset;
-                lorenzo_buffer = buffer_1d + 5 * buffer_dim0_offset;
+                lorenzo_buffer = buffer_1d + 4 * buffer_dim0_offset;
                 break;
             }
             case appType::MEAN:{
@@ -134,7 +133,8 @@ struct SZpAppBufferSet_2d
                 break;
             }
             case appType::HEATDIS:{
-                memset(buffer_1d, 0, 5 * buffer_dim2 * sizeof(int));
+                residual = 0;
+                memset(buffer_1d, 0, 4 * buffer_dim2 * sizeof(int));
                 memset(buffer_2d, 0, 3 * buffer_size * sizeof(int));
                 updateRow_data_pos = updateBlockRow + buffer_dim0_offset + 1;
                 break;
@@ -298,14 +298,34 @@ inline void integerize_quant(
     *update_pos = (center + (sign ? -2 : 2)) >> 2;
 }
 
+inline int update_quant_and_predict(
+    SZpAppBufferSet_2d *buffer_set, const int *buffer_pos, int *update_pos
+){
+    int center = buffer_pos[-1] + buffer_pos[1] + buffer_pos[-buffer_set->buffer_dim0_offset] + buffer_pos[buffer_set->buffer_dim0_offset];
+    unsigned char sign = (center >> 31) & 1;
+    *update_pos = (center + (sign ? -2 : 2)) >> 2;
+    return update_pos[0] - update_pos[-1] - update_pos[-buffer_set->buffer_dim0_offset] + update_pos[-buffer_set->buffer_dim0_offset-1];
+}
+
 inline void integerize_pred_err(
-    size_t row_ind, SZpAppBufferSet_2d *buffer_set, const int *buffer_pos,
+    SZpAppBufferSet_2d *buffer_set, const int *buffer_pos,
     const int *altern, bool flag, int bias, int *update_pos
 ){
     int center = buffer_pos[-1] + buffer_pos[1] + (flag ? altern[0] : buffer_pos[-buffer_set->buffer_dim0_offset]) + buffer_pos[buffer_set->buffer_dim0_offset];
-    int pred = center + buffer_set->residuals[row_ind] + bias;
-    *update_pos = pred >> 2;
-    buffer_set->residuals[row_ind] = (pred & 0x3) - bias;
+    int err = center + buffer_set->residual + bias;
+    *update_pos = err >> 2;
+    buffer_set->residual = (err & 0x3) - bias;
+}
+
+inline int update_pred_err_and_predict(
+    SZpAppBufferSet_2d *buffer_set, const int *buffer_pos,
+    const int *altern, bool flag, int bias, int *update_pos
+){
+    int center = buffer_pos[-1] + buffer_pos[1] + (flag ? altern[0] : buffer_pos[-buffer_set->buffer_dim0_offset]) + buffer_pos[buffer_set->buffer_dim0_offset];
+    int err = center + buffer_set->residual + bias;
+    *update_pos = err >> 2;
+    buffer_set->residual = (err & 0x3) - bias;
+    return update_pos[0];
 }
 
 template <class T>

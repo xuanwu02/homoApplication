@@ -342,11 +342,11 @@ inline int heatdis_update_block_mean(
                 if(r == 0) weight = isCorner ? 0 : 1;     
                 else weight = isCorner ? 2 : 3;
             }
-            updated_mean += static_cast<int64_t>(weight) * y_data_pos[j];
+            updated_mean += weight * y_data_pos[j];
         }
         x_data_pos += buffer_dim0_offset;
     }
-    return static_cast<int>((updated_mean >> 2) / (size_x * size_y));
+    return (updated_mean >> 2) / (size_x * size_y);
 }
 
 inline void set_buffer_border_prepred(
