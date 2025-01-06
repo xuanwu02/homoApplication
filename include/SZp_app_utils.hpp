@@ -394,16 +394,6 @@ inline void integerize_pred_err(
     *update_pos = err >> 2;
     buffer_set->residual = (err & 0x3) - bias;
 }
-// inline void integerize_pred_err_args(
-//     SZpAppBufferSet_1d *buffer_set, const int *buffer_pos,
-//     const int *altern, bool flag, int bias, int *update_pos
-// ){
-//     std::cout << "  " << (flag ? altern[0] : buffer_pos[-1]) << " " << buffer_pos[1] << " " << buffer_pos[-buffer_set->buffer_dim0_offset] << " " << buffer_pos[buffer_set->buffer_dim0_offset] << std::endl;
-//     int center = (flag ? altern[0] : buffer_pos[-1]) + buffer_pos[1] + buffer_pos[-buffer_set->buffer_dim0_offset] + buffer_pos[buffer_set->buffer_dim0_offset];
-//     int err = center + buffer_set->residual + bias;
-//     *update_pos = err >> 2;
-//     buffer_set->residual = (err & 0x3) - bias;
-// }
 
 inline int update_pred_err_and_predict(
     SZpAppBufferSet_1d *buffer_set, const int *buffer_pos,
@@ -454,6 +444,13 @@ inline void recover_lorenzo_2d(
     int *buffer_pos, size_t buffer_dim0_offset
 ){
     buffer_pos[0] += (buffer_pos[-1] + buffer_pos[-buffer_dim0_offset] - buffer_pos[-buffer_dim0_offset-1]);
+}
+
+inline int recover_lorenzo_2d_verb(
+    int *buffer_pos, size_t buffer_dim0_offset
+){
+    buffer_pos[0] += (buffer_pos[-1] + buffer_pos[-buffer_dim0_offset] - buffer_pos[-buffer_dim0_offset-1]);
+    return buffer_pos[0];
 }
 
 inline void integerize_quant(
@@ -519,6 +516,7 @@ inline void recover_lorenzo_3d(
     data_pos[0] = buffer_pos[0] * 2 * errorBound;
 }
 
+
 template <class T>
 inline void recover_lorenzo_3d(
     T& quant_sum, int *buffer_pos,
@@ -536,6 +534,15 @@ inline void recover_lorenzo_3d(
     buffer_pos[0] += buffer_pos[-1] + buffer_pos[-buffer_dim1_offset] + buffer_pos[-buffer_dim0_offset] 
                     - buffer_pos[-buffer_dim1_offset - 1] - buffer_pos[-buffer_dim0_offset - 1] 
                     - buffer_pos[-buffer_dim0_offset - buffer_dim1_offset] + buffer_pos[-buffer_dim0_offset - buffer_dim1_offset - 1];
+}
+
+inline int recover_lorenzo_3d_verb(
+    int *buffer_pos, size_t buffer_dim0_offset, size_t buffer_dim1_offset
+){
+    buffer_pos[0] += buffer_pos[-1] + buffer_pos[-buffer_dim1_offset] + buffer_pos[-buffer_dim0_offset] 
+                    - buffer_pos[-buffer_dim1_offset - 1] - buffer_pos[-buffer_dim0_offset - 1] 
+                    - buffer_pos[-buffer_dim0_offset - buffer_dim1_offset] + buffer_pos[-buffer_dim0_offset - buffer_dim1_offset - 1];
+    return buffer_pos[0];
 }
 
 template <class T>

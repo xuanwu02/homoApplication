@@ -261,6 +261,114 @@ double SZp_mean_2dLorenzo(
     return mean;
 }
 
+double SZp_variance_2dLorenzo_fast(
+    unsigned char *cmpData, size_t dim1, size_t dim2,
+    int blockSideLength, double errorBound
+){
+    DSize_2d size(dim1, dim2, blockSideLength);
+    size_t buffer_dim0_offset = size.dim2 + 1;
+    int * quant_buffer = (int *)malloc((size.Bsize+1)*(size.dim2+1)*sizeof(int));
+    memset(quant_buffer, 0, (size.Bsize+1)*(size.dim2+1)*sizeof(int));
+    int * signPredError = (int *)malloc(size.max_num_block_elements*sizeof(int));
+    unsigned char * signFlag = (unsigned char *)malloc(size.max_num_block_elements*sizeof(unsigned char));
+    unsigned char * cmpData_pos = cmpData + FIXED_RATE_PER_BLOCK_BYTES * size.num_blocks;
+    int block_ind = 0;
+    int index_x = 0;
+    int64_t quant_sum = 0, squared_quant_sum = 0;
+    for(size_t x=0; x<size.block_dim1; x++){
+        int index_y = 0;
+        int * buffer_start_pos = quant_buffer + buffer_dim0_offset + 1;
+        for(size_t y=0; y<size.block_dim2; y++){
+            int size_x = ((x+1)*size.Bsize < size.dim1) ? size.Bsize : size.dim1 - x*size.Bsize;
+            int size_y = ((y+1)*size.Bsize < size.dim2) ? size.Bsize : size.dim2 - y*size.Bsize;
+            int block_size = size_x * size_y;
+            int fixed_rate = (int)cmpData[block_ind++];
+            int * block_buffer_pos = buffer_start_pos;
+            if(fixed_rate){
+                size_t cmp_block_sign_length = (block_size + 7) / 8;
+                convertByteArray2IntArray_fast_1b_args(block_size, cmpData_pos, cmp_block_sign_length, signFlag);
+                cmpData_pos += cmp_block_sign_length;
+                unsigned int savedbitsbytelength = Jiajun_extract_fixed_length_bits(cmpData_pos, block_size, signPredError, fixed_rate);
+                cmpData_pos += savedbitsbytelength;
+                convert2SignIntArray(signFlag, signPredError, block_size);
+                const int * pred_pos = signPredError;
+                for(int i=0; i<size_x; i++){
+                    for(int j=0; j<size_y; j++){
+                        quant_sum += (size.dim1 - (index_x + i)) * (size.dim2 - (index_y + j)) * (*pred_pos++);
+                    }
+                }
+            }else{
+                memset(signPredError, 0, size.max_num_block_elements*sizeof(int));                
+            }
+            for(int i=0; i<size_x; i++){
+                memcpy(block_buffer_pos, signPredError+i*size_y, size_y*sizeof(int));
+                int * curr_buffer_pos = block_buffer_pos;
+                for(int j=0; j<size_y; j++){
+                    int curr_quant = recover_lorenzo_2d_verb(curr_buffer_pos++, buffer_dim0_offset);
+                    squared_quant_sum += curr_quant * curr_quant;
+                }
+                block_buffer_pos += buffer_dim0_offset;
+            }
+            buffer_start_pos += size.Bsize;
+            index_y += size.Bsize;
+        }
+        index_x += size.Bsize;
+        memcpy(quant_buffer, quant_buffer+size.Bsize*buffer_dim0_offset, buffer_dim0_offset*sizeof(int));
+    }
+    free(quant_buffer);
+    free(signPredError);
+    free(signFlag);
+    double var = (squared_quant_sum - quant_sum * quant_sum / (int)size.nbEle) / ((int)size.nbEle - 1) * (2 * errorBound) * (2 * errorBound);
+    return var;
+}
+
+template <class T>
+double SZp_variance_2dLorenzo_decOp(
+    unsigned char *cmpData, size_t dim1, size_t dim2,
+    T *decData, int blockSideLength, double errorBound
+){
+    size_t nbEle = dim1 * dim2;
+    SZp_decompress_2dLorenzo(decData, cmpData, dim1, dim2, blockSideLength, errorBound);
+    double mean = 0;
+    for(size_t i=0; i<nbEle; i++) mean += decData[i];
+    mean /= nbEle;
+    double var = 0;
+    for(size_t i=0; i<nbEle; i++) var += (decData[i] - mean) * (decData[i] - mean);
+    var /= (nbEle - 1);
+    return var;
+}
+
+template <class T>
+double SZp_variance_2dLorenzo(
+    unsigned char *cmpData, size_t dim1, size_t dim2, T *decData,
+    int blockSideLength, double errorBound, decmpState state
+){
+    double var;
+
+    struct timespec start, end;
+    double elapsed_time;
+    clock_gettime(CLOCK_REALTIME, &start);
+    switch(state){
+        case decmpState::full:{
+            var = SZp_variance_2dLorenzo_decOp(cmpData, dim1, dim2, decData, blockSideLength, errorBound);            
+            break;
+        }
+        case decmpState::prePred:{
+            var = SZp_variance_2dLorenzo_fast(cmpData, dim1, dim2, blockSideLength, errorBound);            
+            break;
+        }
+        case decmpState::postPred:{
+            exit(0);
+            break;
+        }
+    }
+    clock_gettime(CLOCK_REALTIME, &end);
+    elapsed_time = get_elapsed_time(start, end);
+    printf("elapsed_time = %.6f\n", elapsed_time);
+
+    return var;
+}
+
 inline void recoverBlockRow2PostPred(
     size_t x, DSize_2d& size, unsigned char *cmpData,
     SZpCmpBufferSet *cmpkit_set, unsigned char *& encode_pos,

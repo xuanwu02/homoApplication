@@ -17,8 +17,8 @@ int main(int argc, char **argv)
     decmpState state = intToDecmpState(type);
 
     using T = float;
-    size_t dim1 = 512, dim2 = 512, dim3 = 512;
-    // size_t dim1 = 100, dim2 = 500, dim3 = 500;
+    size_t dim1 = 100, dim2 = 500, dim3 = 500;
+    // size_t dim1 = 512, dim2 = 512, dim3 = 512;
     size_t nbEle;
     auto oriData_vec = readfile<T>(data_file_3d.c_str(), nbEle);
     assert(nbEle == dim1 * dim2 * dim3);

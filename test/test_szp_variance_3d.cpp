@@ -5,7 +5,7 @@
 #include <cmath>
 #include <ctime>
 #include <cassert>
-#include "SZr_RegressionPredictor3D.hpp"
+#include "SZp_LorenzoPredictor3D.hpp"
 #include "utils.hpp"
 
 int main(int argc, char **argv)
@@ -29,16 +29,19 @@ int main(int argc, char **argv)
     T * decData = (T *)malloc(nbEle * sizeof(T));
 
     size_t cmpSize = 0;
-    SZr_compress_3dRegression(oriData, cmpData, dim1, dim2, dim3, blockSideLength, errorBound, cmpSize);
+    SZp_compress_3dLorenzo(oriData, cmpData, dim1, dim2, dim3, blockSideLength, errorBound, cmpSize);
     printf("cr = %.2f\n", 1.0 * nbEle * sizeof(T) / cmpSize);
 
-    double mean = SZr_mean_3d(cmpData, dim1, dim2, dim3, decData, blockSideLength, errorBound, state);
-    printf("mean = %.6f\n", mean);
+    double var = SZp_variance_3dLorenzo(cmpData, dim1, dim2, dim3, decData, blockSideLength, errorBound, state);
+    printf("variance = %.6f\n", var);
 
     double act_mean = 0;
     for(size_t i=0; i<nbEle; i++) act_mean += oriData[i];
     act_mean /= nbEle;
-    printf("error = %.6f\n", fabs(act_mean - mean));
+    double act_var = 0;
+    for(size_t i=0; i<nbEle; i++) act_var += (oriData[i] - act_mean) * (oriData[i] - act_mean);
+    act_var /= (nbEle - 1);
+    printf("error = %.6f\n", fabs(act_var - var));
 
     free(decData);
     free(cmpData);

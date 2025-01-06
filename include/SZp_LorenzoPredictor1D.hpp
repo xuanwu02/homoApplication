@@ -407,10 +407,6 @@ inline void heatdisProcessBlockRowPostPred(
             int abs_err, max_err = 0;
             for(int j=0; j<block_size; j++){
                 bool flag = y == 0 && j == 1;
-                // if(isBottomRow && i == size_x-1 && !j){
-                //     std::cout << iter << "|" << x << "|" << i << ": " << block_buffer_pos[-1] << " " << block_buffer_pos[1] << " " << block_buffer_pos[-12] << " " << block_buffer_pos[12] << std::endl;
-                //     integerize_pred_err_args(buffer_set, block_buffer_pos++, buffer_set->cmp_buffer+x*size.Bwidth+i, flag, bias, block_update_pos++);
-                // }
                 integerize_pred_err(buffer_set, block_buffer_pos++, buffer_set->cmp_buffer+x*size.Bwidth+i, flag, bias, block_update_pos++);
             }
             buffer_start_pos += size.Bsize;

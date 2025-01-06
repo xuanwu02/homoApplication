@@ -163,7 +163,6 @@ double SZp_mean_3dLorenzo_recover2PostPred(
     int block_ind = 0;
     int64_t quant_sum = 0;
     int index_x = 0;
-    bool flag = true;
     for(size_t x=0; x<size.block_dim1; x++){
         int index_y = 0;
         for(size_t y=0; y<size.block_dim2; y++){
@@ -241,8 +240,7 @@ double SZp_mean_3dLorenzo_recover2PrePred(
                         memcpy(block_buffer_pos, signPredError+i*size_y*size_z+j*size_z, size_z*sizeof(int));
                         int * curr_buffer_pos = block_buffer_pos;
                         for(int k=0; k<size_z; k++){
-                            recover_lorenzo_3d(quant_sum, curr_buffer_pos, buffer_dim0_offset, buffer_dim1_offset);
-                            curr_buffer_pos++;
+                            recover_lorenzo_3d(quant_sum, curr_buffer_pos++, buffer_dim0_offset, buffer_dim1_offset);
                         }
                         block_buffer_pos += buffer_dim1_offset;
                     }
@@ -304,19 +302,130 @@ double SZp_mean_3dLorenzo(
     return mean;
 }
 
-struct timespec start, end;
-double postPred_decmp_time = 0;
-double postPred_op_time = 0;
-double postPred_cmp_time = 0;
-double prePred_decmp_time = 0;
-double prePred_op_time = 0;
-double prePred_cmp_time = 0;
+double SZp_variance_3dLorenzo_fast(
+    unsigned char *cmpData, size_t dim1, size_t dim2, size_t dim3,
+    int blockSideLength, double errorBound
+){
+    DSize_3d size(dim1, dim2, dim3, blockSideLength);
+    size_t buffer_dim0_offset = (size.dim2 + 1) * (size.dim3 + 1);
+    size_t buffer_dim1_offset = size.dim3 + 1;
+    int * quant_buffer = (int *)malloc((size.Bsize+1)*(size.dim2+1)*(size.dim3+1)*sizeof(int));
+    memset(quant_buffer, 0, (size.Bsize+1)*(size.dim2+1)*(size.dim3+1)*sizeof(int));
+    int * signPredError = (int *)malloc(size.max_num_block_elements*sizeof(int));
+    unsigned char * signFlag = (unsigned char *)malloc(size.max_num_block_elements*sizeof(unsigned char));
+    unsigned char * cmpData_pos = cmpData + size.num_blocks;
+    int block_ind = 0;
+    int64_t quant_sum = 0, squared_quant_sum;
+    int index_x = 0;
+    for(size_t x=0; x<size.block_dim1; x++){
+        int index_y = 0;
+        int * buffer_start_pos = quant_buffer + buffer_dim0_offset + buffer_dim1_offset + 1;
+        for(size_t y=0; y<size.block_dim2; y++){
+            int index_z = 0;
+            for(size_t z=0; z<size.block_dim3; z++){
+                int size_x = ((x+1)*size.Bsize < size.dim1) ? size.Bsize : size.dim1 - x*size.Bsize;
+                int size_y = ((y+1)*size.Bsize < size.dim2) ? size.Bsize : size.dim2 - y*size.Bsize;
+                int size_z = ((z+1)*size.Bsize < size.dim3) ? size.Bsize : size.dim3 - z*size.Bsize;
+                int block_size = size_x * size_y * size_z;
+                int fixed_rate = (int)cmpData[block_ind++];
+                if(fixed_rate){
+                    size_t cmp_block_sign_length = (block_size + 7) / 8;
+                    convertByteArray2IntArray_fast_1b_args(block_size, cmpData_pos, cmp_block_sign_length, signFlag);
+                    cmpData_pos += cmp_block_sign_length;
+                    unsigned int savedbitsbytelength = Jiajun_extract_fixed_length_bits(cmpData_pos, block_size, signPredError, fixed_rate);
+                    cmpData_pos += savedbitsbytelength;
+                    convert2SignIntArray(signFlag, signPredError, block_size);
+                    int * diff_pos = signPredError;
+                    for(int i=0; i<size_x; i++){
+                        for(int j=0; j<size_y; j++){
+                            for(int k=0; k<size_z; k++){
+                                quant_sum += (size.dim1 - (index_x + i)) * (size.dim2 - (index_y + j)) * (size.dim3 - (index_z + k)) * (*diff_pos++);
+                            }
+                        }
+                    }
+                }else{
+                    memset(signPredError, 0, size.max_num_block_elements*sizeof(int));
+                }
+                int * block_buffer_pos = buffer_start_pos;
+                for(int i=0; i<size_x; i++){
+                    for(int j=0; j<size_y; j++){
+                        memcpy(block_buffer_pos, signPredError+i*size_y*size_z+j*size_z, size_z*sizeof(int));
+                        int * curr_buffer_pos = block_buffer_pos;
+                        for(int k=0; k<size_z; k++){
+                            int curr_quant = recover_lorenzo_3d_verb(curr_buffer_pos++, buffer_dim0_offset, buffer_dim1_offset);
+                            squared_quant_sum += curr_quant * curr_quant;
+                        }
+                        block_buffer_pos += buffer_dim1_offset;
+                    }
+                    block_buffer_pos += buffer_dim0_offset - size_y * buffer_dim1_offset;
+                }
+                buffer_start_pos += size.Bsize;
+                index_z += size.Bsize;
+            }
+            buffer_start_pos += size.Bsize * buffer_dim1_offset - size.Bsize * size.block_dim3;
+            index_y += size.Bsize;
+        }
+        memcpy(quant_buffer, quant_buffer+size.Bsize*buffer_dim0_offset, buffer_dim0_offset*sizeof(int));
+        index_x += size.Bsize;
+    }
+    free(quant_buffer);
+    free(signPredError);
+    free(signFlag);
+    double var = (squared_quant_sum - quant_sum * quant_sum / (int)size.nbEle) / ((int)size.nbEle - 1) * (2 * errorBound) * (2 * errorBound);
+    return var;
+}
+
+template <class T>
+double SZp_variance_3dLorenzo_decOp(
+    unsigned char *cmpData, size_t dim1, size_t dim2, size_t dim3,
+    T *decData, int blockSideLength, double errorBound
+){
+    size_t nbEle = dim1 * dim2 * dim3;
+    SZp_decompress_3dLorenzo(decData, cmpData, dim1, dim2, dim3, blockSideLength, errorBound);
+    double mean = 0;
+    for(size_t i=0; i<nbEle; i++) mean += decData[i];
+    mean /= nbEle;
+    double var = 0;
+    for(size_t i=0; i<nbEle; i++) var += (decData[i] - mean) * (decData[i] - mean);
+    var /= (nbEle - 1);
+    return var;
+}
+
+template <class T>
+double SZp_variance_3dLorenzo(
+    unsigned char *cmpData, size_t dim1, size_t dim2, size_t dim3, T *decData,
+    int blockSideLength, double errorBound, decmpState state
+){
+    double var;
+
+    struct timespec start, end;
+    double elapsed_time;
+    clock_gettime(CLOCK_REALTIME, &start);
+    switch(state){
+        case decmpState::full:{
+            var = SZp_variance_3dLorenzo_decOp(cmpData, dim1, dim2, dim3, decData, blockSideLength, errorBound);            
+            break;
+        }
+        case decmpState::prePred:{
+            var = SZp_variance_3dLorenzo_fast(cmpData, dim1, dim2, dim3, blockSideLength, errorBound);            
+            break;
+        }
+        case decmpState::postPred:{
+            exit(0);
+            break;
+        }
+    }
+    clock_gettime(CLOCK_REALTIME, &end);
+    elapsed_time = get_elapsed_time(start, end);
+    printf("elapsed_time = %.6f\n", elapsed_time);
+
+    return var;
+}
 
 inline void recoverBlockPlane2PostPred(
     size_t x, DSize_3d& size, unsigned char *& encode_pos, int *buffer_data_pos,
     SZpAppBufferSet_3d *buffer_set, SZpCmpBufferSet *cmpkit_set
 ){
-clock_gettime(CLOCK_REALTIME, &start);
     int block_ind = x * size.block_dim2 * size.block_dim3;
     int size_x = ((x+1)*size.Bsize < size.dim1) ? size.Bsize : size.dim1 - x*size.Bsize;
     int * buffer_start_pos = buffer_data_pos;
@@ -354,8 +463,6 @@ clock_gettime(CLOCK_REALTIME, &start);
         }
         buffer_start_pos += size.Bsize * buffer_set->buffer_dim1_offset - size.Bsize * size.block_dim3;
     }
-clock_gettime(CLOCK_REALTIME, &end);
-postPred_decmp_time += (double)(end.tv_sec - start.tv_sec) + (double)(end.tv_nsec - start.tv_nsec)/(double)1000000000;
 }
 
 template <class T>
@@ -365,7 +472,6 @@ inline void dxdydzProcessBlockPlanePostPred(
     T *dx_start_pos, T *dy_start_pos, T *dz_start_pos,
     bool isTopPlane, bool isBottomPlane
 ){
-clock_gettime(CLOCK_REALTIME, &start);
     int size_x = ((x+1)*size.Bsize < size.dim1) ? size.Bsize : size.dim1 - x*size.Bsize;
     size_t dx_buffer_dim0_offset = size.dim3 + 1;
     size_t dy_buffer_dim0_offset = size.dim3 + 1;
@@ -396,8 +502,6 @@ clock_gettime(CLOCK_REALTIME, &start);
             }
         }
     }
-clock_gettime(CLOCK_REALTIME, &end);
-postPred_op_time += (double)(end.tv_sec - start.tv_sec) + (double)(end.tv_nsec - start.tv_nsec)/(double)1000000000;
 }
 
 template <class T>
@@ -435,7 +539,6 @@ inline void recoverBlockPlane2PrePred(
     size_t x, DSize_3d& size, unsigned char *& encode_pos, int *buffer_data_pos,
     SZpAppBufferSet_3d *buffer_set, SZpCmpBufferSet *cmpkit_set
 ){
-clock_gettime(CLOCK_REALTIME, &start);
     int block_ind = x * size.block_dim2 * size.block_dim3;
     int size_x = ((x+1)*size.Bsize < size.dim1) ? size.Bsize : size.dim1 - x*size.Bsize;
     int * buffer_start_pos = buffer_data_pos;
@@ -475,8 +578,6 @@ clock_gettime(CLOCK_REALTIME, &start);
         buffer_start_pos += size.Bsize * buffer_set->buffer_dim1_offset - size.Bsize * size.block_dim3;
     }
     memcpy(buffer_set->decmp_buffer, buffer_data_pos+(size.Bsize-1)*buffer_set->buffer_dim0_offset-buffer_set->buffer_dim1_offset-1, buffer_set->buffer_dim0_offset*sizeof(int));
-clock_gettime(CLOCK_REALTIME, &end);
-prePred_decmp_time += (double)(end.tv_sec - start.tv_sec) + (double)(end.tv_nsec - start.tv_nsec)/(double)1000000000;
 }
 
 template <class T>
@@ -485,7 +586,6 @@ inline void dxdydzProcessBlockPlanePrePred(
     T *dx_start_pos, T *dy_start_pos, T *dz_start_pos,
     double errorBound, bool isTopPlane, bool isBottomPlane
 ){
-clock_gettime(CLOCK_REALTIME, &start);
     int size_x = ((x+1)*size.Bsize < size.dim1) ? size.Bsize : size.dim1 - x*size.Bsize;
     size_t buffer_dim0_offset = (size.dim2 + 1) * (size.dim3 + 1);
     size_t buffer_dim1_offset = size.dim3 + 1;
@@ -521,8 +621,6 @@ clock_gettime(CLOCK_REALTIME, &start);
         }
         curr_plane += buffer_dim0_offset;
     }
-clock_gettime(CLOCK_REALTIME, &end);
-prePred_op_time += (double)(end.tv_sec - start.tv_sec) + (double)(end.tv_nsec - start.tv_nsec)/(double)1000000000;
 }
 
 template <class T>
