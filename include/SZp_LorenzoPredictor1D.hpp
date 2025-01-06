@@ -392,7 +392,8 @@ inline void heatdisProcessBlockRowPostPred(
     const int * nextBlockRowTop_pos = isBottomRow ? nullptr : buffer_set->nextRow_data_pos - 1;
     if(!isTopRow) memcpy(buffer_set->currRow_data_pos-buffer_set->buffer_dim0_offset-1, prevBlockRowBottom_pos, buffer_set->buffer_dim0_offset*sizeof(int));
     if(!isBottomRow) memcpy(buffer_set->currRow_data_pos+size.Bwidth*buffer_set->buffer_dim0_offset-1, nextBlockRowTop_pos, buffer_set->buffer_dim0_offset*sizeof(int));
-    set_buffer_border_postpred(x, buffer_set->currRow_data_pos, size, buffer_set, temp_info, isTopRow, isBottomRow);
+    set_buffer_border_postpred(x, buffer_set->currRow_data_pos, size, size_x, buffer_set, temp_info, isTopRow, isBottomRow);
+    buffer_set->prepare_alternative(size.Bwidth, x, size_x, buffer_set->currRow_data_pos, buffer_set->buffer_dim0_offset, temp_info.q_W, buffer_set->cmp_buffer);
     const int * buffer_start_pos = buffer_set->currRow_data_pos;
     int * update_start_pos = buffer_set->updateRow_data_pos;
     for(int i=0; i<size_x; i++){
@@ -406,6 +407,10 @@ inline void heatdisProcessBlockRowPostPred(
             int abs_err, max_err = 0;
             for(int j=0; j<block_size; j++){
                 bool flag = y == 0 && j == 1;
+                // if(isBottomRow && i == size_x-1 && !j){
+                //     std::cout << iter << "|" << x << "|" << i << ": " << block_buffer_pos[-1] << " " << block_buffer_pos[1] << " " << block_buffer_pos[-12] << " " << block_buffer_pos[12] << std::endl;
+                //     integerize_pred_err_args(buffer_set, block_buffer_pos++, buffer_set->cmp_buffer+x*size.Bwidth+i, flag, bias, block_update_pos++);
+                // }
                 integerize_pred_err(buffer_set, block_buffer_pos++, buffer_set->cmp_buffer+x*size.Bwidth+i, flag, bias, block_update_pos++);
             }
             buffer_start_pos += size.Bsize;

@@ -145,10 +145,11 @@ struct SZpAppBufferSet_1d
         residual = 0;
     }
     void prepare_alternative(
-    size_t dim1, int *integer_buffer, size_t dim0_offset, int q_w, int *altern){
-        int * raw = integer_buffer;
-        for(size_t i=0; i<dim1; i++){
-            altern[i] = raw[0] - q_w;
+    size_t width, size_t x, size_t size_x,
+    int *buffer, size_t dim0_offset, int q_w, int *altern){
+        int * raw = buffer;
+        for(size_t i=0; i<size_x; i++){
+            altern[x * width + i] = raw[0] - q_w;
             raw += dim0_offset;
         }
     }
@@ -393,6 +394,16 @@ inline void integerize_pred_err(
     *update_pos = err >> 2;
     buffer_set->residual = (err & 0x3) - bias;
 }
+// inline void integerize_pred_err_args(
+//     SZpAppBufferSet_1d *buffer_set, const int *buffer_pos,
+//     const int *altern, bool flag, int bias, int *update_pos
+// ){
+//     std::cout << "  " << (flag ? altern[0] : buffer_pos[-1]) << " " << buffer_pos[1] << " " << buffer_pos[-buffer_set->buffer_dim0_offset] << " " << buffer_pos[buffer_set->buffer_dim0_offset] << std::endl;
+//     int center = (flag ? altern[0] : buffer_pos[-1]) + buffer_pos[1] + buffer_pos[-buffer_set->buffer_dim0_offset] + buffer_pos[buffer_set->buffer_dim0_offset];
+//     int err = center + buffer_set->residual + bias;
+//     *update_pos = err >> 2;
+//     buffer_set->residual = (err & 0x3) - bias;
+// }
 
 inline int update_pred_err_and_predict(
     SZpAppBufferSet_1d *buffer_set, const int *buffer_pos,
@@ -538,15 +549,14 @@ inline void deriv_lorenzo_2d(
     res_pos[0] = res_integer * errorBound;
 }
 
-// TODO:
 inline void set_buffer_border_postpred(
-    size_t x, int *integer_buffer, DSize_1d size,
+    size_t x, int *integer_buffer, DSize_1d size, size_t size_x,
     SZpAppBufferSet_1d *buffer_set, Temperature_info& temp_info,
     bool isTopRow, bool isBottomRow
 ){
     int * buffer_pos = integer_buffer;
-    for(int i=0; i<size.Bwidth; i++){
-        size_t row_ind = x * size.Bsize + i;
+    for(int i=0; i<size_x; i++){
+        size_t row_ind = x * size.Bwidth + i;
         buffer_pos[-1] = temp_info.q_W + buffer_pos[0];
         buffer_pos[size.dim2] = temp_info.q_W - buffer_set->rowSum[row_ind];
         buffer_pos += buffer_set->buffer_dim0_offset;
@@ -555,7 +565,11 @@ inline void set_buffer_border_postpred(
         buffer_pos = integer_buffer - buffer_set->buffer_dim0_offset;
         memcpy(buffer_pos, buffer_set->lorenzo_buffer, size.dim2 * sizeof(int));
     }else if(isBottomRow){
-        integer_buffer[buffer_set->buffer_dim0_offset] = temp_info.q_W;
+        buffer_pos = integer_buffer + size_x * buffer_set->buffer_dim0_offset;
+        for(size_t j=0; j<size.dim2; j++){
+            if(!j) buffer_pos[j] = temp_info.q_W;
+            else buffer_pos[j] = 0;
+        }
     }
 }
 
