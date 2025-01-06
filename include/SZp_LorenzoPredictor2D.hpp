@@ -348,7 +348,7 @@ inline void dxdyProcessBlockRowPostPred(
     const int * buffer_pos = buffer_set->currRow_data_pos;
     T *dx_pos = dx_start_pos;
     T *dy_pos = dy_start_pos;
-    for(int i=0; i <size_x; i++){
+    for(int i=0; i<size_x; i++){
         const int * next_buffer_pos = isBottomRow && (i == size_x - 1) ? buffer_pos
                           : (i == size_x - 1) ? buffer_set->nextRow_data_pos
                           : buffer_pos + buffer_set->buffer_dim0_offset;

@@ -120,17 +120,19 @@ struct SZpAppBufferSet_1d
         }
     }
     void reset(){
-        currRow_data_pos = currBlockRow + buffer_dim0_offset + 1;
-        prevRow_data_pos = prevBlockRow + buffer_dim0_offset + 1;
-        nextRow_data_pos = nextBlockRow + buffer_dim0_offset + 1;
         switch(type){
             case appType::CENTRALDIFF:{
-                // memset(buffer_1d, 0, 2 * buffer_dim2 * sizeof(int));
+                currRow_data_pos = currBlockRow + 1;
+                prevRow_data_pos = prevBlockRow + 1;
+                nextRow_data_pos = nextBlockRow + 1;
                 break;
             }
             case appType::HEATDIS:{
                 memset(buffer_1d, 0, 3 * buffer_dim2 * sizeof(int));
                 memset(buffer_2d, 0, 3 * buffer_size * sizeof(int));
+                currRow_data_pos = currBlockRow + buffer_dim0_offset + 1;
+                prevRow_data_pos = prevBlockRow + buffer_dim0_offset + 1;
+                nextRow_data_pos = nextBlockRow + buffer_dim0_offset + 1;
                 updateRow_data_pos = updateBlockRow + buffer_dim0_offset + 1;
                 break;
             }
