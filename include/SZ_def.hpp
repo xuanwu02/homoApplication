@@ -39,6 +39,31 @@ decmpState intToDecmpState(int value){
     }
 }
 
+struct DSize_1d
+{
+	size_t dim1;
+	size_t dim2;
+	size_t nbEle;
+	int Bsize;
+	int Bwidth;
+	int max_num_block_elements;
+	size_t block_dim1;
+	size_t block_dim2;
+	size_t num_blocks;
+	size_t dim0_offset;
+	DSize_1d(size_t r1, size_t r2, int bs){
+		dim1 = r1, dim2 = r2;
+		nbEle = r1 * r2;
+		Bsize = bs;
+		Bwidth = (int)std::sqrt(bs);
+		max_num_block_elements = bs;
+		block_dim1 = r1;
+		block_dim2 = (r2 - 1) / bs + 1;
+		num_blocks = block_dim1 * block_dim2;
+		dim0_offset = r2;
+	}
+};
+
 struct DSize_2d
 {
 	size_t dim1;
