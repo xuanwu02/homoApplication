@@ -371,7 +371,7 @@ double SZp_variance_3dLorenzo_fast(
     free(quant_buffer);
     free(signPredError);
     free(signFlag);
-    double var = (squared_quant_sum - quant_sum * quant_sum / (int)size.nbEle) / ((int)size.nbEle - 1) * (2 * errorBound) * (2 * errorBound);
+    double var = ((double)squared_quant_sum - (double)quant_sum * quant_sum / size.nbEle) / (size.nbEle - 1) * (2 * errorBound) * (2 * errorBound);
     return var;
 }
 
