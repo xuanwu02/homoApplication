@@ -71,7 +71,7 @@ compute_regression_coeffcients_3d(
 }
 
 template <class T>
-inline int predict_regression_2d(
+inline T predict_regression_2d(
     int i, int j, const float *coeff
 ){
     T pred = i * coeff[0] + j * coeff[1] + coeff[2];
@@ -79,7 +79,7 @@ inline int predict_regression_2d(
 }
 
 template <class T>
-inline int predict_regression_3d(
+inline T predict_regression_3d(
     int i, int j, int k, const float *coeff
 ){
     T pred = i * coeff[0] + j * coeff[1] + k * coeff[2] + coeff[3];
@@ -181,16 +181,29 @@ inline double compute_prediction_error_sum(
 }
 
 inline double compute_mean_2d(
-    DSize_2d& size, unsigned char *reg_coeff_pos, float *reg_coeff
+    DSize_2d& size, unsigned char *cmpData, unsigned char *signFlag,
+    int *signPredError, unsigned char *reg_coeff_pos, float *reg_coeff, double errorBound
 ){
     double mean = 0;
+    int block_ind = 0;
+    unsigned char * encode_pos = cmpData + (FIXED_RATE_PER_BLOCK_BYTES + REG_COEFF_SIZE_2D * FLOAT_BYTES) * size.num_blocks;
     for(size_t x=0; x<size.block_dim1; x++){
         int size_x = ((x+1)*size.Bsize < size.dim1) ? size.Bsize : size.dim1 - x*size.Bsize;
         for(size_t y=0; y<size.block_dim2; y++){
             int size_y = ((y+1)*size.Bsize < size.dim2) ? size.Bsize : size.dim2 - y*size.Bsize;
             int block_size = size_x * size_y;
+            int fixed_rate = (int)cmpData[block_ind++];
             extract_regression_coeff_2d(reg_coeff_pos, reg_coeff);
             mean += compute_prediction_sum_2d(size_x, size_y, block_size, reg_coeff);
+            if(fixed_rate){
+                size_t cmp_block_sign_length = (block_size + 7) / 8;
+                convertByteArray2IntArray_fast_1b_args(block_size, encode_pos, cmp_block_sign_length, signFlag);
+                encode_pos += cmp_block_sign_length;
+                unsigned int savedbitsbytelength = Jiajun_extract_fixed_length_bits(encode_pos, block_size, signPredError, fixed_rate);
+                encode_pos += savedbitsbytelength;
+                convert2SignIntArray(signFlag, signPredError, block_size);
+                mean += compute_prediction_error_sum(block_size, signPredError, errorBound);
+            }
         }
     }
     mean /= size.nbEle;
@@ -198,9 +211,12 @@ inline double compute_mean_2d(
 }
 
 inline double compute_mean_3d(
-    DSize_3d& size, unsigned char *reg_coeff_pos, float *reg_coeff
+    DSize_3d& size, unsigned char *cmpData, unsigned char *signFlag,
+    int *signPredError, unsigned char *reg_coeff_pos, float *reg_coeff, double errorBound
 ){
     double mean = 0;
+    int block_ind = 0;
+    unsigned char * encode_pos = cmpData + (FIXED_RATE_PER_BLOCK_BYTES + REG_COEFF_SIZE_3D * FLOAT_BYTES) * size.num_blocks;
     for(size_t x=0; x<size.block_dim1; x++){
         int size_x = ((x+1)*size.Bsize < size.dim1) ? size.Bsize : size.dim1 - x*size.Bsize;
         for(size_t y=0; y<size.block_dim2; y++){
@@ -208,8 +224,18 @@ inline double compute_mean_3d(
             for(size_t z=0; z<size.block_dim3; z++){
                 int size_z = ((z+1)*size.Bsize < size.dim3) ? size.Bsize : size.dim3 - z*size.Bsize;
                 int block_size = size_x * size_y * size_z;
+                int fixed_rate = (int)cmpData[block_ind++];
                 extract_regression_coeff_3d(reg_coeff_pos, reg_coeff);
                 mean += compute_prediction_sum_3d(size_x, size_y, size_z, block_size, reg_coeff);
+                if(fixed_rate){
+                    size_t cmp_block_sign_length = (block_size + 7) / 8;
+                    convertByteArray2IntArray_fast_1b_args(block_size, encode_pos, cmp_block_sign_length, signFlag);
+                    encode_pos += cmp_block_sign_length;
+                    unsigned int savedbitsbytelength = Jiajun_extract_fixed_length_bits(encode_pos, block_size, signPredError, fixed_rate);
+                    encode_pos += savedbitsbytelength;
+                    convert2SignIntArray(signFlag, signPredError, block_size);
+                    mean += compute_prediction_error_sum(block_size, signPredError, errorBound);
+                }
             }
         }
     }

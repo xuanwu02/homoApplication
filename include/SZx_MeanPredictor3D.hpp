@@ -191,23 +191,7 @@ double SZx_mean_3d(
     return mean;
 }
 
-template <class T>
-double SZx_variance_3d_decOp(
-    unsigned char *cmpData, size_t dim1, size_t dim2, size_t dim3,
-    T *decData, int blockSideLength, double errorBound
-){
-    size_t nbEle = dim1 * dim2 * dim3;
-    SZx_decompress_3dMeanbased(decData, cmpData, dim1, dim2, dim3, blockSideLength, errorBound);
-    double mean = 0;
-    for(size_t i=0; i<nbEle; i++) mean += decData[i];
-    mean /= nbEle;
-    double var = 0;
-    for(size_t i=0; i<nbEle; i++) var += (decData[i] - mean) * (decData[i] - mean);
-    var /= (nbEle - 1);
-    return var;
-}
-
-double SZx_variance_3dMeanbased(
+double SZx_variance_3d_postPred(
     unsigned char *cmpData, size_t dim1, size_t dim2, size_t dim3,
     int blockSideLength, double errorBound
 ){
@@ -217,10 +201,56 @@ double SZx_variance_3dMeanbased(
     int * signPredError = (int *)malloc(size.max_num_block_elements*sizeof(int));
     unsigned char * signFlag = (unsigned char *)malloc(size.max_num_block_elements*sizeof(unsigned char));
     int * blocks_mean_quant = (int *)malloc(size.num_blocks * sizeof(int));
-    int * block_quant_inds = (int *)malloc(size.max_num_block_elements * sizeof(int));
     int64_t global_mean = compute_integer_mean_3d<int64_t>(size, qmean_pos, blocks_mean_quant);
     int block_ind = 0;
     int64_t squared_sum = 0;
+    for(size_t x=0; x<size.block_dim1; x++){
+        int size_x = ((x+1) * size.Bsize < size.dim1) ? size.Bsize : size.dim1 - x * size.Bsize;
+        for(size_t y=0; y<size.block_dim2; y++){
+            int size_y = ((y+1)*size.Bsize < size.dim2) ? size.Bsize : size.dim2 - y*size.Bsize;
+            for(size_t z=0; z<size.block_dim3; z++){
+                int size_z = ((z+1)*size.Bsize < size.dim3) ? size.Bsize : size.dim3 - z*size.Bsize;
+                int block_size = size_x * size_y * size_z;
+                int block_mean = blocks_mean_quant[block_ind];
+                int mean_err = block_mean - global_mean;
+                int fixed_rate = (int)cmpData[block_ind++];
+                if(fixed_rate){
+                    size_t cmp_block_sign_length = (block_size + 7) / 8;
+                    convertByteArray2IntArray_fast_1b_args(block_size, encode_pos, cmp_block_sign_length, signFlag);
+                    encode_pos += cmp_block_sign_length;
+                    unsigned int savedbitsbytelength = Jiajun_extract_fixed_length_bits(encode_pos, block_size, signPredError, fixed_rate);
+                    encode_pos += savedbitsbytelength;
+                    convert2SignIntArray(signFlag, signPredError, block_size);
+                    for(int i=0; i<block_size; i++){
+                        int diff = signPredError[i] + mean_err;
+                        squared_sum += diff * diff;
+                    }
+                }else{
+                    squared_sum += mean_err * mean_err * block_size;
+                }
+            }
+        }
+    }
+    free(signPredError);
+    free(signFlag);
+    free(blocks_mean_quant);
+    double var = (2 * errorBound) * (2 * errorBound) * (double)squared_sum / (size.nbEle - 1);
+    return var;
+}
+
+double SZx_variance_3d_prePred(
+    unsigned char *cmpData, size_t dim1, size_t dim2, size_t dim3,
+    int blockSideLength, double errorBound
+){
+    DSize_3d size(dim1, dim2, dim3, blockSideLength);
+    unsigned char * qmean_pos = cmpData + FIXED_RATE_PER_BLOCK_BYTES * size.num_blocks;
+    unsigned char * encode_pos = cmpData + (FIXED_RATE_PER_BLOCK_BYTES + INT_BYTES) * size.num_blocks;
+    int * signPredError = (int *)malloc(size.max_num_block_elements*sizeof(int));
+    unsigned char * signFlag = (unsigned char *)malloc(size.max_num_block_elements*sizeof(unsigned char));
+    int * blocks_mean_quant = (int *)malloc(size.num_blocks * sizeof(int));
+    extract_block_mean(qmean_pos, blocks_mean_quant, size.num_blocks);
+    int block_ind = 0;
+    int64_t quant_sum = 0, squared_quant_sum = 0;
     for(size_t x=0; x<size.block_dim1; x++){
         int size_x = ((x+1) * size.Bsize < size.dim1) ? size.Bsize : size.dim1 - x * size.Bsize;
         for(size_t y=0; y<size.block_dim2; y++){
@@ -238,11 +268,13 @@ double SZx_variance_3dMeanbased(
                     encode_pos += savedbitsbytelength;
                     convert2SignIntArray(signFlag, signPredError, block_size);
                     for(int i=0; i<block_size; i++){
-                        int diff = signPredError[i] + block_mean - global_mean;
-                        squared_sum += diff * diff;
+                        int curr_quant = signPredError[i] + block_mean;
+                        quant_sum += curr_quant;
+                        squared_quant_sum += curr_quant * curr_quant;
                     }
                 }else{
-                    squared_sum += (block_mean - global_mean) * (block_mean - global_mean) * block_size;
+                    quant_sum += block_mean * block_size;
+                    squared_quant_sum += block_mean * block_mean * block_size;
                 }
             }
         }
@@ -250,8 +282,23 @@ double SZx_variance_3dMeanbased(
     free(signPredError);
     free(signFlag);
     free(blocks_mean_quant);
-    free(block_quant_inds);
-    double var = (2 * errorBound) * (2 * errorBound) * squared_sum / (size.nbEle - 1);
+    double var = ((double)squared_quant_sum - (double)quant_sum * quant_sum / size.nbEle) / (size.nbEle - 1) * (2 * errorBound) * (2 * errorBound);
+    return var;
+}
+
+template <class T>
+double SZx_variance_3d_decOp(
+    unsigned char *cmpData, size_t dim1, size_t dim2, size_t dim3,
+    T *decData, int blockSideLength, double errorBound
+){
+    size_t nbEle = dim1 * dim2 * dim3;
+    SZx_decompress_3dMeanbased(decData, cmpData, dim1, dim2, dim3, blockSideLength, errorBound);
+    double mean = 0;
+    for(size_t i=0; i<nbEle; i++) mean += decData[i];
+    mean /= nbEle;
+    double var = 0;
+    for(size_t i=0; i<nbEle; i++) var += (decData[i] - mean) * (decData[i] - mean);
+    var /= (nbEle - 1);
     return var;
 }
 
@@ -271,11 +318,11 @@ double SZx_variance_3d(
             break;
         }
         case decmpState::prePred:{
-            var = SZx_variance_3dMeanbased(cmpData, dim1, dim2, dim3, blockSideLength, errorBound);            
+            var = SZx_variance_3d_prePred(cmpData, dim1, dim2, dim3, blockSideLength, errorBound);            
             break;
         }
         case decmpState::postPred:{
-            exit(0);
+            var = SZx_variance_3d_postPred(cmpData, dim1, dim2, dim3, blockSideLength, errorBound);            
             break;
         }
     }

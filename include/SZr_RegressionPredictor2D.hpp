@@ -105,10 +105,9 @@ void SZr_decompress_2dRegression(
                     pred_err_pos += size_y;
                 }
             }else{
-                T pred = reg_coeff[REG_COEFF_SIZE_2D-1];
                 for(int i=0; i<size_x; i++){
                     for(int j=0; j<size_y; j++){
-                        curr_data_pos[j] = pred;
+                        curr_data_pos[j] = predict_regression_2d<T>(i, j, reg_coeff);
                     }
                     curr_data_pos += size.dim0_offset;
                 }
@@ -136,14 +135,18 @@ double SZr_mean_2d_decOp(
     return mean;
 }
 
-double SZr_mean_2dRegression(
+double SZr_mean_2d_postPred(
     unsigned char *cmpData, size_t dim1, size_t dim2,
     int blockSideLength, double errorBound
 ){
     DSize_2d size(dim1, dim2, blockSideLength);
-    unsigned char * reg_coeff_pos = cmpData + FIXED_RATE_PER_BLOCK_BYTES * size.num_blocks;
+    int * signPredError = (int *)malloc(size.max_num_block_elements*sizeof(int));
+    unsigned char * signFlag = (unsigned char *)malloc(size.max_num_block_elements*sizeof(unsigned char));
     float * reg_coeff = (float *)malloc(REG_COEFF_SIZE_2D * sizeof(float));
-    double mean = compute_mean_2d(size, reg_coeff_pos, reg_coeff);
+    unsigned char * reg_coeff_pos = cmpData + FIXED_RATE_PER_BLOCK_BYTES * size.num_blocks;
+    double mean = compute_mean_2d(size, cmpData, signFlag, signPredError, reg_coeff_pos, reg_coeff, errorBound);
+    free(signPredError);
+    free(signFlag);
     free(reg_coeff);
     return mean;
 }
@@ -164,11 +167,12 @@ double SZr_mean_2d(
             break;
         }
         case decmpState::prePred:{
-            mean = SZr_mean_2dRegression(cmpData, dim1, dim2, blockSideLength, errorBound);            
+            printf("Pre-prediction state does not apply to SZr.\n");
+            exit(0);
             break;
         }
         case decmpState::postPred:{
-            exit(0);
+            mean = SZr_mean_2d_postPred(cmpData, dim1, dim2, blockSideLength, errorBound);            
             break;
         }
     }
@@ -196,7 +200,7 @@ double SZr_variance_2d_decOp(
 }
 
 template <class T>
-double SZr_variance_2dRegression(
+double SZr_variance_2d_postPred(
     unsigned char *cmpData, size_t dim1, size_t dim2,
     int blockSideLength, double errorBound
 ){
@@ -206,7 +210,7 @@ double SZr_variance_2dRegression(
     int * signPredError = (int *)malloc(size.max_num_block_elements*sizeof(int));
     unsigned char * signFlag = (unsigned char *)malloc(size.max_num_block_elements*sizeof(unsigned char));
     float * reg_coeff = (float *)malloc(REG_COEFF_SIZE_2D * sizeof(float));
-    double mean = compute_mean_2d(size, reg_coeff_pos, reg_coeff);
+    double mean = compute_mean_2d(size, cmpData, signFlag, signPredError, reg_coeff_pos, reg_coeff, errorBound);
     double var = 0;
     int block_ind = 0;
     for(size_t x=0; x<size.block_dim1; x++){
@@ -226,17 +230,23 @@ double SZr_variance_2dRegression(
                 int * pred_err_pos = signPredError;
                 for(int i=0; i<size_x; i++){
                     for(int j=0; j<size_y; j++){
-                        T pred = predict_regression_2d<T>(i, j, reg_coeff);
-                        T curr_data = pred + (*pred_err_pos++) * 2 * errorBound;
+                        T curr_data = predict_regression_2d<T>(i, j, reg_coeff) + (*pred_err_pos++) * 2 * errorBound;
                         var += (curr_data - mean) * (curr_data - mean);
                     }
                 }
             }else{
-                T pred = reg_coeff[REG_COEFF_SIZE_2D-1];
-                var += (pred - mean) * (pred - mean) * block_size;
+                for(int i=0; i<size_x; i++){
+                    for(int j=0; j<size_y; j++){
+                        T pred = predict_regression_2d<T>(i, j, reg_coeff);
+                        var += (pred - mean) * (pred - mean);
+                    }
+                }
             }
         }
     }
+    free(signPredError);
+    free(signFlag);
+    free(reg_coeff);
     var /= (size.nbEle - 1);
     return var;
 }
@@ -257,11 +267,12 @@ double SZr_variance_2d(
             break;
         }
         case decmpState::prePred:{
-            var = SZr_variance_2dRegression<T>(cmpData, dim1, dim2, blockSideLength, errorBound);            
+            printf("Pre-prediction state does not apply to SZr.\n");
+            exit(0);
             break;
         }
         case decmpState::postPred:{
-            exit(0);
+            var = SZr_variance_2d_postPred<T>(cmpData, dim1, dim2, blockSideLength, errorBound);            
             break;
         }
     }

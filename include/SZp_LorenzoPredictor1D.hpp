@@ -666,17 +666,18 @@ inline void heatdisUpdatePostPred(
             // heatdisProcessCompressBlockRowPostPred(x, size, temp_info, buffer_set, cmpkit_set, next, iter, true, false); // do not use this
             heatdisProcessBlockRowPostPred(x, size, temp_info, buffer_set, cmpkit_set, next, iter, true, false);
             heatdisCompressBlockRowPostPred(x, size, buffer_set, cmpkit_set, next, iter);
-        }else if(x == numblockRow - 1){
-            rotate_buffer(buffer_set->currRow_data_pos, buffer_set->prevRow_data_pos, buffer_set->nextRow_data_pos, tempRow_pos);
-            // heatdisProcessCompressBlockRowPostPred(x, size, temp_info, buffer_set, cmpkit_set, next, iter, false, true); // do not use this
-            heatdisProcessBlockRowPostPred(x, size, temp_info, buffer_set, cmpkit_set, next, iter, false, true);
-            heatdisCompressBlockRowPostPred(x, size, buffer_set, cmpkit_set, next, iter);
         }else{
             rotate_buffer(buffer_set->currRow_data_pos, buffer_set->prevRow_data_pos, buffer_set->nextRow_data_pos, tempRow_pos);
-            recoverBlockRow2PostPred(x+1, size, cmpData, cmpkit_set, encode_pos, buffer_set->nextRow_data_pos, buffer_set->rowSum, buffer_set->buffer_dim0_offset);
-            // heatdisProcessCompressBlockRowPostPred(x, size, temp_info, buffer_set, cmpkit_set, next, iter, false, false); // do not use this
-            heatdisProcessBlockRowPostPred(x, size, temp_info, buffer_set, cmpkit_set, next, iter, false, false);
-            heatdisCompressBlockRowPostPred(x, size, buffer_set, cmpkit_set, next, iter);
+            if(x == numblockRow - 1){
+                // heatdisProcessCompressBlockRowPostPred(x, size, temp_info, buffer_set, cmpkit_set, next, iter, false, true); // do not use this
+                heatdisProcessBlockRowPostPred(x, size, temp_info, buffer_set, cmpkit_set, next, iter, false, true);
+                heatdisCompressBlockRowPostPred(x, size, buffer_set, cmpkit_set, next, iter);
+            }else{
+                recoverBlockRow2PostPred(x+1, size, cmpData, cmpkit_set, encode_pos, buffer_set->nextRow_data_pos, buffer_set->rowSum, buffer_set->buffer_dim0_offset);
+                // heatdisProcessCompressBlockRowPostPred(x, size, temp_info, buffer_set, cmpkit_set, next, iter, false, false); // do not use this
+                heatdisProcessBlockRowPostPred(x, size, temp_info, buffer_set, cmpkit_set, next, iter, false, false);
+                heatdisCompressBlockRowPostPred(x, size, buffer_set, cmpkit_set, next, iter);
+            }
         }
     }
 }
@@ -702,17 +703,18 @@ inline void heatdisUpdatePrePred(
             // heatdisProcessCompressBlockRowPrePred(x, size, temp_info, buffer_set, cmpkit_set, next, iter, true, false); // do not use this
             heatdisProcessBlockRowPrePred(x, size, temp_info, buffer_set, cmpkit_set, next, iter, true, false);
             heatdisCompressBlockRowPrePred(x, size, buffer_set, cmpkit_set, next, iter);
-        }else if(x == numblockRow - 1){
-            rotate_buffer(buffer_set->currRow_data_pos, buffer_set->prevRow_data_pos, buffer_set->nextRow_data_pos, tempRow_pos);
-            // heatdisProcessCompressBlockRowPrePred(x, size, temp_info, buffer_set, cmpkit_set, next, iter, false, true); // do not use this
-            heatdisProcessBlockRowPrePred(x, size, temp_info, buffer_set, cmpkit_set, next, iter, false, true);
-            heatdisCompressBlockRowPrePred(x, size, buffer_set, cmpkit_set, next, iter);
         }else{
             rotate_buffer(buffer_set->currRow_data_pos, buffer_set->prevRow_data_pos, buffer_set->nextRow_data_pos, tempRow_pos);
-            recoverBlockRow2PrePred(x+1, size, cmpData, cmpkit_set, encode_pos, buffer_set->nextRow_data_pos, buffer_set->buffer_dim0_offset);
-            // heatdisProcessCompressBlockRowPrePred(x, size, temp_info, buffer_set, cmpkit_set, next, iter, false, false); // do not use this
-            heatdisProcessBlockRowPrePred(x, size, temp_info, buffer_set, cmpkit_set, next, iter, false, false);
-            heatdisCompressBlockRowPrePred(x, size, buffer_set, cmpkit_set, next, iter);
+            if(x == numblockRow - 1){
+                // heatdisProcessCompressBlockRowPrePred(x, size, temp_info, buffer_set, cmpkit_set, next, iter, false, true); // do not use this
+                heatdisProcessBlockRowPrePred(x, size, temp_info, buffer_set, cmpkit_set, next, iter, false, true);
+                heatdisCompressBlockRowPrePred(x, size, buffer_set, cmpkit_set, next, iter);
+            }else{
+                recoverBlockRow2PrePred(x+1, size, cmpData, cmpkit_set, encode_pos, buffer_set->nextRow_data_pos, buffer_set->buffer_dim0_offset);
+                // heatdisProcessCompressBlockRowPrePred(x, size, temp_info, buffer_set, cmpkit_set, next, iter, false, false); // do not use this
+                heatdisProcessBlockRowPrePred(x, size, temp_info, buffer_set, cmpkit_set, next, iter, false, false);
+                heatdisCompressBlockRowPrePred(x, size, buffer_set, cmpkit_set, next, iter);
+            }
         }
     }
 }

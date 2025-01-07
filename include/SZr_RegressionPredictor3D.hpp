@@ -118,11 +118,10 @@ void SZr_decompress_3dRegression(
                         curr_data_pos += size.dim0_offset - size_y * size.dim1_offset;
                     }
                 }else{
-                    T pred = reg_coeff[REG_COEFF_SIZE_3D-1];
                     for(int i=0; i<size_x; i++){
                         for(int j=0; j<size_y; j++){
                             for(int k=0; k<size_z; k++){
-                                curr_data_pos[j] = pred;
+                                curr_data_pos[j] = predict_regression_3d<T>(i, j, k, reg_coeff);
                             }
                             curr_data_pos += size.dim1_offset;
                         }
@@ -153,14 +152,18 @@ double SZr_mean_3d_decOp(
     return mean;
 }
 
-double SZr_mean_3dRegression(
+double SZr_mean_3d_postPred(
     unsigned char *cmpData, size_t dim1, size_t dim2, size_t dim3,
     int blockSideLength, double errorBound
 ){
     DSize_3d size(dim1, dim2, dim3, blockSideLength);
-    unsigned char * reg_coeff_pos = cmpData + FIXED_RATE_PER_BLOCK_BYTES * size.num_blocks;
+    int * signPredError = (int *)malloc(size.max_num_block_elements*sizeof(int));
+    unsigned char * signFlag = (unsigned char *)malloc(size.max_num_block_elements*sizeof(unsigned char));
     float * reg_coeff = (float *)malloc(REG_COEFF_SIZE_3D * sizeof(float));
-    double mean = compute_mean_3d(size, reg_coeff_pos, reg_coeff);
+    unsigned char * reg_coeff_pos = cmpData + FIXED_RATE_PER_BLOCK_BYTES * size.num_blocks;
+    double mean = compute_mean_3d(size, cmpData, signFlag, signPredError, reg_coeff_pos, reg_coeff, errorBound);
+    free(signPredError);
+    free(signFlag);
     free(reg_coeff);
     return mean;
 }
@@ -181,11 +184,12 @@ double SZr_mean_3d(
             break;
         }
         case decmpState::prePred:{
-            mean = SZr_mean_3dRegression(cmpData, dim1, dim2, dim3, blockSideLength, errorBound);            
+            printf("Pre-prediction state does not apply to SZr.\n");
+            exit(0);
             break;
         }
         case decmpState::postPred:{
-            exit(0);
+            mean = SZr_mean_3d_postPred(cmpData, dim1, dim2, dim3, blockSideLength, errorBound);            
             break;
         }
     }
@@ -213,7 +217,7 @@ double SZr_variance_3d_decOp(
 }
 
 template <class T>
-double SZr_variance_3dRegression(
+double SZr_variance_3d_postPred(
     unsigned char *cmpData, size_t dim1, size_t dim2, size_t dim3,
     int blockSideLength, double errorBound
 ){
@@ -223,7 +227,7 @@ double SZr_variance_3dRegression(
     int * signPredError = (int *)malloc(size.max_num_block_elements*sizeof(int));
     unsigned char * signFlag = (unsigned char *)malloc(size.max_num_block_elements*sizeof(unsigned char));
     float * reg_coeff = (float *)malloc(REG_COEFF_SIZE_3D * sizeof(float));
-    double mean = compute_mean_3d(size, reg_coeff_pos, reg_coeff);
+    double mean = compute_mean_3d(size, cmpData, signFlag, signPredError, reg_coeff_pos, reg_coeff, errorBound);
     double var = 0;
     int block_ind = 0;
     for(size_t x=0; x<size.block_dim1; x++){
@@ -253,12 +257,21 @@ double SZr_variance_3dRegression(
                         }
                     }
                 }else{
-                    T pred = reg_coeff[REG_COEFF_SIZE_3D-1];
-                    var += (pred - mean) * (pred - mean) * block_size;
+                    for(int i=0; i<size_x; i++){
+                        for(int j=0; j<size_y; j++){
+                            for(int k=0; k<size_z; k++){
+                                T curr_data = predict_regression_3d<T>(i, j, k, reg_coeff);
+                                var += (curr_data - mean) * (curr_data - mean);
+                            }
+                        }
+                    }
                 }
             }
         }
     }
+    free(signPredError);
+    free(signFlag);
+    free(reg_coeff);
     var /= (size.nbEle - 1);
     return var;
 }
@@ -279,11 +292,12 @@ double SZr_variance_3d(
             break;
         }
         case decmpState::prePred:{
-            var = SZr_variance_3dRegression<T>(cmpData, dim1, dim2, dim3, blockSideLength, errorBound);            
+            printf("Pre-prediction state does not apply to SZr.\n");
+            exit(0);
             break;
         }
         case decmpState::postPred:{
-            exit(0);
+            var = SZr_variance_3d_postPred<T>(cmpData, dim1, dim2, dim3, blockSideLength, errorBound);            
             break;
         }
     }

@@ -11,8 +11,7 @@
 #define REG_COEFF_SIZE_2D 3
 #define REG_COEFF_SIZE_3D 4
 
-std::string data_file_2d = "/Users/xuanwu/github/datasets/CESM-ATM-cleared-1800x3600/CLDHGH_1_1800_3600.dat";
-// std::string data_file_3d = "/Users/xuanwu/github/datasets/NYX/data/VelocityX.f32";
+std::string data_file_2d = "/Users/xuanwu/github/datasets/CESM/CLDHGH_1_1800_3600.f32";
 std::string data_file_3d = "/Users/xuanwu/github/datasets/Hurricane/data/VelocityX.f32";
 
 enum class appType
