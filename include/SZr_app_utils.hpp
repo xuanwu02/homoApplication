@@ -110,10 +110,10 @@ inline void save_regression_coeff_3d(
     }
 }
 
-inline void extract_regression_coeff_2d(
-    unsigned char *& reg_coeff_pos, float *reg_coeff
+inline void extract_regression_coeff(
+    int reg_coeff_size, unsigned char *& reg_coeff_pos, float *reg_coeff
 ){
-    for(int i=0; i<REG_COEFF_SIZE_2D; i++){
+    for(int i=0; i<reg_coeff_size; i++){
         uint32_t tmp = 0;
         for(int k=3; k>=0; k--){
             tmp |= ((uint32_t)(*reg_coeff_pos++) << (8 * k));
@@ -122,31 +122,11 @@ inline void extract_regression_coeff_2d(
     }
 }
 
-inline void extract_regression_coeff_2d(
-    unsigned char *& reg_coeff_pos, float *reg_coeff, size_t n
+inline void extract_regression_coeff(
+    int reg_coeff_size, unsigned char *& reg_coeff_pos, float *reg_coeff, size_t n
 ){
     for(size_t i=0; i<n; i++){
-        extract_regression_coeff_2d(reg_coeff_pos, reg_coeff + i * REG_COEFF_SIZE_2D);
-    }
-}
-
-inline void extract_regression_coeff_3d(
-    unsigned char *& reg_coeff_pos, float *reg_coeff
-){
-    for(int i=0; i<REG_COEFF_SIZE_3D; i++){
-        uint32_t tmp = 0;
-        for(int k=3; k>=0; k--){
-            tmp |= ((uint32_t)(*reg_coeff_pos++) << (8 * k));
-        }
-        memcpy(&reg_coeff[i], &tmp, sizeof(uint32_t));
-    }
-}
-
-inline void extract_regression_coeff_3d(
-    unsigned char *& reg_coeff_pos, float *reg_coeff, size_t n
-){
-    for(size_t i=0; i<n; i++){
-        extract_regression_coeff_2d(reg_coeff_pos, reg_coeff + i * REG_COEFF_SIZE_3D);
+        extract_regression_coeff(reg_coeff_size, reg_coeff_pos, reg_coeff + i * reg_coeff_size);
     }
 }
 
@@ -193,7 +173,7 @@ inline double compute_mean_2d(
             int size_y = ((y+1)*size.Bsize < size.dim2) ? size.Bsize : size.dim2 - y*size.Bsize;
             int block_size = size_x * size_y;
             int fixed_rate = (int)cmpData[block_ind++];
-            extract_regression_coeff_2d(reg_coeff_pos, reg_coeff);
+            extract_regression_coeff(REG_COEFF_SIZE_2D, reg_coeff_pos, reg_coeff);
             mean += compute_prediction_sum_2d(size_x, size_y, block_size, reg_coeff);
             if(fixed_rate){
                 size_t cmp_block_sign_length = (block_size + 7) / 8;
@@ -225,7 +205,7 @@ inline double compute_mean_3d(
                 int size_z = ((z+1)*size.Bsize < size.dim3) ? size.Bsize : size.dim3 - z*size.Bsize;
                 int block_size = size_x * size_y * size_z;
                 int fixed_rate = (int)cmpData[block_ind++];
-                extract_regression_coeff_3d(reg_coeff_pos, reg_coeff);
+                extract_regression_coeff(REG_COEFF_SIZE_3D, reg_coeff_pos, reg_coeff);
                 mean += compute_prediction_sum_3d(size_x, size_y, size_z, block_size, reg_coeff);
                 if(fixed_rate){
                     size_t cmp_block_sign_length = (block_size + 7) / 8;
@@ -243,7 +223,39 @@ inline double compute_mean_3d(
     return mean;
 }
 
-struct SZrCmpBufferSet_2d
+template <class T>
+inline T dxdyblockTopPredDiff(
+    int j, int Bsize, float *beta_curr, float *beta_top
+){
+    T diff = beta_curr[0] - (Bsize-1) * beta_top[0] + j * (beta_curr[1] - beta_top[1]) + beta_curr[2] - beta_top[2];
+    return diff * 0.5;
+}
+
+template <class T>
+inline T dxdyblockBottomPredDiff(
+    int j, int Bsize, float *beta_curr, float *beta_bottom
+){
+    T diff = -(Bsize-2) * beta_curr[0] + j * (beta_bottom[1] - beta_curr[1]) + beta_bottom[2] - beta_curr[2];
+    return diff * 0.5;
+}
+
+template <class T>
+inline T dxdyblockHeadPredDiff(
+    int i, int Bsize, float *beta_curr, float *beta_left
+){
+    T diff = i * (beta_curr[0] - beta_left[0]) + beta_curr[1] - (Bsize-1) * beta_left[1] + beta_curr[2] - beta_left[2];
+    return diff * 0.5;
+}
+
+template <class T>
+inline T dxdyblockTailPredDiff(
+    int i, int Bsize, float *beta_curr, float *beta_right
+){
+    T diff = i * (beta_right[0] - beta_curr[0]) - (Bsize-2) * beta_curr[1] + beta_right[2] - beta_curr[2];
+    return diff * 0.5;
+}
+
+struct SZrCmpBufferSet
 {
     unsigned char ** cmpData;
     int ** offsets;
@@ -254,7 +266,7 @@ struct SZrCmpBufferSet_2d
     unsigned char * signFlag;
     size_t cmpSize;
     size_t prefix_length;
-    SZrCmpBufferSet_2d(
+    SZrCmpBufferSet(
     unsigned char *cmpData_, float *coeff_,
     int *signPredError_, unsigned char *signFlag_)
         : compressed(cmpData_),
@@ -262,7 +274,7 @@ struct SZrCmpBufferSet_2d
           signPredError(signPredError_),
           signFlag(signFlag_)
     {}
-    SZrCmpBufferSet_2d(
+    SZrCmpBufferSet(
     unsigned char **cmpData_, int **offsets_,
     unsigned int *absPredError_, int *signPredError_, unsigned char *signFlag_)
         : cmpData(cmpData_),

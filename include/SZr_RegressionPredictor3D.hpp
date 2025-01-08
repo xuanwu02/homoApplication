@@ -98,7 +98,7 @@ void SZr_decompress_3dRegression(
                 int block_size = size_x * size_y * size_z;
                 int fixed_rate = (int)cmpData[block_ind++];
                 T * curr_data_pos = z_data_pos;
-                extract_regression_coeff_3d(reg_coeff_pos, reg_coeff);
+                extract_regression_coeff(REG_COEFF_SIZE_3D, reg_coeff_pos, reg_coeff);
                 if(fixed_rate){
                     size_t cmp_block_sign_length = (block_size + 7) / 8;
                     convertByteArray2IntArray_fast_1b_args(block_size, encode_pos, cmp_block_sign_length, signFlag);
@@ -238,7 +238,7 @@ double SZr_variance_3d_postPred(
                 int size_z = ((z+1)*size.Bsize < size.dim3) ? size.Bsize : size.dim3 - z*size.Bsize;
                 int block_size = size_x * size_y * size_z;
                 int fixed_rate = (int)cmpData[block_ind++];
-                extract_regression_coeff_3d(reg_coeff_pos, reg_coeff);
+                extract_regression_coeff(REG_COEFF_SIZE_3D, reg_coeff_pos, reg_coeff);
                 if(fixed_rate){
                     size_t cmp_block_sign_length = (block_size + 7) / 8;
                     convertByteArray2IntArray_fast_1b_args(block_size, encode_pos, cmp_block_sign_length, signFlag);
