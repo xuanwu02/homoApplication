@@ -8,6 +8,7 @@
 #include <cmath>
 #include <ctime>
 #include <random>
+#include "SZ_def.hpp"
 
 template <class T>
 void print_statistics(const T * data_ori, const T * data_dec, size_t data_size){
@@ -86,14 +87,14 @@ double get_elapsed_time(struct timespec &start, struct timespec &end){
     return (double)(end.tv_sec - start.tv_sec) + (double)(end.tv_nsec - start.tv_nsec)/(double)1000000000;
 }
 
-template <class T>
-void initRandomData(T min, T max, unsigned int seed, size_t n, T *data){
-    std::mt19937 generator(seed);  
-    std::uniform_real_distribution<T> distribution(min, max);
-    for(size_t i=0; i<n; i++){
-        data[i] = distribution(generator);
-    }
-}
+// template <class T>
+// void initRandomData(T min, T max, unsigned int seed, size_t n, T *data){
+//     std::mt19937 generator(seed);  
+//     std::uniform_real_distribution<T> distribution(min, max);
+//     for(size_t i=0; i<n; i++){
+//         data[i] = distribution(generator);
+//     }
+// }
 
 template <class T>
 double verify(const T *oriData, const T *decData, size_t dim1, size_t dim2)
@@ -149,48 +150,6 @@ void print_matrix_int(int dim1, int dim2, std::string name, int *mat)
             printf("%d ", mat[i*dim2+j]);
         }
         printf("\n");
-    }
-}
-
-template <class T>
-void initData(
-    size_t dim1, size_t dim2,
-    T *h, T init_temp
-){
-    for (size_t i = 0; i < dim1; i++) {
-        for (size_t j = 0; j < dim2; j++) {
-            h[i * dim2 + j] = init_temp;
-        }
-    }
-}
-template <class T>
-void doWork(
-    size_t dim1, size_t dim2, T *g, T *h,
-    T src_temp, T wall_temp, double ratio
-){
-    memcpy(h, g, dim1 * dim2 * sizeof(float));
-    size_t c1 =  dim2 * (1.0 - ratio) * 0.5 + 1;
-    size_t c2 =  dim2 * (1.0 + ratio) * 0.5 - 1;
-    T left, right, top, bottom;
-    for (size_t i = 0; i < dim1; i++) {
-        for (size_t j = 0; j < dim2; j++) {
-            size_t index = i * dim2 + j;
-            bool j_flag = (j >= c1) && (j <= c2);
-            left = (j == 0) ? wall_temp : h[index - 1];
-            right = (j == dim2 - 1) ? wall_temp : h[index + 1];
-            top = (i > 0) ? h[index - dim2] : (j_flag ? src_temp : wall_temp);
-            bottom = (i == dim1 - 1) ? wall_temp : h[index + dim2];
-            g[index] = 0.25 * (left + right + top + bottom);
-        }
-    }
-}
-template <class T>
-void doWork(
-    size_t dim1, size_t dim2, int max_iter, T *g, T *h,
-    T src_temp, T wall_temp, double ratio
-){
-    for(int i=0; i<max_iter; i++){
-        doWork(dim1, dim2, g, h, src_temp, wall_temp, ratio);
     }
 }
 

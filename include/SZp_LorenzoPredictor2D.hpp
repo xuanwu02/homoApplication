@@ -833,7 +833,7 @@ inline void heatdisProcessBlockRowPrePred(
 //         buffer_start_pos += size_y;
 //         update_start_pos += size_y;
 //     }
-//     buffer_set->copy_buffer_buttom(size_x);
+//     buffer_set->save_cmp_buffer_buttom(size_x);
 //     size_t increment = cmpData_pos - prev_pos;
 //     cmpkit_set->cmpSize += increment;
 //     cmpkit_set->prefix_length += increment;
@@ -925,7 +925,7 @@ inline void compressBlockRowFromPrePred(
             cmpData_pos += savedbitsbyteLength;
         }
     }
-    buffer_set->copy_buffer_buttom(size_x);
+    buffer_set->save_cmp_buffer_buttom(size_x);
     size_t increment = cmpData_pos - prev_pos;
     cmpkit_set->cmpSize += increment;
     cmpkit_set->prefix_length += increment;
@@ -1032,29 +1032,33 @@ inline void heatdisUpdatePrePred(
 
 template <class T>
 void SZp_heatdis_2dLorenzo(
-    unsigned char *compressed_data, size_t dim1, size_t dim2,
+    unsigned char *cmpDataBuffer, size_t dim1, size_t dim2,
     int blockSideLength, int max_iter, size_t& cmpSize,
-    T source_temp, T wall_temp, double ratio,
+    float source_temp, float wall_temp, float init_temp, double ratio,
     double errorBound, decmpState state
 ){
     DSize_2d size(dim1, dim2, blockSideLength);
+    size_t data_buffer_dim1 = size.dim1 + 2;
     size_t buffer_dim1 = size.Bsize + 2;
     size_t buffer_dim2 = size.dim2 + 2;
     size_t buffer_size = buffer_dim1 * buffer_dim2;
+    size_t data_buffer_size = data_buffer_dim1 * buffer_dim2;
     int * Buffer_2d = (int *)malloc(buffer_size * 4 * sizeof(int));
     int * Buffer_1d = (int *)malloc(buffer_dim2 * 5 * sizeof(int));
     unsigned int * absPredError = (unsigned int *)malloc(size.max_num_block_elements * sizeof(unsigned int));
     int * signPredError = (int *)malloc(size.max_num_block_elements * sizeof(int));
     unsigned char * signFlag = (unsigned char *)malloc(size.max_num_block_elements * sizeof(unsigned char));
-    T * decData = (T *)malloc(size.nbEle * sizeof(T));
-    T * h = (T *)malloc(size.nbEle * sizeof(T));
+    T * h = (T *)malloc(data_buffer_size * sizeof(T));
+    T * h2 = (T *)malloc(data_buffer_size * sizeof(T));
+
     unsigned char **cmpData = (unsigned char **)malloc(2 * sizeof(unsigned char *));
     int **offsets = (int **)malloc(2*sizeof(int *));
     for(int i=0; i<2; i++){
-        cmpData[i] = (unsigned char *)malloc(size.nbEle * sizeof(T)*2);
+        cmpData[i] = (unsigned char *)malloc(data_buffer_size * sizeof(T));
         offsets[i] = (int *)malloc(size.block_dim1 * sizeof(int));
     }
-    memcpy(cmpData[0], compressed_data, size.nbEle * sizeof(T));
+    memcpy(cmpData[0], cmpDataBuffer, size.nbEle * sizeof(T));
+
     size_t prefix_length = 0;
     int block_index = 0;
     for(size_t x=0; x<size.block_dim1; x++){
@@ -1065,7 +1069,7 @@ void SZp_heatdis_2dLorenzo(
             int size_y = ((y+1) * size.Bsize < size.dim2) ? size.Bsize : size.dim2 - y * size.Bsize;
             int block_size = size_x * size_y;
             int cmp_block_sign_length = (block_size + 7) / 8;
-            int fixed_rate = (int)compressed_data[block_index++];
+            int fixed_rate = (int)cmpDataBuffer[block_index++];
             size_t savedbitsbytelength = compute_encoding_byteLength(block_size, fixed_rate);
             if(fixed_rate)
                 prefix_length += (cmp_block_sign_length + savedbitsbytelength);
@@ -1078,45 +1082,47 @@ void SZp_heatdis_2dLorenzo(
 
     struct timespec start, end;
     double elapsed_time;
-    clock_gettime(CLOCK_REALTIME, &start);
     switch(state){
         case decmpState::postPred:{
+            clock_gettime(CLOCK_REALTIME, &start);
             temp_info.prepare_src_row(size.dim2, buffer_set->decmp_buffer, buffer_set->lorenzo_buffer);
             heatdisUpdatePostPred(size, cmpkit_set, buffer_set, temp_info, max_iter);
+            clock_gettime(CLOCK_REALTIME, &end);
+            cmpSize = FIXED_RATE_PER_BLOCK_BYTES * size.num_blocks + cmpkit_set->cmpSize;
+            printf("cr = %.2f\n", 1.0 * size.nbEle * sizeof(T) / cmpSize);
             break;
         }
         case decmpState::prePred:{
+            clock_gettime(CLOCK_REALTIME, &start);
             heatdisUpdatePrePred(size, cmpkit_set, buffer_set, temp_info, max_iter);
+            clock_gettime(CLOCK_REALTIME, &end);
+            cmpSize = FIXED_RATE_PER_BLOCK_BYTES * size.num_blocks + cmpkit_set->cmpSize;
+            printf("cr = %.2f\n", 1.0 * size.nbEle * sizeof(T) / cmpSize);
             break;
         }
         case decmpState::full:{
+            HeatDis heatdis(source_temp, wall_temp, ratio, dim1, dim2);
+            heatdis.initData(h, h2, init_temp);
             unsigned char * compressed = cmpData[status];
+            SZp_compress_2dLorenzo(h, compressed, data_buffer_dim1, buffer_dim2, blockSideLength, errorBound, cmpSize);
+            T * tmp = nullptr;
+            clock_gettime(CLOCK_REALTIME, &start);
             for(int i=0; i<max_iter; i++){
-                SZp_decompress_2dLorenzo(decData, compressed, dim1, dim2, blockSideLength, errorBound);
-                doWork(dim1, dim2, decData, h, source_temp, wall_temp, ratio);
-                SZp_compress_2dLorenzo(decData, compressed, dim1, dim2, blockSideLength, errorBound, cmpSize);
+                SZp_decompress_2dLorenzo(h, compressed, data_buffer_dim1, buffer_dim2, blockSideLength, errorBound);
+                heatdis.reset_source(h, h2);
+                heatdis.iterate(h, h2, tmp);
+                SZp_compress_2dLorenzo(h, compressed, data_buffer_dim1, buffer_dim2, blockSideLength, errorBound, cmpSize);
             }
+            clock_gettime(CLOCK_REALTIME, &end);
+            printf("cr = %.2f\n", 1.0 * data_buffer_size * sizeof(T) / cmpSize);
             break;
         }
     }
-    clock_gettime(CLOCK_REALTIME, &end);
     elapsed_time = get_elapsed_time(start, end);
     printf("elapsed_time = %.6f\n", elapsed_time);
 
-    switch(state){
-        case decmpState::postPred:{
-            cmpSize = size.num_blocks + cmpkit_set->cmpSize;
-            break;
-        }
-        case decmpState::prePred:{
-            cmpSize = size.num_blocks + cmpkit_set->cmpSize;
-            break;
-        }
-        case decmpState::full:{
-            break;
-        }
-    }
-    memmove(compressed_data, cmpData[status], size.nbEle*sizeof(T));
+    memcpy(cmpDataBuffer, cmpData[status], data_buffer_size*sizeof(T));
+    writefile("h2d.dat", cmpDataBuffer, cmpSize);
 
     delete buffer_set;
     delete cmpkit_set;
@@ -1125,8 +1131,8 @@ void SZp_heatdis_2dLorenzo(
     free(absPredError);
     free(signPredError);
     free(signFlag);
-    free(decData);
     free(h);
+    free(h2);
     for(int i=0; i<2; i++){
         free(cmpData[i]);
         free(offsets[i]);

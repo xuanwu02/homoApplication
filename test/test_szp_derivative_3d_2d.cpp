@@ -35,12 +35,12 @@ int main(int argc, char **argv)
     T * decop_dz_result = (T *)malloc(nbEle * sizeof(T));
 
     size_t cmpSize = 0;
-    SZp_compress_3dLorenzo(oriData, cmpData, dim1, dim2, dim3, blockSideLength, errorBound, cmpSize);
+    SZp_compress_2dLorenzo(oriData, cmpData, dim1, dim2, dim3, blockSideLength, errorBound, cmpSize);
     printf("cr = %.2f\n", 1.0 * nbEle * sizeof(T) / cmpSize);
 
-    SZp_dxdydz_3dLorenzo(cmpData, dim1, dim2, dim3, blockSideLength, errorBound, dx_result, dy_result, dz_result, state);
+    SZp_dxdydz_2dLorenzo(cmpData, dim1, dim2, dim3, blockSideLength, errorBound, dx_result, dy_result, dz_result, state);
 
-    SZp_decompress_3dLorenzo(decData, cmpData, dim1, dim2, dim3, blockSideLength, errorBound);
+    SZp_decompress_2dLorenzo(decData, cmpData, dim1, dim2, dim3, blockSideLength, errorBound);
     compute_dxdydz(dim1, dim2, dim3, decData, decop_dx_result, decop_dy_result, decop_dz_result);
     double err;
     err = verify(decop_dx_result, dx_result, dim1, dim2, dim3);

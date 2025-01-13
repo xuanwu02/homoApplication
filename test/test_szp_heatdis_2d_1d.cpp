@@ -5,7 +5,7 @@
 #include <cmath>
 #include <ctime>
 #include <cassert>
-#include "SZp_LorenzoPredictor2D.hpp"
+#include "SZp_LorenzoPredictor1D.hpp"
 #include "utils.hpp"
 
 int main(int argc, char **argv)
@@ -35,19 +35,19 @@ int main(int argc, char **argv)
     // initData(dim1, dim2, h, init_temp);
     heatdis.initData_noghost(h, h2, init_temp);
     size_t cmpSize = 0;
-    SZp_compress_2dLorenzo(h, cmpData, dim1, dim2, blockSideLength, errorBound, cmpSize);
-    SZp_heatdis_2dLorenzo<T>(cmpData, dim1, dim2, blockSideLength, max_iter, cmpSize, src_temp, wall_temp, init_temp, ratio, errorBound, state);
+    SZp_compress_1dLorenzo(h, cmpData, dim1, dim2, blockSideLength, errorBound, cmpSize);
+    SZp_heatdis_1dLorenzo<T>(cmpData, dim1, dim2, blockSideLength, max_iter, cmpSize, src_temp, wall_temp, init_temp, ratio, errorBound, state);
 
-    auto cmpVec = readfile<unsigned char>("h2d.dat", cmpSize);
+    auto cmpVec = readfile<unsigned char>("h1d.dat", cmpSize);
 
     switch(state){
         case decmpState::postPred:
         case decmpState::prePred:{
-            SZp_decompress_2dLorenzo(decData, cmpVec.data(), dim1, dim2, blockSideLength, errorBound);
+            SZp_decompress_1dLorenzo(decData, cmpVec.data(), dim1, dim2, blockSideLength, errorBound);
             break;
         }
         case decmpState::full:{
-            SZp_decompress_2dLorenzo(h, cmpVec.data(), dim1+2, dim2+2, blockSideLength, errorBound);
+            SZp_decompress_1dLorenzo(h, cmpVec.data(), dim1+2, dim2+2, blockSideLength, errorBound);
             heatdis.trimData(h, decData);
             break;
         }
