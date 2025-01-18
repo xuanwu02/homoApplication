@@ -250,6 +250,7 @@ public:
 		for(int iter=0; iter<num_iter; iter++){
 			iterate(h, h2, tmp);
 		}
+		if(num_iter % 2) memcpy(h_, h2_, nbEle_padded * sizeof(T));
 	}
     template <class T>
 	void doWork(T *h_, T *h2_, int num_iter, int plotgap){
@@ -257,12 +258,13 @@ public:
 		T * tmp = nullptr;
 		for(int iter=0; iter<num_iter; iter++){
 			iterate(h, h2, tmp);
-			if(iter % plotgap == 0){
+			if(iter && iter % plotgap == 0){
 				std::string h_name = "h.dat." + std::to_string(iter);
 				writefile(h_name.c_str(), h, nbEle_padded);
 				std::cout << "saved snapshot " << iter << std::endl;
 			}
 		}
+		if(num_iter % 2) memcpy(h_, h2_, nbEle_padded * sizeof(T));
 	}
     template <class T>
 	void trimData(T *padded, T *trimmed){
@@ -281,22 +283,20 @@ class GrayScott{
 public:
     class gsIntCoeff{
     public:
-		int UBorderVal, UBorderVal2, VBorderVal;
-        int dt, Dudt, Dvdt, Fdt, Fkdt;
+		int64_t UBorderVal, VBorderVal;
+        int64_t dt, Dudt, Dvdt, Fdt, Fkdt;
         gsIntCoeff(double dt_, double dudt, double dvdt,
-		double fdt, double fkdt, double eb, double ub, double ub2, double vb){
-            dt = SZ_quantize(dt_, eb);
-            Dudt = SZ_quantize(dudt, eb);
-            Dvdt = SZ_quantize(dvdt, eb);
-            Fdt = SZ_quantize(fdt, eb);
-            Fkdt = SZ_quantize(fkdt, eb);
-			UBorderVal = SZ_quantize(ub, eb);
-			UBorderVal2 = SZ_quantize(ub2, eb);
-			VBorderVal = SZ_quantize(vb, eb);
+		double fdt, double fkdt, double eb, double ub, double vb){
+            dt = (int64_t)SZ_quantize(dt_, eb);
+            Dudt = (int64_t)SZ_quantize(dudt, eb);
+            Dvdt = (int64_t)SZ_quantize(dvdt, eb);
+            Fdt = (int64_t)SZ_quantize(fdt, eb);
+            Fkdt = (int64_t)SZ_quantize(fkdt, eb);
+			UBorderVal = (int64_t)SZ_quantize(ub, eb);
+			VBorderVal = (int64_t)SZ_quantize(vb, eb);
         }
     };
 	const double UBorderVal = 1.0;
-	const double UBorderVal2 = 0.0;
 	const double VBorderVal = 0.0;
 	const int d = 6;
     size_t L;
@@ -313,10 +313,11 @@ public:
 		nbEle_padded = (L + 2) * (L + 2) * (L + 2);
         dim0_offset = (L + 2) * (L + 2);
         dim1_offset = (L + 2);
-		Dudt = Du * dt / 6.0, Dvdt = Dv * dt / 6.0;
+		Dudt = Du * dt, Dvdt = Dv * dt;
+		// Dudt = Du * dt / 6.0, Dvdt = Dv * dt / 6.0;
 		Fkdt = (F + k) * dt, Fdt = F * dt;
         Fk = F + k;
-		intCoeff = new gsIntCoeff(dt, Dudt, Dvdt, Fdt, Fkdt, eb, UBorderVal, UBorderVal2, VBorderVal);
+		intCoeff = new gsIntCoeff(dt, Dudt, Dvdt, Fdt, Fkdt, eb, UBorderVal, VBorderVal);
     }
     ~GrayScott(){
         delete intCoeff;
@@ -327,11 +328,13 @@ public:
     template <class T>
 	void initData_noghost(T *u, T *v, T *u2, T *v2){
 		for(int i=0; i<nbEle; i++){
-			u[i] = UBorderVal, u2[i] = UBorderVal2;
+			u[i] = UBorderVal, u2[i] = UBorderVal;
 			v[i] = VBorderVal, v2[i] = VBorderVal;
 		}
 		const int le = L / 2 - d - 1;
 		const int ue = L / 2 + d - 1;
+		// const int le = 2;
+		// const int ue = 4;
 		for(int i=le; i<ue; i++){
 			for(int j=le; j<ue; j++){
 				for(int k=le; k<ue; k++){
@@ -348,11 +351,13 @@ public:
     template <class T>
 	void initData(T *u, T *v, T *u2, T *v2){
 		for(int i=0; i<nbEle_padded; i++){
-			u[i] = UBorderVal, u2[i] = UBorderVal2;
+			u[i] = UBorderVal, u2[i] = UBorderVal;
 			v[i] = VBorderVal, v2[i] = VBorderVal;
 		}
 		const int le = L / 2 - d;
 		const int ue = L / 2 + d;
+		// const int le = 3;
+		// const int ue = 5;
 		for(int i=le; i<ue; i++){
 			for(int j=le; j<ue; j++){
 				for(int k=le; k<ue; k++){
@@ -393,6 +398,15 @@ public:
 					T dv = Dv * laplacian(i, j, k, v) + calcV(u[index], v[index]);
 					u2[index] = u[index] + du * dt;
 					v2[index] = v[index] + dv * dt;
+					// if(i==4 && j==2 && k==3){
+					// 	std::cout << " " << v[index] << " "
+					// 					 << laplacian(i, j, k, v) << " "
+					// 					 << Dv * laplacian(i, j, k, v) << " "
+					// 					 << dv * dt << std::endl;
+					// 					//  << calcU(u[index], v[index]) << " "
+					// 					//  << du * dt << " "
+					// 					//  << u2[index] << std::endl;
+					// }
 				}
 			}
 		}
@@ -406,27 +420,35 @@ public:
     template <class T>
 	void doWork(T *u_, T *v_, T *u2_, T *v2_, int num_iter){
 		T * u = u_, * v = v_;
-		T * u2 = u_, * v2 = v2_;
+		T * u2 = u2_, * v2 = v2_;
 		T * tmp = nullptr;
 		for(int iter=0; iter<num_iter; iter++){
 			iterate(u, v, u2, v2, tmp);
+		}
+		if(num_iter % 2){
+			memcpy(u_, u2_, nbEle_padded * sizeof(T));
+			memcpy(v_, v2_, nbEle_padded * sizeof(T));
 		}
 	}
     template <class T>
 	void doWork(T *u_, T *v_, T *u2_, T *v2_, int num_iter, int plotgap){
 		T * u = u_, * v = v_;
-		T * u2 = u_, * v2 = v2_;
+		T * u2 = u2_, * v2 = v2_;
 		T * tmp = nullptr;
 		for(int iter=1; iter<=num_iter; iter++){
 			iterate(u, v, u2, v2, tmp);
-			if(iter % plotgap == 0){
-				std::string u_name = "U.dat." + std::to_string(iter);
-				std::string v_name = "V.dat." + std::to_string(iter);
+			if(iter && iter % plotgap == 0){
+				std::string u_name = "u.dec." + std::to_string(iter);
+				std::string v_name = "v.dec." + std::to_string(iter);
 				writefile(u_name.c_str(), u, nbEle_padded);
 				writefile(v_name.c_str(), u, nbEle_padded);
 				std::cout << "saved snapshot " << iter << std::endl;
 			}
 		}
+		// if(num_iter % 2){
+		// 	memcpy(u_, u2_, nbEle_padded * sizeof(T));
+		// 	memcpy(v_, v2_, nbEle_padded * sizeof(T));
+		// }
 	}
     template <class T>
 	void trimData(T *padded, T *trimmed){

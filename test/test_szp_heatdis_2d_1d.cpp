@@ -56,6 +56,10 @@ int main(int argc, char **argv)
     heatdis.initData(h, h2, init_temp);
     heatdis.doWork(h, h2, max_iter);
     heatdis.trimData(h, g);
+
+    writefile("h1d.dec", decData, nbEle);
+    writefile("h.dec", g, nbEle);
+
     double err = verify(g, decData, dim1, dim2);
     printf("max_error = %.6f\n", err);
 

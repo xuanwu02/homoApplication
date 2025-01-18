@@ -32,7 +32,6 @@ int main(int argc, char **argv)
     T * decData = (T *)malloc(buffer_size * sizeof(T));
     unsigned char *cmpData = (unsigned char *)malloc(buffer_size * sizeof(T));
 
-    // initData(dim1, dim2, h, init_temp);
     heatdis.initData_noghost(h, h2, init_temp);
     size_t cmpSize = 0;
     SZp_compress_2dLorenzo(h, cmpData, dim1, dim2, blockSideLength, errorBound, cmpSize);
@@ -40,13 +39,21 @@ int main(int argc, char **argv)
 
     auto cmpVec = readfile<unsigned char>("h2d.dat", cmpSize);
 
+    std::string dec_file_name;
+    std::string suffix = "." + std::to_string(dim1) + "." + std::to_string(dim2) + "." + std::to_string(max_iter);
+
     switch(state){
-        case decmpState::postPred:
+        case decmpState::postPred:{
+            dec_file_name = "h2d.postpred" + suffix;
+            break;
+        }
         case decmpState::prePred:{
             SZp_decompress_2dLorenzo(decData, cmpVec.data(), dim1, dim2, blockSideLength, errorBound);
+            dec_file_name = "h2d.prepred" + suffix;
             break;
         }
         case decmpState::full:{
+            dec_file_name = "h2d.doc" + suffix;
             SZp_decompress_2dLorenzo(h, cmpVec.data(), dim1+2, dim2+2, blockSideLength, errorBound);
             heatdis.trimData(h, decData);
             break;
@@ -56,6 +63,10 @@ int main(int argc, char **argv)
     heatdis.initData(h, h2, init_temp);
     heatdis.doWork(h, h2, max_iter);
     heatdis.trimData(h, g);
+
+    writefile("h2d.dec", decData, nbEle);
+    writefile("h.dec", g, nbEle);
+
     double err = verify(g, decData, dim1, dim2);
     printf("max_error = %.6f\n", err);
 

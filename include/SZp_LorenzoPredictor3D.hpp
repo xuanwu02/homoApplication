@@ -1120,6 +1120,9 @@ inline void recoverBlockPlane2PrePred(
     size_t x, DSize_3d& size, unsigned char *& encode_pos, int *buffer_data_pos,
     gsAppBufferSet *buffer_set, SZpCmpBufferSet *cmpkit_set, int current, int iter
 ){
+if (!cmpkit_set || !cmpkit_set->cmpData) {
+    std::cerr << "Error: cmpkit_set or cmpkit_set->cmpData is NULL!" << std::endl;
+}
     int size_x = ((x+1)*size.Bsize < size.dim1) ? size.Bsize : size.dim1 - x*size.Bsize;
     buffer_set->set_decmp_buffer_border(buffer_data_pos, size_x);
     int block_ind = x * size.block_dim2 * size.block_dim3;
@@ -1133,6 +1136,7 @@ inline void recoverBlockPlane2PrePred(
             int * quant_pos = buffer_start_pos;
             int fixed_rate = (int)cmpkit_set->cmpData[current][block_ind++];
             gs_decode_prepred(block_size, fixed_rate, encode_pos, cmpkit_set);
+            // if(fixed_rate) std::cout << iter << ": " << block_ind << ": fixed_rate = " << fixed_rate << std::endl;
             for(int i=0; i<size_x; i++){
                 for(int j=0; j<size_y; j++){
                     memcpy(curr_buffer_pos, cmpkit_set->signPredError+i*size_y*size_z+j*size_z, size_z*sizeof(int));
@@ -1178,17 +1182,29 @@ inline void grayscottProcessBlockPlanePrePred(
                     int * u_next = u_update_pos;
                     int * v_next = v_update_pos;
                     for(int k=0; k<size_z; k++){
-                        int tu = *u_curr_buffer_pos;
-                        int tv = *v_curr_buffer_pos;
-                        int u_lap = laplacian(u_curr_buffer_pos++, uAppBuffer->buffer_dim0_offset, uAppBuffer->buffer_dim1_offset);
-                        int v_lap = laplacian(v_curr_buffer_pos++, vAppBuffer->buffer_dim0_offset, vAppBuffer->buffer_dim1_offset);
-                        int vu2dt = qprod(tu, tv, tv, gs->intCoeff->dt, errorBound);
-                        int u_delta = qprod(gs->intCoeff->Dudt, u_lap, errorBound) - vu2dt -
+                        int64_t tu = *u_curr_buffer_pos;
+                        int64_t tv = *v_curr_buffer_pos;
+                        int64_t u_lap = laplacian(u_curr_buffer_pos++, uAppBuffer->buffer_dim0_offset, uAppBuffer->buffer_dim1_offset);
+                        int64_t v_lap = laplacian(v_curr_buffer_pos++, vAppBuffer->buffer_dim0_offset, vAppBuffer->buffer_dim1_offset);
+                        int64_t vu2dt = qprod(tu, tv, tv, gs->intCoeff->dt, errorBound);
+                        int64_t u_delta = qprod(gs->intCoeff->Dudt, u_lap, errorBound) - vu2dt -
                                       qprod(gs->intCoeff->Fdt, tu, errorBound) + gs->intCoeff->Fdt;
-                        int v_delta = qprod(gs->intCoeff->Dudt, v_lap, errorBound) + vu2dt -
-                                      qprod(gs->intCoeff->Fdt, tv, errorBound);
+                        int64_t v_delta = qprod(gs->intCoeff->Dvdt, v_lap, errorBound) + vu2dt -
+                                      qprod(gs->intCoeff->Fkdt, tv, errorBound);
                         *u_next++ = tu + u_delta;
                         *v_next++ = tv + v_delta;
+                        // if(iter==0 && x==1 && y==0 && z==1 && i==1 && j==1 &&!k){
+                        //     // std::cout << u_lap * 0.00002 << " " << (- vu2dt - qprod(gs->intCoeff->Fdt, tu, errorBound) + gs->intCoeff->Fdt) * 0.00002 << std::endl;
+                        //     int iF = SZ_quantize(gs->F, errorBound);
+                        //     int ik = SZ_quantize(gs->k, errorBound);
+                        //     int64_t uv2 = tu*tv*tv *4 *errorBound*errorBound;
+                        //     std::cout << tv * 0.00002 << " "
+                        //               << v_lap * 0.00002 / 6 << " "
+                        //               << gs->Dv * v_lap * 0.00002 / 6 << " "
+                        //               << v_delta * 0.00002 << std::endl;
+                        //             //   << (-qprod(tu,tv,tv,errorBound)+iF-qprod(iF,tu,errorBound)) * 0.00002 << " "
+                        //             //   << u_delta * 0.00002 << std::endl;
+                        // }
                     }
                     u_block_buffer_pos += uAppBuffer->buffer_dim1_offset;
                     v_block_buffer_pos += vAppBuffer->buffer_dim1_offset;
@@ -1284,8 +1300,8 @@ inline void grayscottUpdatePrePred(
     unsigned char * u_encode_pos = u_cmp_data + FIXED_RATE_PER_BLOCK_BYTES * size.num_blocks;
     unsigned char * v_encode_pos = v_cmp_data + FIXED_RATE_PER_BLOCK_BYTES * size.num_blocks;
     int * temp = nullptr;
-    int UBorderVal_ = (iter % 2 > 0) ? gs->intCoeff->UBorderVal2 : gs->intCoeff->UBorderVal;
-    int VBorderVal_ = gs->intCoeff->VBorderVal;
+    int64_t UBorderVal_ = gs->intCoeff->UBorderVal;
+    int64_t VBorderVal_ = gs->intCoeff->VBorderVal;
     uCmpkit->reset(), uAppBuffer->reset();
     vCmpkit->reset(), vAppBuffer->reset();
     for(size_t x=0; x<size.block_dim1; x++){
@@ -1415,6 +1431,7 @@ void SZp_grayscott_3dLorenzo(
     GrayScott * grayscott = new GrayScott(L, Du, Dv, dt, F, k, errorBound);
 
     int status = max_iter % 2;
+    // int plot_gap = 10;
 
     struct timespec start, end;
     double elapsed_time;
@@ -1430,6 +1447,12 @@ void SZp_grayscott_3dLorenzo(
             for(int i=0; i<max_iter; i++){
                 SZp_decompress_3dLorenzo(u, u_compressed, data_buffer_dim1, buffer_dim2, buffer_dim3, blockSideLength, errorBound);
                 SZp_decompress_3dLorenzo(v, v_compressed, data_buffer_dim1, buffer_dim2, buffer_dim3, blockSideLength, errorBound);
+                // if(i && i % plot_gap == 0){
+                //     std::string u_name = "u0.dec." + std::to_string(i);
+                //     writefile(u_name.c_str(), u, size.nbEle);
+                //     std::string v_name = "v0.dec." + std::to_string(i);
+                //     writefile(v_name.c_str(), v, size.nbEle);
+                // }
                 grayscott->iterate(u, v, u2, v2, tmp);
                 SZp_compress_3dLorenzo(u, u_compressed, data_buffer_dim1, buffer_dim2, buffer_dim3, blockSideLength, errorBound, uCmpSize);
                 SZp_compress_3dLorenzo(v, v_compressed, data_buffer_dim1, buffer_dim2, buffer_dim3, blockSideLength, errorBound, vCmpSize);
@@ -1437,8 +1460,6 @@ void SZp_grayscott_3dLorenzo(
             clock_gettime(CLOCK_REALTIME, &end);
             printf("U cr = %.2f\n", 1.0 * data_buffer_size * sizeof(T) / uCmpSize);
             printf("V cr = %.2f\n", 1.0 * data_buffer_size * sizeof(T) / vCmpSize);
-            // writefile("u.dat", u_compressed, uCmpSize);
-            // writefile("v.dat", v_compressed, vCmpSize);
             break;
         }
         case decmpState::prePred:{
@@ -1449,8 +1470,6 @@ void SZp_grayscott_3dLorenzo(
             vCmpSize = FIXED_RATE_PER_BLOCK_BYTES * size.num_blocks + vCmpkit->cmpSize;
             printf("U cr = %.2f\n", 1.0 * size.nbEle * sizeof(T) / uCmpSize);
             printf("V cr = %.2f\n", 1.0 * size.nbEle * sizeof(T) / vCmpSize);
-            // writefile("u.dat", uCmpkit->cmpData[status], uCmpSize);
-            // writefile("v.dat", vCmpkit->cmpData[status], vCmpSize);
             break;
         }
         case decmpState::postPred:{
@@ -1466,8 +1485,8 @@ void SZp_grayscott_3dLorenzo(
     memcpy(uCmpDataBuffer, uCmpData[status], data_buffer_size*sizeof(T));
     memcpy(vCmpDataBuffer, vCmpData[status], data_buffer_size*sizeof(T));
 
-    writefile("u.dat", uCmpDataBuffer, uCmpSize);
-    writefile("v.dat", vCmpDataBuffer, vCmpSize);
+    writefile("u.cmp.dat", uCmpDataBuffer, uCmpSize);
+    writefile("v.cmp.dat", vCmpDataBuffer, vCmpSize);
 
     delete uCmpkit;
     delete vCmpkit;

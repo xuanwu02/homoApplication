@@ -790,23 +790,28 @@ inline void gs_decode_prepred(
     }
 }
 
-inline int laplacian(
+inline int64_t laplacian(
     const int *buffer_pos, size_t buffer_dim0_offset, size_t buffer_dim1_offset
 ){
-    return buffer_pos[-1] + buffer_pos[1] +
-           buffer_pos[-buffer_dim1_offset] + buffer_pos[buffer_dim1_offset] +
-           buffer_pos[-buffer_dim0_offset] + buffer_pos[buffer_dim0_offset] -
-           6 * buffer_pos[0];
+    int64_t res = buffer_pos[-1] + buffer_pos[1] +
+            buffer_pos[-buffer_dim1_offset] + buffer_pos[buffer_dim1_offset] +
+            buffer_pos[-buffer_dim0_offset] + buffer_pos[buffer_dim0_offset] -
+            6 * buffer_pos[0];
+    unsigned char sign = (res >> 31) & 1;
+    return (res + (sign ? -3 : 3)) / 6;
 }
 
-inline int qprod(int v1, int v2, double eb){
-    return v1 * v2 * 2 * eb;
+inline int64_t qprod(int64_t v1, int64_t v2, double eb){
+    int64_t res = v1 * v2 * 2 * eb;
+    return res;
 }
-inline int qprod(int v1, int v2, int v3, double eb){
-    return v1 * v2 * v3 * 4 * eb * eb;
+inline int64_t qprod(int64_t v1, int64_t v2, int64_t v3, double eb){
+    int64_t res = v1 * v2 * v3 * 4 * eb * eb;
+    return res;
 }
-inline int qprod(int v1, int v2, int v3, int v4, double eb){
-    return v1 * v2 * v3  * v4 * 8 * eb * eb * eb;
+inline int64_t qprod(int64_t v1, int64_t v2, int64_t v3, int64_t v4, double eb){
+    int64_t res = v1 * v2 * v3  * v4 * 8 * eb * eb * eb;
+    return res;
 }
 
 #endif

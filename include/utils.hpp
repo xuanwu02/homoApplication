@@ -154,6 +154,48 @@ void print_matrix_int(int dim1, int dim2, std::string name, int *mat)
 }
 
 template <class T>
+void initData(
+    size_t dim1, size_t dim2,
+    T *h, T init_temp
+){
+    for (size_t i = 0; i < dim1; i++) {
+        for (size_t j = 0; j < dim2; j++) {
+            h[i * dim2 + j] = init_temp;
+        }
+    }
+}
+template <class T>
+void doWork(
+    size_t dim1, size_t dim2, T *g, T *h,
+    T src_temp, T wall_temp, double ratio
+){
+    memcpy(h, g, dim1 * dim2 * sizeof(float));
+    size_t c1 =  dim2 * (1.0 - ratio) * 0.5 + 1;
+    size_t c2 =  dim2 * (1.0 + ratio) * 0.5 - 1;
+    T left, right, top, bottom;
+    for (size_t i = 0; i < dim1; i++) {
+        for (size_t j = 0; j < dim2; j++) {
+            size_t index = i * dim2 + j;
+            bool j_flag = (j >= c1) && (j <= c2);
+            left = (j == 0) ? wall_temp : h[index - 1];
+            right = (j == dim2 - 1) ? wall_temp : h[index + 1];
+            top = (i > 0) ? h[index - dim2] : (j_flag ? src_temp : wall_temp);
+            bottom = (i == dim1 - 1) ? wall_temp : h[index + dim2];
+            g[index] = 0.25 * (left + right + top + bottom);
+        }
+    }
+}
+template <class T>
+void doWork(
+    size_t dim1, size_t dim2, int max_iter, T *g, T *h,
+    T src_temp, T wall_temp, double ratio
+){
+    for(int i=0; i<max_iter; i++){
+        doWork(dim1, dim2, g, h, src_temp, wall_temp, ratio);
+    }
+}
+
+template <class T>
 void compute_dxdy(
     size_t dim1, size_t dim2, T *data,
     T *dx_result, T *dy_result

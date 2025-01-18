@@ -18,11 +18,11 @@ int main(int argc, char **argv)
     decmpState state = intToDecmpState(type);
     int max_iter = atoi(argv[argv_id++]);    
 
-    double Du = 0.05;
+    double Du = 0.2;
     double Dv = 0.1;
-    double dt = 0.2;
-    double F = 0.04;
-    double k = 0.06075;
+    double F = 0.01;
+    double k = 0.05;
+    double dt = 2.0;
 
     using T = double;
     size_t nbEle = L * L * L;
@@ -45,8 +45,8 @@ int main(int argc, char **argv)
     SZp_compress_3dLorenzo(v, v_cmpData, L, L, L, blockSideLength, errorBound, v_cmpSize);
     SZp_grayscott_3dLorenzo<T>(Du, Dv, F, k, dt, u_cmpData, v_cmpData, L, blockSideLength, max_iter, errorBound, u_cmpSize, v_cmpSize, state);
 
-    auto uCmpVec = readfile<unsigned char>("u.dat", u_cmpSize);
-    auto vCmpVec = readfile<unsigned char>("v.dat", v_cmpSize);
+    auto uCmpVec = readfile<unsigned char>("u.cmp.dat", u_cmpSize);
+    auto vCmpVec = readfile<unsigned char>("v.cmp.dat", v_cmpSize);
 
     switch(state){
         case decmpState::full:{
@@ -74,6 +74,11 @@ int main(int argc, char **argv)
     printf("U max_error = %.6f\n", u_err);
     double v_err = verify(v2, v_decData, L, L, L);
     printf("V max_error = %.6f\n", v_err);
+
+    writefile("u.dec", u2, nbEle);
+    writefile("v.dec", v2, nbEle);
+    writefile("u1.dec", u_decData, nbEle);
+    writefile("v1.dec", v_decData, nbEle);
 
     free(u);
     free(v);
