@@ -11,9 +11,6 @@
 #define REG_COEFF_SIZE_2D 3
 #define REG_COEFF_SIZE_3D 4
 
-std::string data_file_2d = "/pscratch/xli281_uksr/xwu/datasets/CESM/CLDHGH_1_1800_3600.f32";
-std::string data_file_3d = "/pscratch/xli281_uksr/xwu/datasets/Hurricane/data/VelocityX.f32";
-
 int gs_plot_gap;
 int ht_plot_gap;
 

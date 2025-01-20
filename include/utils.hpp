@@ -341,7 +341,7 @@ public:
 		for(int iter=1; iter<=num_iter; iter++){
 			iterate(h, h2, tmp);
 			if(iter % plotgap == 0){
-				std::string h_name = "/Users/xuanwu/github/backup/homoApplication/plot/ht_data/dec/h.ref." + std::to_string(iter);
+				std::string h_name = "/Users/xuanwu/github/backup/homoApplication/plot/ht_data/h.ref." + std::to_string(iter);
 				writefile(h_name.c_str(), h, nbEle_padded);
 			}
 		}

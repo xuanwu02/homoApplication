@@ -7,23 +7,20 @@
 #include <cassert>
 #include "SZp_LorenzoPredictor2D.hpp"
 #include "utils.hpp"
+#include "settings.hpp"
 
 int main(int argc, char **argv)
 {
-    int argv_id = 1;
-    int blockSideLength = atoi(argv[argv_id++]);
-    double errorBound = atof(argv[argv_id++]);
-    int type = atoi(argv[argv_id++]);
-    decmpState state = intToDecmpState(type);
+    std::string config(argv[1]);
+    Settings s = Settings::from_json(config);
 
     using T = float;
-    size_t dim1 = 1800, dim2 = 3600;
 
     size_t nbEle;
-    auto oriData_vec = readfile<T>(data_file_2d.c_str(), nbEle);
-    assert(nbEle == dim1 * dim2);
+    auto oriData_vec = readfile<T>(s.data_file.c_str(), nbEle);
+    assert(nbEle == s.dim1 * s.dim2);
     T * oriData = oriData_vec.data();
-    set_relative_eb(oriData_vec, errorBound);
+    set_relative_eb(oriData_vec, s.eb);
 
     unsigned char *cmpData = (unsigned char *)malloc(nbEle * sizeof(T));
     T * decData = (T *)malloc(nbEle * sizeof(T));
@@ -33,17 +30,17 @@ int main(int argc, char **argv)
     T * decop_dy_result = (T *)malloc(nbEle * sizeof(T));
 
     size_t cmpSize = 0;
-    SZp_compress_2dLorenzo(oriData, cmpData, dim1, dim2, blockSideLength, errorBound, cmpSize);
+    SZp_compress_2dLorenzo(oriData, cmpData, s.dim1, s.dim2, s.B, s.eb, cmpSize);
     printf("cr = %.2f\n", 1.0 * nbEle * sizeof(T) / cmpSize);
 
-    SZp_dxdy_2dLorenzo(cmpData, dim1, dim2, blockSideLength, errorBound, dx_result, dy_result, state);
+    SZp_dxdy_2dLorenzo(cmpData, s.dim1, s.dim2, s.B, s.eb, dx_result, dy_result, intToDecmpState(s.stateType));
 
-    SZp_decompress_2dLorenzo(decData, cmpData, dim1, dim2, blockSideLength, errorBound);
-    compute_dxdy(dim1, dim2, decData, decop_dx_result, decop_dy_result);
+    SZp_decompress_2dLorenzo(decData, cmpData, s.dim1, s.dim2, s.B, s.eb);
+    compute_dxdy(s.dim1, s.dim2, decData, decop_dx_result, decop_dy_result);
     double err;
-    err = verify(decop_dx_result, dx_result, dim1, dim2);
+    err = verify(decop_dx_result, dx_result, s.dim1, s.dim2);
     printf("dx max error = %.2e\n", err);
-    err = verify(decop_dy_result, dy_result, dim1, dim2);
+    err = verify(decop_dy_result, dy_result, s.dim1, s.dim2);
     printf("dy max error = %.2e\n", err);
 
     free(decData);

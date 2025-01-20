@@ -7,41 +7,29 @@
 #include <cassert>
 #include "SZx_MeanPredictor2D.hpp"
 #include "utils.hpp"
+#include "settings.hpp"
 
 int main(int argc, char **argv)
 {
-    int argv_id = 1;
-    size_t dim1 = atoi(argv[argv_id++]);
-    size_t dim2 = atoi(argv[argv_id++]);
-    int max_iter = atoi(argv[argv_id++]);
-    int blockSideLength = atoi(argv[argv_id++]);
-    double errorBound = atof(argv[argv_id++]);
-    int type = atoi(argv[argv_id++]);
-    decmpState state = intToDecmpState(type);
+    std::string ht_config(argv[1]);
+    htSettings s = htSettings::from_json(ht_config);
 
     using T = float;
-    float src_temp = 100, wall_temp = 0, init_temp = 0;
-    double ratio = 0.8;
-    size_t nbEle = dim1 * dim2;
+    size_t nbEle = s.dim1 * s.dim1;
+    size_t buffer_size = (s.dim1 + 2) * (s.dim1 + 2);
 
-    unsigned char *cmpData = (unsigned char *)malloc(nbEle * sizeof(T));
-    T * h = (T *)malloc(nbEle * sizeof(T));
-    T * decData = (T *)malloc(nbEle * sizeof(T));
-    T * oriData = (T *)malloc(nbEle * sizeof(T));
-    initData(dim1, dim2, oriData, init_temp);
+    T * h = (T *)malloc(buffer_size * sizeof(T));
+    T * h2 = (T *)malloc(buffer_size * sizeof(T));
+    unsigned char *cmpData = (unsigned char *)malloc(buffer_size * sizeof(T));
+
+    HeatDis heatdis(s.src_temp, s.wall_temp, s.ratio, s.dim1, s.dim1);
+    heatdis.initData_noghost(h, h2, s.init_temp);
     size_t cmpSize = 0;
-    SZx_compress_2dMeanbased(oriData, cmpData, dim1, dim2, blockSideLength, errorBound, cmpSize);
-
-    SZx_heatdis_2dMeanbased<T>(cmpData, dim1, dim2, blockSideLength, max_iter, cmpSize, src_temp, wall_temp, ratio, errorBound, state);
-    printf("cr = %.2f\n", 1.0 * nbEle * sizeof(T) / cmpSize);
-
-    SZx_decompress_2dMeanbased(decData, cmpData, dim1, dim2, blockSideLength, errorBound);
-    doWork(dim1, dim2, max_iter, oriData, h, src_temp, wall_temp, ratio);
-    double err = verify(oriData, decData, dim1, dim2);
-    printf("max_error = %.6f\n", err);
+    SZx_compress_2dMeanbased(h, cmpData, s.dim1, s.dim1, s.B, s.eb, cmpSize);
+    SZx_heatdis_2dMeanbased<T>(cmpData, s.dim1, s.dim1, s.B, s.steps, s.src_temp, s.wall_temp, s.init_temp, s.ratio, s.eb, intToDecmpState(s.stateType));
 
     free(h);
-    free(decData);
+    free(h2);
     free(cmpData);
 
     return 0;

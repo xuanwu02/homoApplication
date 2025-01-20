@@ -7,32 +7,29 @@
 #include <cassert>
 #include "SZr_RegressionPredictor3D.hpp"
 #include "utils.hpp"
+#include "settings.hpp"
 
 int main(int argc, char **argv)
 {
-    int argv_id = 1;
-    int blockSideLength = atoi(argv[argv_id++]);
-    double errorBound = atof(argv[argv_id++]);
-    int type = atoi(argv[argv_id++]);
-    decmpState state = intToDecmpState(type);
+    std::string config(argv[1]);
+    Settings s = Settings::from_json(config);
 
     using T = float;
-    size_t dim1 = 100, dim2 = 500, dim3 = 500;
-    // size_t dim1 = 512, dim2 = 512, dim3 = 512;
+
     size_t nbEle;
-    auto oriData_vec = readfile<T>(data_file_3d.c_str(), nbEle);
-    assert(nbEle == dim1 * dim2 * dim3);
+    auto oriData_vec = readfile<T>(s.data_file.c_str(), nbEle);
+    assert(nbEle == s.dim1 * s.dim2 * s.dim3);
     T * oriData = oriData_vec.data();
-    set_relative_eb(oriData_vec, errorBound);
+    set_relative_eb(oriData_vec, s.eb);
 
     unsigned char *cmpData = (unsigned char *)malloc(nbEle * sizeof(T));
     T * decData = (T *)malloc(nbEle * sizeof(T));
 
     size_t cmpSize = 0;
-    SZr_compress_3dRegression(oriData, cmpData, dim1, dim2, dim3, blockSideLength, errorBound, cmpSize);
+    SZr_compress_3dRegression(oriData, cmpData, s.dim1, s.dim2, s.dim3, s.B, s.eb, cmpSize);
     printf("cr = %.2f\n", 1.0 * nbEle * sizeof(T) / cmpSize);
 
-    double var = SZr_variance_3d(cmpData, dim1, dim2, dim3, decData, blockSideLength, errorBound, state);
+    double var = SZr_variance_3d(cmpData, s.dim1, s.dim2, s.dim3, decData, s.B, s.eb, intToDecmpState(s.stateType));
     printf("variance = %.6f\n", var);
 
     double act_mean = 0;

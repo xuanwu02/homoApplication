@@ -7,42 +7,32 @@
 #include <cassert>
 #include "SZp_LorenzoPredictor2D.hpp"
 #include "utils.hpp"
+#include "settings.hpp"
 
 int main(int argc, char **argv)
 {
-    int argv_id = 1;
-    size_t dim1 = atoi(argv[argv_id++]);
-    size_t dim2 = atoi(argv[argv_id++]);
-    int blockSideLength = atoi(argv[argv_id++]);
-    double errorBound = atof(argv[argv_id++]);
-    int max_iter = atoi(argv[argv_id++]);
-    ht_plot_gap = atoi(argv[argv_id++]);
-    int verb = atoi(argv[argv_id++]);
-
-    size_t nbEle = dim1 * dim2;
-    size_t buffer_size = (dim1 + 2) * (dim2 + 2);
-
-    float src_temp = 100.0;
-    float wall_temp = 0.0;
-    float init_temp = 0.0;
-    float ratio = 0.8;
-    HeatDis heatdis(src_temp, wall_temp, ratio, dim1, dim2);
+    std::string ht_config(argv[1]);
+    htSettings s = htSettings::from_json(ht_config);
+    ht_plot_gap = s.plotgap;
 
     using T = float;
+    size_t nbEle = s.dim1 * s.dim2;
+    size_t buffer_size = (s.dim1 + 2) * (s.dim2 + 2);
 
     T * h = (T *)malloc(buffer_size * sizeof(T));
     T * h2 = (T *)malloc(buffer_size * sizeof(T));
     unsigned char *cmpData = (unsigned char *)malloc(buffer_size * sizeof(T));
 
-    heatdis.initData_noghost(h, h2, init_temp);
+    HeatDis heatdis(s.src_temp, s.wall_temp, s.ratio, s.dim1, s.dim2);
+    heatdis.initData_noghost(h, h2, s.init_temp);
     size_t cmpSize = 0;
-    SZp_compress_2dLorenzo(h, cmpData, dim1, dim2, blockSideLength, errorBound, cmpSize);
+    SZp_compress_2dLorenzo(h, cmpData, s.dim1, s.dim2, s.B, s.eb, cmpSize);
 
-    SZp_heatdis_2dLorenzo<T>(cmpData, dim1, dim2, blockSideLength, max_iter, cmpSize, src_temp, wall_temp, init_temp, ratio, errorBound, decmpState::full, verb);
-    SZp_heatdis_2dLorenzo<T>(cmpData, dim1, dim2, blockSideLength, max_iter, cmpSize, src_temp, wall_temp, init_temp, ratio, errorBound, decmpState::prePred, verb);
-    SZp_heatdis_2dLorenzo<T>(cmpData, dim1, dim2, blockSideLength, max_iter, cmpSize, src_temp, wall_temp, init_temp, ratio, errorBound, decmpState::postPred, verb);
-    heatdis.initData(h, h2, init_temp);
-    heatdis.doWork(h, h2, max_iter, ht_plot_gap);
+    SZp_heatdis_2dLorenzo<T>(cmpData, s.dim1, s.dim2, s.B, s.steps, cmpSize, s.src_temp, s.wall_temp, s.init_temp, s.ratio, s.eb, decmpState::full, true);
+    SZp_heatdis_2dLorenzo<T>(cmpData, s.dim1, s.dim2, s.B, s.steps, cmpSize, s.src_temp, s.wall_temp, s.init_temp, s.ratio, s.eb, decmpState::prePred, true);
+    SZp_heatdis_2dLorenzo<T>(cmpData, s.dim1, s.dim2, s.B, s.steps, cmpSize, s.src_temp, s.wall_temp, s.init_temp, s.ratio, s.eb, decmpState::postPred, true);
+    heatdis.initData(h, h2, s.init_temp);
+    heatdis.doWork(h, h2, s.steps, ht_plot_gap);
 
     free(h);
     free(h2);

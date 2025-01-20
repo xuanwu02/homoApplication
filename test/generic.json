@@ -1,0 +1,9 @@
+{
+    "dim1": 1800,
+    "dim2": 3600,
+    "dim3": 512,
+    "B": 8,
+    "stateType": 0,
+    "eb": 1e-2,
+    "data_file": "/Users/xuanwu/github/datasets/CESM/CLDHGH_1_1800_3600.f32"
+}

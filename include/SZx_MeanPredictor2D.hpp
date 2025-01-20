@@ -804,9 +804,9 @@ inline void heatdisUpdatePrePred(
 
 template <class T>
 void SZx_heatdis_2dMeanbased(
-    unsigned char *compressed_data, size_t dim1, size_t dim2,
-    int blockSideLength, int max_iter, size_t& cmpSize,
-    float source_temp, float wall_temp, float ratio,
+    unsigned char *compressed_data,
+    size_t dim1, size_t dim2, int blockSideLength, int max_iter,
+    float source_temp, float wall_temp, float init_temp, float ratio,
     double errorBound, decmpState state
 ){
     DSize_2d size(dim1, dim2, blockSideLength);
@@ -845,10 +845,11 @@ void SZx_heatdis_2dMeanbased(
                 prefix_length += (cmp_block_sign_length + savedbitsbytelength);
         }
     }
-    Temperature_info temp_info(source_temp, wall_temp, ratio, errorBound);
+    Temperature_info temp_info(source_temp, wall_temp, init_temp, ratio, errorBound);
     SZxAppBufferSet_2d * buffer_set = new SZxAppBufferSet_2d(buffer_dim1, buffer_dim2, Buffer_2d, appType::HEATDIS);
     SZxCmpBufferSet * cmpkit_set = new SZxCmpBufferSet(cmpData, offsets, blocks_mean_quant, absPredError, signPredError, signFlag);
     int status = max_iter % 2;
+    size_t cmpSize = 0;
 
     struct timespec start, end;
     double elapsed_time;
@@ -865,22 +866,6 @@ void SZx_heatdis_2dMeanbased(
         }
         case decmpState::prePred:{
             heatdisUpdatePrePred(size, cmpkit_set, buffer_set, temp_info, errorBound, max_iter);
-            break;
-        }
-        case decmpState::postPred:{
-            exit(0);
-            break;
-        }
-    }
-    clock_gettime(CLOCK_REALTIME, &end);
-    elapsed_time = get_elapsed_time(start, end);
-    printf("elapsed_time = %.6f\n", elapsed_time);
-
-    switch(state){
-        case decmpState::full:{
-            break;
-        }
-        case decmpState::prePred:{
             cmpSize = size.num_blocks + cmpkit_set->cmpSize;
             break;
         }
@@ -888,7 +873,9 @@ void SZx_heatdis_2dMeanbased(
             break;
         }
     }
-    memmove(compressed_data, cmpData[status], size.nbEle*sizeof(T));
+    clock_gettime(CLOCK_REALTIME, &end);
+    elapsed_time = get_elapsed_time(start, end);
+    printf("elapsed_time = %.6f\n", elapsed_time);
 
     delete buffer_set;
     delete cmpkit_set;
