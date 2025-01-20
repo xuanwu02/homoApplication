@@ -14,10 +14,9 @@ int main(int argc, char **argv)
     size_t L = atoi(argv[argv_id++]);
     int blockSideLength = atoi(argv[argv_id++]);
     double errorBound = atof(argv[argv_id++]);
-    int type = atoi(argv[argv_id++]);
-    decmpState state = intToDecmpState(type);
     int max_iter = atoi(argv[argv_id++]);
-    gs_plot_gap = 1;
+    gs_plot_gap = atoi(argv[argv_id++]);
+    int verb = atoi(argv[argv_id++]);
 
     double Du = 0.2;
     double Dv = 0.1;
@@ -43,7 +42,10 @@ int main(int argc, char **argv)
     SZp_compress_3dLorenzo(u, u_cmpData, L, L, L, blockSideLength, errorBound, u_cmpSize);
     SZp_compress_3dLorenzo(v, v_cmpData, L, L, L, blockSideLength, errorBound, v_cmpSize);
 
-    SZp_grayscott_3dLorenzo<T>(Du, Dv, F, k, dt, u_cmpData, v_cmpData, L, blockSideLength, max_iter, errorBound, u_cmpSize, v_cmpSize, state, false);
+    SZp_grayscott_3dLorenzo<T>(Du, Dv, F, k, dt, u_cmpData, v_cmpData, L, blockSideLength, max_iter, errorBound, u_cmpSize, v_cmpSize, decmpState::full, verb);
+    SZp_grayscott_3dLorenzo<T>(Du, Dv, F, k, dt, u_cmpData, v_cmpData, L, blockSideLength, max_iter, errorBound, u_cmpSize, v_cmpSize, decmpState::prePred, verb);
+    gs.initData(u, v, u2, v2);
+    gs.doWork(u, v, u2, v2, max_iter, gs_plot_gap);
 
     free(u);
     free(v);

@@ -1000,34 +1000,117 @@ inline void heatdisUpdatePrePred(
     }
 }
 
+template <class T>
 inline void heatdisUpdatePostPred(
     DSize_2d& size,
     SZpCmpBufferSet *cmpkit_set,
     SZpAppBufferSet_2d *buffer_set,
     Temperature_info& temp_info,
-    int max_iter
+    double errorBound,
+    int max_iter,
+    bool verb
 ){
+    struct timespec start, end;
+    double elapsed_time;
+    T * h = (T *)malloc(size.nbEle * sizeof(T));
     int current = 0, next = 1;
-    for(int iter=0; iter<max_iter; iter++){
+    for(int iter=1; iter<=max_iter; iter++){
+        clock_gettime(CLOCK_REALTIME, &start);
         heatdisUpdatePostPred(size, cmpkit_set, buffer_set, temp_info, current, next, iter);
         current = next;
         next = 1 - current;
+        clock_gettime(CLOCK_REALTIME, &end);
+        elapsed_time += get_elapsed_time(start, end);
+        if(verb){
+            if(iter % ht_plot_gap == 0){
+                SZp_decompress_2dLorenzo(h, cmpkit_set->cmpData[current], size.dim1, size.dim2, size.Bsize, errorBound);
+                std::string h_name = "/Users/xuanwu/github/backup/homoApplication/plot/ht_data/dec/h2d.post." + std::to_string(iter);
+                writefile(h_name.c_str(), h, size.nbEle);
+                size_t cmpSize = FIXED_RATE_PER_BLOCK_BYTES * size.num_blocks + cmpkit_set->cmpSize;
+                printf("postpred iter %d: cr = %.2f\n", iter, 1.0 * size.nbEle * sizeof(T) / cmpSize);
+            }
+        }
     }
+    printf("postpred elapsed_time = %.6f\n", elapsed_time);
+    free(h);
 }
 
+template <class T>
 inline void heatdisUpdatePrePred(
     DSize_2d& size,
     SZpCmpBufferSet *cmpkit_set,
     SZpAppBufferSet_2d *buffer_set,
     Temperature_info& temp_info,
-    int max_iter
+    double errorBound,
+    int max_iter,
+    bool verb
 ){
+    struct timespec start, end;
+    double elapsed_time;
+    T * h = (T *)malloc(size.nbEle * sizeof(T));
     int current = 0, next = 1;
-    for(int iter=0; iter<max_iter; iter++){
+    for(int iter=1; iter<=max_iter; iter++){
+        clock_gettime(CLOCK_REALTIME, &start);
         heatdisUpdatePrePred(size, cmpkit_set, buffer_set, temp_info, current, next, iter);
         current = next;
         next = 1 - current;
+        clock_gettime(CLOCK_REALTIME, &end);
+        elapsed_time += get_elapsed_time(start, end);
+        if(verb){
+            if(iter % ht_plot_gap == 0){
+                SZp_decompress_2dLorenzo(h, cmpkit_set->cmpData[current], size.dim1, size.dim2, size.Bsize, errorBound);
+                std::string h_name = "/Users/xuanwu/github/backup/homoApplication/plot/ht_data/dec/h2d.pre." + std::to_string(iter);
+                writefile(h_name.c_str(), h, size.nbEle);
+                size_t cmpSize = FIXED_RATE_PER_BLOCK_BYTES * size.num_blocks + cmpkit_set->cmpSize;
+                printf("prepred iter %d: cr = %.2f\n", iter, 1.0 * size.nbEle * sizeof(T) / cmpSize);
+            }
+        }
     }
+    printf("prepred elapsed_time = %.6f\n", elapsed_time);
+    free(h);
+}
+
+template <class T>
+inline void heatdisUpdateDOC(
+    DSize_2d& size,
+    size_t dim1_padded,
+    size_t dim2_padded,
+    Temperature_info& temp_info,
+    double errorBound,
+    int max_iter,
+    bool verb
+){
+    struct timespec start, end;
+    double elapsed_time = 0;
+    size_t nbEle_padded = dim1_padded * dim2_padded;
+    T * h = (T *)malloc(nbEle_padded * sizeof(T));
+    T * h2 = (T *)malloc(nbEle_padded * sizeof(T));
+    unsigned char * compressed = (unsigned char *)malloc(nbEle_padded * sizeof(T));
+    HeatDis heatdis(temp_info.src_temp, temp_info.wall_temp, temp_info.ratio, size.dim1, size.dim2);
+    heatdis.initData(h, h2, temp_info.init_temp);
+    size_t cmpSize = 0;
+    SZp_compress_2dLorenzo(h, compressed, dim1_padded, dim2_padded, size.Bsize, errorBound, cmpSize);
+    T * tmp = nullptr;
+    for(int iter=1; iter<=max_iter; iter++){
+        clock_gettime(CLOCK_REALTIME, &start);
+        SZp_decompress_2dLorenzo(h, compressed, dim1_padded, dim2_padded, size.Bsize, errorBound);
+        heatdis.reset_source(h, h2);
+        heatdis.iterate(h, h2, tmp);
+        SZp_compress_2dLorenzo(h, compressed, dim1_padded, dim2_padded, size.Bsize, errorBound, cmpSize);
+        clock_gettime(CLOCK_REALTIME, &end);
+        elapsed_time += get_elapsed_time(start, end);
+        if(verb){
+            if(iter % ht_plot_gap == 0){
+                std::string h_name = "/Users/xuanwu/github/backup/homoApplication/plot/ht_data/dec/h2d.doc." + std::to_string(iter);
+                writefile(h_name.c_str(), h, nbEle_padded);
+                printf("doc iter %d: cr = %.2f\n", iter, 1.0 * nbEle_padded * sizeof(T) / cmpSize);
+            }
+        }
+    }
+    printf("doc elapsed_time = %.6f\n", elapsed_time);
+    free(h);
+    free(h2);
+    free(compressed);
 }
 
 template <class T>
@@ -1035,26 +1118,24 @@ void SZp_heatdis_2dLorenzo(
     unsigned char *cmpDataBuffer, size_t dim1, size_t dim2,
     int blockSideLength, int max_iter, size_t& cmpSize,
     float source_temp, float wall_temp, float init_temp, double ratio,
-    double errorBound, decmpState state
+    double errorBound, decmpState state, bool verb
 ){
     DSize_2d size(dim1, dim2, blockSideLength);
-    size_t data_buffer_dim1 = size.dim1 + 2;
+    size_t dim1_padded = size.dim1 + 2;
     size_t buffer_dim1 = size.Bsize + 2;
     size_t buffer_dim2 = size.dim2 + 2;
     size_t buffer_size = buffer_dim1 * buffer_dim2;
-    size_t data_buffer_size = data_buffer_dim1 * buffer_dim2;
+    size_t nbEle_padded = dim1_padded * buffer_dim2;
     int * Buffer_2d = (int *)malloc(buffer_size * 4 * sizeof(int));
     int * Buffer_1d = (int *)malloc(buffer_dim2 * 5 * sizeof(int));
     unsigned int * absPredError = (unsigned int *)malloc(size.max_num_block_elements * sizeof(unsigned int));
     int * signPredError = (int *)malloc(size.max_num_block_elements * sizeof(int));
     unsigned char * signFlag = (unsigned char *)malloc(size.max_num_block_elements * sizeof(unsigned char));
-    T * h = (T *)malloc(data_buffer_size * sizeof(T));
-    T * h2 = (T *)malloc(data_buffer_size * sizeof(T));
 
     unsigned char **cmpData = (unsigned char **)malloc(2 * sizeof(unsigned char *));
     int **offsets = (int **)malloc(2*sizeof(int *));
     for(int i=0; i<2; i++){
-        cmpData[i] = (unsigned char *)malloc(data_buffer_size * sizeof(T));
+        cmpData[i] = (unsigned char *)malloc(nbEle_padded * sizeof(T));
         offsets[i] = (int *)malloc(size.block_dim1 * sizeof(int));
     }
     memcpy(cmpData[0], cmpDataBuffer, size.nbEle * sizeof(T));
@@ -1075,54 +1156,25 @@ void SZp_heatdis_2dLorenzo(
                 prefix_length += (cmp_block_sign_length + savedbitsbytelength);
         }
     }
-    Temperature_info temp_info(source_temp, wall_temp, ratio, errorBound);
+    Temperature_info temp_info(source_temp, wall_temp, init_temp, ratio, errorBound);
     SZpAppBufferSet_2d * buffer_set = new SZpAppBufferSet_2d(buffer_dim1, buffer_dim2, Buffer_2d, Buffer_1d, appType::HEATDIS);
     SZpCmpBufferSet * cmpkit_set = new SZpCmpBufferSet(cmpData, offsets, absPredError, signPredError, signFlag);
-    int status = max_iter % 2;
 
-    struct timespec start, end;
-    double elapsed_time;
     switch(state){
         case decmpState::postPred:{
-            clock_gettime(CLOCK_REALTIME, &start);
             temp_info.prepare_src_row(size.dim2, buffer_set->decmp_buffer, buffer_set->lorenzo_buffer);
-            heatdisUpdatePostPred(size, cmpkit_set, buffer_set, temp_info, max_iter);
-            clock_gettime(CLOCK_REALTIME, &end);
-            cmpSize = FIXED_RATE_PER_BLOCK_BYTES * size.num_blocks + cmpkit_set->cmpSize;
-            printf("cr = %.2f\n", 1.0 * size.nbEle * sizeof(T) / cmpSize);
+            heatdisUpdatePostPred<T>(size, cmpkit_set, buffer_set, temp_info, errorBound, max_iter, verb);
             break;
         }
         case decmpState::prePred:{
-            clock_gettime(CLOCK_REALTIME, &start);
-            heatdisUpdatePrePred(size, cmpkit_set, buffer_set, temp_info, max_iter);
-            clock_gettime(CLOCK_REALTIME, &end);
-            cmpSize = FIXED_RATE_PER_BLOCK_BYTES * size.num_blocks + cmpkit_set->cmpSize;
-            printf("cr = %.2f\n", 1.0 * size.nbEle * sizeof(T) / cmpSize);
+            heatdisUpdatePrePred<T>(size, cmpkit_set, buffer_set, temp_info, errorBound, max_iter, verb);
             break;
         }
         case decmpState::full:{
-            HeatDis heatdis(source_temp, wall_temp, ratio, dim1, dim2);
-            heatdis.initData(h, h2, init_temp);
-            unsigned char * compressed = cmpData[status];
-            SZp_compress_2dLorenzo(h, compressed, data_buffer_dim1, buffer_dim2, blockSideLength, errorBound, cmpSize);
-            T * tmp = nullptr;
-            clock_gettime(CLOCK_REALTIME, &start);
-            for(int i=0; i<max_iter; i++){
-                SZp_decompress_2dLorenzo(h, compressed, data_buffer_dim1, buffer_dim2, blockSideLength, errorBound);
-                heatdis.reset_source(h, h2);
-                heatdis.iterate(h, h2, tmp);
-                SZp_compress_2dLorenzo(h, compressed, data_buffer_dim1, buffer_dim2, blockSideLength, errorBound, cmpSize);
-            }
-            clock_gettime(CLOCK_REALTIME, &end);
-            printf("cr = %.2f\n", 1.0 * data_buffer_size * sizeof(T) / cmpSize);
+            heatdisUpdateDOC<T>(size, dim1_padded, buffer_dim2, temp_info, errorBound, max_iter, verb);
             break;
         }
     }
-    elapsed_time = get_elapsed_time(start, end);
-    printf("elapsed_time = %.6f\n", elapsed_time);
-
-    memcpy(cmpDataBuffer, cmpData[status], data_buffer_size*sizeof(T));
-    writefile("h2d.dat", cmpDataBuffer, cmpSize);
 
     delete buffer_set;
     delete cmpkit_set;
@@ -1131,8 +1183,6 @@ void SZp_heatdis_2dLorenzo(
     free(absPredError);
     free(signPredError);
     free(signFlag);
-    free(h);
-    free(h2);
     for(int i=0; i<2; i++){
         free(cmpData[i]);
         free(offsets[i]);

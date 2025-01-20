@@ -1120,9 +1120,6 @@ inline void recoverBlockPlane2PrePred(
     size_t x, DSize_3d& size, unsigned char *& encode_pos, int *buffer_data_pos,
     gsAppBufferSet *buffer_set, SZpCmpBufferSet *cmpkit_set, int current, int iter
 ){
-if (!cmpkit_set || !cmpkit_set->cmpData) {
-    std::cerr << "Error: cmpkit_set or cmpkit_set->cmpData is NULL!" << std::endl;
-}
     int size_x = ((x+1)*size.Bsize < size.dim1) ? size.Bsize : size.dim1 - x*size.Bsize;
     buffer_set->set_decmp_buffer_border(buffer_data_pos, size_x);
     int block_ind = x * size.block_dim2 * size.block_dim3;
@@ -1136,7 +1133,6 @@ if (!cmpkit_set || !cmpkit_set->cmpData) {
             int * quant_pos = buffer_start_pos;
             int fixed_rate = (int)cmpkit_set->cmpData[current][block_ind++];
             gs_decode_prepred(block_size, fixed_rate, encode_pos, cmpkit_set);
-            // if(fixed_rate) std::cout << iter << ": " << block_ind << ": fixed_rate = " << fixed_rate << std::endl;
             for(int i=0; i<size_x; i++){
                 for(int j=0; j<size_y; j++){
                     memcpy(curr_buffer_pos, cmpkit_set->signPredError+i*size_y*size_z+j*size_z, size_z*sizeof(int));
@@ -1193,18 +1189,6 @@ inline void grayscottProcessBlockPlanePrePred(
                                       qprod(gs->intCoeff->Fkdt, tv, errorBound);
                         *u_next++ = tu + u_delta;
                         *v_next++ = tv + v_delta;
-                        // if(iter==0 && x==1 && y==0 && z==1 && i==1 && j==1 &&!k){
-                        //     // std::cout << u_lap * 0.00002 << " " << (- vu2dt - qprod(gs->intCoeff->Fdt, tu, errorBound) + gs->intCoeff->Fdt) * 0.00002 << std::endl;
-                        //     int iF = SZ_quantize(gs->F, errorBound);
-                        //     int ik = SZ_quantize(gs->k, errorBound);
-                        //     int64_t uv2 = tu*tv*tv *4 *errorBound*errorBound;
-                        //     std::cout << tv * 0.00002 << " "
-                        //               << v_lap * 0.00002 / 6 << " "
-                        //               << gs->Dv * v_lap * 0.00002 / 6 << " "
-                        //               << v_delta * 0.00002 << std::endl;
-                        //             //   << (-qprod(tu,tv,tv,errorBound)+iF-qprod(iF,tu,errorBound)) * 0.00002 << " "
-                        //             //   << u_delta * 0.00002 << std::endl;
-                        // }
                     }
                     u_block_buffer_pos += uAppBuffer->buffer_dim1_offset;
                     v_block_buffer_pos += vAppBuffer->buffer_dim1_offset;
@@ -1335,6 +1319,7 @@ inline void grayscottUpdatePrePred(
     }
 }
 
+template <class T>
 inline void grayscottUpdatePrePred(
     DSize_3d& size,
     GrayScott *gs,
@@ -1343,15 +1328,95 @@ inline void grayscottUpdatePrePred(
     SZpCmpBufferSet *uCmpkit,
     SZpCmpBufferSet *vCmpkit,
     double errorBound,
-    int max_iter
+    int max_iter,
+    bool verb
 ){
+    struct timespec start, end;
+    double elapsed_time = 0;
+    T * u = (T *)malloc(size.nbEle * sizeof(T));
+    T * v = (T *)malloc(size.nbEle * sizeof(T));
     int current = 0, next = 1;
-    for(int iter=0; iter<max_iter; iter++){
+    for(int iter=1; iter<=max_iter; iter++){
+        clock_gettime(CLOCK_REALTIME, &start);
         grayscottUpdatePrePred(size, gs, uAppBuffer, vAppBuffer, uCmpkit, vCmpkit, errorBound, current, next, iter);
         current = next;
         next = 1 - current;
+        clock_gettime(CLOCK_REALTIME, &end);
+        elapsed_time += get_elapsed_time(start, end);
+        if(verb){
+            if(iter % gs_plot_gap == 0){
+                SZp_decompress_3dLorenzo(u, uCmpkit->cmpData[current], size.dim1, size.dim2, size.dim3, size.Bsize, errorBound);
+                SZp_decompress_3dLorenzo(v, vCmpkit->cmpData[current], size.dim1, size.dim2, size.dim3, size.Bsize, errorBound);
+                std::string u_name = "/Users/xuanwu/github/backup/homoApplication/plot/gs_data/u.pre." + std::to_string(iter);
+                std::string v_name = "/Users/xuanwu/github/backup/homoApplication/plot/gs_data/v.pre." + std::to_string(iter);
+                writefile(u_name.c_str(), u, size.nbEle);
+                writefile(v_name.c_str(), v, size.nbEle);
+                size_t u_cmpSize = FIXED_RATE_PER_BLOCK_BYTES * size.num_blocks + uCmpkit->cmpSize;
+                printf("prepred iter %d: u_cr = %.2f\n", iter, 1.0 * size.nbEle * sizeof(T) / u_cmpSize);
+                size_t v_cmpSize = FIXED_RATE_PER_BLOCK_BYTES * size.num_blocks + vCmpkit->cmpSize;
+                printf("prepred iter %d: v_cr = %.2f\n", iter, 1.0 * size.nbEle * sizeof(T) / v_cmpSize);
+            }
+        }
     }
+    printf("prepred elapsed_time = %.6f\n", elapsed_time);
+    free(u);
+    free(v);
 }
+
+template <class T>
+inline void grayscottUpdateDOC(
+    DSize_3d& size,
+    size_t dim1_padded,
+    size_t dim2_padded,
+    size_t dim3_padded,
+    size_t nbEle_padded,
+    GrayScott *grayscott,
+    double errorBound,
+    int max_iter,
+    bool verb
+){
+    struct timespec start, end;
+    double elapsed_time = 0;
+    T * u = (T *)malloc(nbEle_padded * sizeof(T));
+    T * v = (T *)malloc(nbEle_padded * sizeof(T));
+    T * u2 = (T *)malloc(nbEle_padded * sizeof(T));
+    T * v2 = (T *)malloc(nbEle_padded * sizeof(T));
+    unsigned char * u_compressed = (unsigned char *)malloc(nbEle_padded * sizeof(T));
+    unsigned char * v_compressed = (unsigned char *)malloc(nbEle_padded * sizeof(T));
+    grayscott->initData(u, v, u2, v2);
+    size_t uCmpSize = 0, vCmpSize = 0;
+    SZp_compress_3dLorenzo(u, u_compressed, dim1_padded, dim2_padded, dim3_padded, size.Bsize, errorBound, uCmpSize);
+    SZp_compress_3dLorenzo(v, v_compressed, dim1_padded, dim2_padded, dim3_padded, size.Bsize, errorBound, vCmpSize);
+    T * tmp = nullptr;
+    for(int iter=1; iter<=max_iter; iter++){
+        clock_gettime(CLOCK_REALTIME, &start);
+        SZp_decompress_3dLorenzo(u, u_compressed, dim1_padded, dim2_padded, dim3_padded, size.Bsize, errorBound);
+        SZp_decompress_3dLorenzo(v, v_compressed, dim1_padded, dim2_padded, dim3_padded, size.Bsize, errorBound);
+        grayscott->iterate(u, v, u2, v2, tmp);
+        SZp_compress_3dLorenzo(u, u_compressed, dim1_padded, dim2_padded, dim3_padded, size.Bsize, errorBound, uCmpSize);
+        SZp_compress_3dLorenzo(v, v_compressed, dim1_padded, dim2_padded, dim3_padded, size.Bsize, errorBound, vCmpSize);
+        clock_gettime(CLOCK_REALTIME, &end);
+        elapsed_time += get_elapsed_time(start, end);
+        if(verb){
+            if(iter % gs_plot_gap == 0){
+                std::string u_name = "/Users/xuanwu/github/backup/homoApplication/plot/gs_data/u.doc." + std::to_string(iter);
+                std::string v_name = "/Users/xuanwu/github/backup/homoApplication/plot/gs_data/v.doc." + std::to_string(iter);
+                writefile(u_name.c_str(), u, nbEle_padded);
+                writefile(v_name.c_str(), v, nbEle_padded);
+                printf("doc iter %d: u_cr = %.2f\n", iter, 1.0 * nbEle_padded * sizeof(T) / uCmpSize);
+                printf("doc iter %d: v_cr = %.2f\n", iter, 1.0 * nbEle_padded * sizeof(T) / vCmpSize);
+            }
+        }
+    }
+    printf("doc elapsed_time = %.6f\n", elapsed_time);
+    free(u);
+    free(v);
+    free(u2);
+    free(v2);
+    free(u_compressed);
+    free(v_compressed);
+}
+
 
 template <class T>
 void SZp_grayscott_3dLorenzo(
@@ -1362,15 +1427,15 @@ void SZp_grayscott_3dLorenzo(
     size_t L, int blockSideLength,
     int max_iter, double errorBound,
     size_t& uCmpSize, size_t& vCmpSize,
-    decmpState state
+    decmpState state, bool verb
 ){
     DSize_3d size(L, L, L, blockSideLength);
     size_t buffer_dim1 = size.Bsize + 2;
     size_t buffer_dim2 = size.dim2 + 2;
     size_t buffer_dim3 = size.dim3 + 2;
     size_t buffer_size = buffer_dim1 * buffer_dim2 * buffer_dim3;
-    size_t data_buffer_dim1 = size.dim1 + 2;
-    size_t data_buffer_size = data_buffer_dim1 * buffer_dim2 * buffer_dim3;
+    size_t dim1_padded = size.dim1 + 2;
+    size_t nbEle_padded = dim1_padded * buffer_dim2 * buffer_dim3;
     int * uBuffer_3d = (int *)malloc(buffer_size * 4 * sizeof(int));
     int * uBuffer_2d = (int *)malloc(buffer_dim2 * buffer_dim3 * 2 * sizeof(int));
     int * vBuffer_3d = (int *)malloc(buffer_size * 4 * sizeof(int));
@@ -1381,18 +1446,14 @@ void SZp_grayscott_3dLorenzo(
     unsigned int * vAbsPredError = (unsigned int *)malloc(size.max_num_block_elements * sizeof(unsigned int));
     int * vSignPredError = (int *)malloc(size.max_num_block_elements * sizeof(int));
     unsigned char * vSignFlag = (unsigned char *)malloc(size.max_num_block_elements * sizeof(unsigned char));
-    T * u = (T *)malloc(data_buffer_size * sizeof(T));
-    T * v = (T *)malloc(data_buffer_size * sizeof(T));
-    T * u2 = (T *)malloc(data_buffer_size * sizeof(T));
-    T * v2 = (T *)malloc(data_buffer_size * sizeof(T));
 
     unsigned char **uCmpData = (unsigned char **)malloc(2 * sizeof(unsigned char *));
     unsigned char **vCmpData = (unsigned char **)malloc(2 * sizeof(unsigned char *));
     int **uOffsets = (int **)malloc(2*sizeof(int *));
     int **vOffsets = (int **)malloc(2*sizeof(int *));
     for(int i=0; i<2; i++){
-        uCmpData[i] = (unsigned char *)malloc(data_buffer_size * sizeof(T));
-        vCmpData[i] = (unsigned char *)malloc(data_buffer_size * sizeof(T));
+        uCmpData[i] = (unsigned char *)malloc(nbEle_padded * sizeof(T));
+        vCmpData[i] = (unsigned char *)malloc(nbEle_padded * sizeof(T));
         uOffsets[i] = (int *)malloc(size.block_dim1 * sizeof(int));
         vOffsets[i] = (int *)malloc(size.block_dim1 * sizeof(int));
     }
@@ -1430,63 +1491,20 @@ void SZp_grayscott_3dLorenzo(
     gsAppBufferSet * vAppBuffer = new gsAppBufferSet(buffer_dim1, buffer_dim2, buffer_dim3, vBuffer_3d, vBuffer_2d);
     GrayScott * grayscott = new GrayScott(L, Du, Dv, dt, F, k, errorBound);
 
-    int status = max_iter % 2;
-    // int plot_gap = 10;
-
-    struct timespec start, end;
-    double elapsed_time;
     switch(state){
         case decmpState::full:{
-            grayscott->initData(u, v, u2, v2);
-            unsigned char * u_compressed = uCmpData[status];
-            unsigned char * v_compressed = vCmpData[status];
-            SZp_compress_3dLorenzo(u, u_compressed, data_buffer_dim1, buffer_dim2, buffer_dim3, blockSideLength, errorBound, uCmpSize);
-            SZp_compress_3dLorenzo(v, v_compressed, data_buffer_dim1, buffer_dim2, buffer_dim3, blockSideLength, errorBound, vCmpSize);
-            T * tmp = nullptr;
-            clock_gettime(CLOCK_REALTIME, &start);
-            for(int i=0; i<max_iter; i++){
-                SZp_decompress_3dLorenzo(u, u_compressed, data_buffer_dim1, buffer_dim2, buffer_dim3, blockSideLength, errorBound);
-                SZp_decompress_3dLorenzo(v, v_compressed, data_buffer_dim1, buffer_dim2, buffer_dim3, blockSideLength, errorBound);
-                // if(i && i % plot_gap == 0){
-                //     std::string u_name = "u0.dec." + std::to_string(i);
-                //     writefile(u_name.c_str(), u, size.nbEle);
-                //     std::string v_name = "v0.dec." + std::to_string(i);
-                //     writefile(v_name.c_str(), v, size.nbEle);
-                // }
-                grayscott->iterate(u, v, u2, v2, tmp);
-                SZp_compress_3dLorenzo(u, u_compressed, data_buffer_dim1, buffer_dim2, buffer_dim3, blockSideLength, errorBound, uCmpSize);
-                SZp_compress_3dLorenzo(v, v_compressed, data_buffer_dim1, buffer_dim2, buffer_dim3, blockSideLength, errorBound, vCmpSize);
-            }
-            clock_gettime(CLOCK_REALTIME, &end);
-            printf("U cr = %.2f\n", 1.0 * data_buffer_size * sizeof(T) / uCmpSize);
-            printf("V cr = %.2f\n", 1.0 * data_buffer_size * sizeof(T) / vCmpSize);
+            grayscottUpdateDOC<T>(size, dim1_padded, buffer_dim2, buffer_dim3, nbEle_padded, grayscott, errorBound, max_iter, verb);
             break;
         }
         case decmpState::prePred:{
-            clock_gettime(CLOCK_REALTIME, &start);
-            grayscottUpdatePrePred(size, grayscott, uAppBuffer, vAppBuffer, uCmpkit, vCmpkit, errorBound, max_iter);
-            clock_gettime(CLOCK_REALTIME, &end);
-            uCmpSize = FIXED_RATE_PER_BLOCK_BYTES * size.num_blocks + uCmpkit->cmpSize;
-            vCmpSize = FIXED_RATE_PER_BLOCK_BYTES * size.num_blocks + vCmpkit->cmpSize;
-            printf("U cr = %.2f\n", 1.0 * size.nbEle * sizeof(T) / uCmpSize);
-            printf("V cr = %.2f\n", 1.0 * size.nbEle * sizeof(T) / vCmpSize);
+            grayscottUpdatePrePred<T>(size, grayscott, uAppBuffer, vAppBuffer, uCmpkit, vCmpkit, errorBound, max_iter, verb);
             break;
         }
         case decmpState::postPred:{
             printf("Post-prediction state does not apply to gray-scott\n");
-            elapsed_time = -1;
-            exit(0);
             break;
         }
     }
-    elapsed_time = get_elapsed_time(start, end);
-    printf("elapsed_time = %.6f\n", elapsed_time);
-
-    memcpy(uCmpDataBuffer, uCmpData[status], data_buffer_size*sizeof(T));
-    memcpy(vCmpDataBuffer, vCmpData[status], data_buffer_size*sizeof(T));
-
-    writefile("u.cmp.dat", uCmpDataBuffer, uCmpSize);
-    writefile("v.cmp.dat", vCmpDataBuffer, vCmpSize);
 
     delete uCmpkit;
     delete vCmpkit;
@@ -1513,10 +1531,6 @@ void SZp_grayscott_3dLorenzo(
     free(vAbsPredError);
     free(vSignPredError);
     free(vSignFlag);
-    free(u);
-    free(v);
-    free(u2);
-    free(v2);
 }
 
 #endif

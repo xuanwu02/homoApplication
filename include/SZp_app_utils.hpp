@@ -8,14 +8,17 @@
 
 struct Temperature_info
 {
-    float ratio;
+    float src_temp, wall_temp, init_temp, ratio;
     const int q_S;
     const int q_W;
     Temperature_info(
-    float source_temp, float wall_temp, float ratio, double eb)
-        : ratio(ratio), 
-          q_S(SZ_quantize(source_temp, eb)),
-          q_W(SZ_quantize(wall_temp, eb))
+    float src, float wall, float init, float ratio, double eb)
+        : src_temp(src),
+          wall_temp(wall),
+          init_temp(init),
+          ratio(ratio), 
+          q_S(SZ_quantize(src, eb)),
+          q_W(SZ_quantize(wall, eb))
     {}
     void prepare_src_row(size_t dim2, int *quant_buffer, int *pred_err_buffer){
         size_t c1 =  dim2 * (1.0 - ratio) * 0.5 + 1;

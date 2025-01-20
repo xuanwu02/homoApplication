@@ -5,7 +5,7 @@
 #include <cmath>
 #include <ctime>
 #include <cassert>
-#include "SZp_LorenzoPredictor2D.hpp"
+#include "SZp_LorenzoPredictor1D.hpp"
 #include "utils.hpp"
 
 int main(int argc, char **argv)
@@ -15,10 +15,9 @@ int main(int argc, char **argv)
     size_t dim2 = atoi(argv[argv_id++]);
     int blockSideLength = atoi(argv[argv_id++]);
     double errorBound = atof(argv[argv_id++]);
-    int type = atoi(argv[argv_id++]);
-    decmpState state = intToDecmpState(type);
     int max_iter = atoi(argv[argv_id++]);
-    ht_plot_gap = 1;
+    ht_plot_gap = atoi(argv[argv_id++]);
+    int verb = atoi(argv[argv_id++]);
 
     size_t nbEle = dim1 * dim2;
     size_t buffer_size = (dim1 + 2) * (dim2 + 2);
@@ -37,8 +36,13 @@ int main(int argc, char **argv)
 
     heatdis.initData_noghost(h, h2, init_temp);
     size_t cmpSize = 0;
-    SZp_compress_2dLorenzo(h, cmpData, dim1, dim2, blockSideLength, errorBound, cmpSize);
-    SZp_heatdis_2dLorenzo<T>(cmpData, dim1, dim2, blockSideLength, max_iter, cmpSize, src_temp, wall_temp, init_temp, ratio, errorBound, state, false);
+    SZp_compress_1dLorenzo(h, cmpData, dim1, dim2, blockSideLength, errorBound, cmpSize);
+
+    SZp_heatdis_1dLorenzo<T>(cmpData, dim1, dim2, blockSideLength, max_iter, cmpSize, src_temp, wall_temp, init_temp, ratio, errorBound, decmpState::full, verb);
+    SZp_heatdis_1dLorenzo<T>(cmpData, dim1, dim2, blockSideLength, max_iter, cmpSize, src_temp, wall_temp, init_temp, ratio, errorBound, decmpState::prePred, verb);
+    SZp_heatdis_1dLorenzo<T>(cmpData, dim1, dim2, blockSideLength, max_iter, cmpSize, src_temp, wall_temp, init_temp, ratio, errorBound, decmpState::postPred, verb);
+    heatdis.initData(h, h2, init_temp);
+    heatdis.doWork(h, h2, max_iter, ht_plot_gap);
 
     free(h);
     free(h2);
