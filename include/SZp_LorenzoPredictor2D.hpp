@@ -1024,7 +1024,7 @@ inline void heatdisUpdatePostPred(
         if(verb){
             if(iter % ht_plot_gap == 0){
                 SZp_decompress_2dLorenzo(h, cmpkit_set->cmpData[current], size.dim1, size.dim2, size.Bsize, errorBound);
-                std::string h_name = "/Users/xuanwu/github/backup/homoApplication/plot/ht_data/h2d.post." + std::to_string(iter);
+                std::string h_name = work_dir + "/plot/ht_data/h2d.post." + std::to_string(iter);
                 writefile(h_name.c_str(), h, size.nbEle);
                 size_t cmpSize = FIXED_RATE_PER_BLOCK_BYTES * size.num_blocks + cmpkit_set->cmpSize;
                 printf("postpred iter %d: cr = %.2f\n", iter, 1.0 * size.nbEle * sizeof(T) / cmpSize);
@@ -1059,7 +1059,7 @@ inline void heatdisUpdatePrePred(
         if(verb){
             if(iter % ht_plot_gap == 0){
                 SZp_decompress_2dLorenzo(h, cmpkit_set->cmpData[current], size.dim1, size.dim2, size.Bsize, errorBound);
-                std::string h_name = "/Users/xuanwu/github/backup/homoApplication/plot/ht_data/h2d.pre." + std::to_string(iter);
+                std::string h_name = work_dir + "/plot/ht_data/h2d.pre." + std::to_string(iter);
                 writefile(h_name.c_str(), h, size.nbEle);
                 size_t cmpSize = FIXED_RATE_PER_BLOCK_BYTES * size.num_blocks + cmpkit_set->cmpSize;
                 printf("prepred iter %d: cr = %.2f\n", iter, 1.0 * size.nbEle * sizeof(T) / cmpSize);
@@ -1101,7 +1101,7 @@ inline void heatdisUpdateDOC(
         elapsed_time += get_elapsed_time(start, end);
         if(verb){
             if(iter % ht_plot_gap == 0){
-                std::string h_name = "/Users/xuanwu/github/backup/homoApplication/plot/ht_data/h2d.doc." + std::to_string(iter);
+                std::string h_name = work_dir + "/plot/ht_data/h2d.doc." + std::to_string(iter);
                 writefile(h_name.c_str(), h, nbEle_padded);
                 printf("doc iter %d: cr = %.2f\n", iter, 1.0 * nbEle_padded * sizeof(T) / cmpSize);
             }

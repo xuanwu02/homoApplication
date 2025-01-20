@@ -3,6 +3,7 @@
 
 #include <cstdlib>
 #include <cstring>
+#include <cstdint>
 
 #define INT_BITS 32
 #define INT_BYTES 4
@@ -10,6 +11,8 @@
 #define FIXED_RATE_PER_BLOCK_BYTES 1
 #define REG_COEFF_SIZE_2D 3
 #define REG_COEFF_SIZE_3D 4
+
+std::string work_dir = "/Users/xuanwu/github/backup/homoApplication";
 
 int gs_plot_gap;
 int ht_plot_gap;

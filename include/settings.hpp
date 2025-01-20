@@ -12,16 +12,12 @@ public:
     int dim2;
     int dim3;
     int B;
-    int stateType;
     double eb;
-    std::string data_file;
     inline Settings()
         : dim1(100),
           dim2(100),
           dim3(100),
-          stateType(0),
-          eb(1e-4),
-          data_file("/Users/xuanwu/github/datasets/CESM/CLDHGH_1_1800_3600.f32")
+          eb(1e-4)
     {}
     static Settings from_json(const std::string &fname);
 };
@@ -32,9 +28,7 @@ inline void from_json(const nlohmann::json &j, Settings &s)
     j.at("dim2").get_to(s.dim2);
     j.at("dim3").get_to(s.dim3);
     j.at("B").get_to(s.B);
-    j.at("stateType").get_to(s.stateType);
     j.at("eb").get_to(s.eb);
-    j.at("data_file").get_to(s.data_file);
 }
 
 inline Settings Settings::from_json(const std::string &fname)
@@ -50,7 +44,6 @@ class gsSettings{
 public:
     int L;
     int B;
-    int stateType;
     double eb;
     double F;
     double k;
@@ -62,7 +55,6 @@ public:
     inline gsSettings()
         : L(128),
           B(10),
-          stateType(0),
           eb(1e-5),
           F(0.01),
           k(0.05),
@@ -79,7 +71,6 @@ inline void from_json(const nlohmann::json &j, gsSettings &s)
 {
     j.at("L").get_to(s.L);
     j.at("B").get_to(s.B);
-    j.at("stateType").get_to(s.stateType);
     j.at("eb").get_to(s.eb);
     j.at("F").get_to(s.F);
     j.at("k").get_to(s.k);
@@ -105,7 +96,6 @@ public:
     int dim2;
     int lorenzo;
     int B;
-    int stateType;
     double eb;
     float src_temp;
     float wall_temp;
@@ -118,7 +108,6 @@ public:
           dim2(100),
           lorenzo(2),
           B(8),
-          stateType(0),
           eb(1e-4),
           src_temp(100.0),
           wall_temp(0.0),
@@ -136,7 +125,6 @@ inline void from_json(const nlohmann::json &j, htSettings &s)
     j.at("dim2").get_to(s.dim2);
     j.at("lorenzo").get_to(s.lorenzo);
     j.at("B").get_to(s.B);
-    j.at("stateType").get_to(s.stateType);
     j.at("eb").get_to(s.eb);
     j.at("src_temp").get_to(s.src_temp);
     j.at("wall_temp").get_to(s.wall_temp);

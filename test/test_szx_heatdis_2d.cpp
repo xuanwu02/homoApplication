@@ -11,7 +11,9 @@
 
 int main(int argc, char **argv)
 {
-    std::string ht_config(argv[1]);
+    int argv_id = 1;
+    std::string ht_config(argv[argv_id++]);
+    int stateType = atoi(argv[argv_id++]);
     htSettings s = htSettings::from_json(ht_config);
 
     using T = float;
@@ -26,7 +28,7 @@ int main(int argc, char **argv)
     heatdis.initData_noghost(h, h2, s.init_temp);
     size_t cmpSize = 0;
     SZx_compress_2dMeanbased(h, cmpData, s.dim1, s.dim1, s.B, s.eb, cmpSize);
-    SZx_heatdis_2dMeanbased<T>(cmpData, s.dim1, s.dim1, s.B, s.steps, s.src_temp, s.wall_temp, s.init_temp, s.ratio, s.eb, intToDecmpState(s.stateType));
+    SZx_heatdis_2dMeanbased<T>(cmpData, s.dim1, s.dim1, s.B, s.steps, s.src_temp, s.wall_temp, s.init_temp, s.ratio, s.eb, intToDecmpState(stateType));
 
     free(h);
     free(h2);

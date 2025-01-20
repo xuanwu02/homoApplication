@@ -1,14 +1,13 @@
 {
-    "dim1": 400,
-    "dim2": 400,
-    "lorenzo": 1,
-    "B": 128,
-    "stateType": 0,
+    "dim1": 1000,
+    "dim2": 1000,
+    "lorenzo": 2,
+    "B": 8,
     "eb": 1e-4,
     "src_temp": 100.0,
     "wall_temp": 0.0,
     "init_temp": 0.0,
     "ratio": 0.8,
-    "plotgap": 2000,
-    "steps": 20000
+    "plotgap": 20000,
+    "steps": 200000
 }

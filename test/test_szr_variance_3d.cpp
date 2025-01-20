@@ -11,13 +11,16 @@
 
 int main(int argc, char **argv)
 {
-    std::string config(argv[1]);
+    int argv_id = 1;
+    std::string config(argv[argv_id++]);
+    std::string data_file(argv[argv_id++]);
+    int stateType = atoi(argv[argv_id++]);
     Settings s = Settings::from_json(config);
 
     using T = float;
 
     size_t nbEle;
-    auto oriData_vec = readfile<T>(s.data_file.c_str(), nbEle);
+    auto oriData_vec = readfile<T>(data_file.c_str(), nbEle);
     assert(nbEle == s.dim1 * s.dim2 * s.dim3);
     T * oriData = oriData_vec.data();
     set_relative_eb(oriData_vec, s.eb);
@@ -29,7 +32,7 @@ int main(int argc, char **argv)
     SZr_compress_3dRegression(oriData, cmpData, s.dim1, s.dim2, s.dim3, s.B, s.eb, cmpSize);
     printf("cr = %.2f\n", 1.0 * nbEle * sizeof(T) / cmpSize);
 
-    double var = SZr_variance_3d(cmpData, s.dim1, s.dim2, s.dim3, decData, s.B, s.eb, intToDecmpState(s.stateType));
+    double var = SZr_variance_3d(cmpData, s.dim1, s.dim2, s.dim3, decData, s.B, s.eb, intToDecmpState(stateType));
     printf("variance = %.6f\n", var);
 
     double act_mean = 0;

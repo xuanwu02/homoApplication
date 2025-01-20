@@ -11,7 +11,9 @@
 
 int main(int argc, char **argv)
 {
-    std::string gs_config(argv[1]);
+    int argv_id = 1;
+    std::string gs_config(argv[argv_id++]);
+    int stateType = atoi(argv[argv_id++]);
     gsSettings s = gsSettings::from_json(gs_config);
 
     using T = double;
@@ -32,7 +34,7 @@ int main(int argc, char **argv)
     SZp_compress_3dLorenzo(u, u_cmpData, s.L, s.L, s.L, s.B, s.eb, u_cmpSize);
     SZp_compress_3dLorenzo(v, v_cmpData, s.L, s.L, s.L, s.B, s.eb, v_cmpSize);
 
-    SZp_grayscott_3dLorenzo<T>(s.Du, s.Dv, s.F, s.k, s.dt, u_cmpData, v_cmpData, s.L, s.B, s.steps, s.eb, u_cmpSize, v_cmpSize, intToDecmpState(s.stateType), false);
+    SZp_grayscott_3dLorenzo<T>(s.Du, s.Dv, s.F, s.k, s.dt, u_cmpData, v_cmpData, s.L, s.B, s.steps, s.eb, u_cmpSize, v_cmpSize, intToDecmpState(stateType), false);
 
     free(u);
     free(v);

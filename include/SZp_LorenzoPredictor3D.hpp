@@ -1347,8 +1347,8 @@ inline void grayscottUpdatePrePred(
             if(iter % gs_plot_gap == 0){
                 SZp_decompress_3dLorenzo(u, uCmpkit->cmpData[current], size.dim1, size.dim2, size.dim3, size.Bsize, errorBound);
                 SZp_decompress_3dLorenzo(v, vCmpkit->cmpData[current], size.dim1, size.dim2, size.dim3, size.Bsize, errorBound);
-                std::string u_name = "/Users/xuanwu/github/backup/homoApplication/plot/gs_data/u.pre." + std::to_string(iter);
-                std::string v_name = "/Users/xuanwu/github/backup/homoApplication/plot/gs_data/v.pre." + std::to_string(iter);
+                std::string u_name = work_dir + "/plot/gs_data/u.pre." + std::to_string(iter);
+                std::string v_name = work_dir + "/plot/gs_data/v.pre." + std::to_string(iter);
                 writefile(u_name.c_str(), u, size.nbEle);
                 writefile(v_name.c_str(), v, size.nbEle);
                 size_t u_cmpSize = FIXED_RATE_PER_BLOCK_BYTES * size.num_blocks + uCmpkit->cmpSize;
@@ -1399,8 +1399,8 @@ inline void grayscottUpdateDOC(
         elapsed_time += get_elapsed_time(start, end);
         if(verb){
             if(iter % gs_plot_gap == 0){
-                std::string u_name = "/Users/xuanwu/github/backup/homoApplication/plot/gs_data/u.doc." + std::to_string(iter);
-                std::string v_name = "/Users/xuanwu/github/backup/homoApplication/plot/gs_data/v.doc." + std::to_string(iter);
+                std::string u_name = work_dir + "/plot/gs_data/u.doc." + std::to_string(iter);
+                std::string v_name = work_dir + "/plot/gs_data/v.doc." + std::to_string(iter);
                 writefile(u_name.c_str(), u, nbEle_padded);
                 writefile(v_name.c_str(), v, nbEle_padded);
                 printf("doc iter %d: u_cr = %.2f\n", iter, 1.0 * nbEle_padded * sizeof(T) / uCmpSize);
