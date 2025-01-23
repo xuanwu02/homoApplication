@@ -17,6 +17,7 @@ public:
         : dim1(100),
           dim2(100),
           dim3(100),
+          B(8),
           eb(1e-4)
     {}
     static Settings from_json(const std::string &fname);
@@ -52,6 +53,9 @@ public:
     double Dv;
     int steps;
     int plotgap;
+    int offset;
+    double criteria;
+    std::string data_dir;
     inline gsSettings()
         : L(128),
           B(10),
@@ -62,7 +66,10 @@ public:
           Du(0.2),
           Dv(0.1),
           steps(200),
-          plotgap(20)
+          plotgap(20),
+          offset(1),
+          criteria(1e-6),
+          data_dir("gs_data")
     {}
     static gsSettings from_json(const std::string &fname);
 };
@@ -79,6 +86,9 @@ inline void from_json(const nlohmann::json &j, gsSettings &s)
     j.at("Dv").get_to(s.Dv);
     j.at("steps").get_to(s.steps);
     j.at("plotgap").get_to(s.plotgap);
+    j.at("offset").get_to(s.offset);
+    j.at("criteria").get_to(s.criteria);
+    j.at("data_dir").get_to(s.data_dir);
 }
 
 inline gsSettings gsSettings::from_json(const std::string &fname)
@@ -103,6 +113,9 @@ public:
     float ratio;
     int steps;
     int plotgap;
+    int offset;
+    double criteria;
+    std::string data_dir;
     inline htSettings()
         : dim1(100),
           dim2(100),
@@ -114,7 +127,10 @@ public:
           init_temp(0.0),
           ratio(0.8),
           steps(200),
-          plotgap(20)
+          plotgap(20),
+          offset(1),
+          criteria(1e-4),
+          data_dir("ht_data")
     {}
     static htSettings from_json(const std::string &fname);
 };
@@ -132,6 +148,9 @@ inline void from_json(const nlohmann::json &j, htSettings &s)
     j.at("ratio").get_to(s.ratio);
     j.at("steps").get_to(s.steps);
     j.at("plotgap").get_to(s.plotgap);
+    j.at("offset").get_to(s.offset);
+    j.at("criteria").get_to(s.criteria);
+    j.at("data_dir").get_to(s.data_dir);
 }
 
 inline htSettings htSettings::from_json(const std::string &fname)

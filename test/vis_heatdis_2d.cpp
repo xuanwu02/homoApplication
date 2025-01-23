@@ -13,7 +13,6 @@ int main(int argc, char **argv)
 {
     std::string ht_config(argv[1]);
     htSettings s = htSettings::from_json(ht_config);
-    ht_plot_gap = s.plotgap;
 
     using T = float;
     size_t nbEle = s.dim1 * s.dim2;
@@ -28,11 +27,10 @@ int main(int argc, char **argv)
     size_t cmpSize = 0;
     SZp_compress_2dLorenzo(h, cmpData, s.dim1, s.dim2, s.B, s.eb, cmpSize);
 
-    SZp_heatdis_2dLorenzo<T>(cmpData, s.dim1, s.dim2, s.B, s.steps, cmpSize, s.src_temp, s.wall_temp, s.init_temp, s.ratio, s.eb, decmpState::full, true);
-    SZp_heatdis_2dLorenzo<T>(cmpData, s.dim1, s.dim2, s.B, s.steps, cmpSize, s.src_temp, s.wall_temp, s.init_temp, s.ratio, s.eb, decmpState::prePred, true);
-    SZp_heatdis_2dLorenzo<T>(cmpData, s.dim1, s.dim2, s.B, s.steps, cmpSize, s.src_temp, s.wall_temp, s.init_temp, s.ratio, s.eb, decmpState::postPred, true);
+    SZp_heatdis_2dLorenzo<T>(cmpData, s, decmpState::full, true);
+    SZp_heatdis_2dLorenzo<T>(cmpData, s, decmpState::prePred, true);
     heatdis.initData(h, h2, s.init_temp);
-    heatdis.doWork(h, h2, s.steps, ht_plot_gap);
+    heatdis.doWork(h, h2, s.criteria, s.steps, s.plotgap, s.offset);
 
     free(h);
     free(h2);

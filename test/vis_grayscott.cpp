@@ -14,6 +14,8 @@ int main(int argc, char **argv)
     std::string gs_config(argv[1]);
     gsSettings s = gsSettings::from_json(gs_config);
     gs_plot_gap = s.plotgap;
+    gs_plot_offset = s.offset;
+    gs_criteria = s.criteria;
 
     using T = double;
     size_t nbEle = s.L * s.L * s.L;
@@ -36,7 +38,7 @@ int main(int argc, char **argv)
     SZp_grayscott_3dLorenzo<T>(s.Du, s.Dv, s.F, s.k, s.dt, u_cmpData, v_cmpData, s.L, s.B, s.steps, s.eb, u_cmpSize, v_cmpSize, decmpState::full, true);
     SZp_grayscott_3dLorenzo<T>(s.Du, s.Dv, s.F, s.k, s.dt, u_cmpData, v_cmpData, s.L, s.B, s.steps, s.eb, u_cmpSize, v_cmpSize, decmpState::prePred, true);
     gs.initData(u, v, u2, v2);
-    gs.doWork(u, v, u2, v2, s.steps, gs_plot_gap);
+    gs.doWork(u, v, u2, v2, s.criteria, s.steps, s.plotgap, s.offset);
 
     free(u);
     free(v);

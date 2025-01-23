@@ -7,6 +7,9 @@
     "F": 0.01,
     "k": 0.05,
     "dt": 2.0,
-    "plotgap": 200,
-    "steps": 2000
+    "plotgap": 1,
+    "offset": 1,
+    "steps": 2,
+    "criteria":1e-6,
+    "data_dir": "/plot/gs_data"
 }

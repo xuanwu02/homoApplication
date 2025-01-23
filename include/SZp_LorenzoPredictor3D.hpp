@@ -9,6 +9,7 @@
 #include "typemanager.hpp"
 #include "SZp_app_utils.hpp"
 #include "utils.hpp"
+#include "settings.hpp"
 
 template <class T>
 void SZp_compress_3dLorenzo(
@@ -1290,6 +1291,7 @@ inline void grayscottUpdatePrePred(
     vCmpkit->reset(), vAppBuffer->reset();
     for(size_t x=0; x<size.block_dim1; x++){
         if(x == 0){
+            unsigned char * tmp = uCmpkit->cmpData[current];
             recoverBlockPlane2PrePred(x, size, u_encode_pos, uAppBuffer->currPlane_data_pos, uAppBuffer, uCmpkit, current, iter);
             uAppBuffer->set_next_decmp_buffer_top(uAppBuffer->nextPlane_data_pos);
             recoverBlockPlane2PrePred(x+1, size, u_encode_pos, uAppBuffer->nextPlane_data_pos, uAppBuffer, uCmpkit, current, iter);
@@ -1345,10 +1347,12 @@ inline void grayscottUpdatePrePred(
         elapsed_time += get_elapsed_time(start, end);
         if(verb){
             if(iter % gs_plot_gap == 0){
+                unsigned char * tt = uCmpkit->cmpData[current];
+                std::cout << iter << ": " << current << ": " << +tt[32767] << std::endl;
                 SZp_decompress_3dLorenzo(u, uCmpkit->cmpData[current], size.dim1, size.dim2, size.dim3, size.Bsize, errorBound);
                 SZp_decompress_3dLorenzo(v, vCmpkit->cmpData[current], size.dim1, size.dim2, size.dim3, size.Bsize, errorBound);
-                std::string u_name = work_dir + "/plot/gs_data/u.pre." + std::to_string(iter);
-                std::string v_name = work_dir + "/plot/gs_data/v.pre." + std::to_string(iter);
+                std::string u_name = work_dir + grayscott_data_dir + "/u.pre." + std::to_string(iter);
+                std::string v_name = work_dir + grayscott_data_dir + "/v.pre." + std::to_string(iter);
                 writefile(u_name.c_str(), u, size.nbEle);
                 writefile(v_name.c_str(), v, size.nbEle);
                 size_t u_cmpSize = FIXED_RATE_PER_BLOCK_BYTES * size.num_blocks + uCmpkit->cmpSize;
@@ -1357,6 +1361,7 @@ inline void grayscottUpdatePrePred(
                 printf("prepred iter %d: v_cr = %.2f\n", iter, 1.0 * size.nbEle * sizeof(T) / v_cmpSize);
             }
         }
+        std::cout << iter << ": exit\n";
     }
     printf("prepred elapsed_time = %.6f\n", elapsed_time);
     free(u);
@@ -1399,8 +1404,8 @@ inline void grayscottUpdateDOC(
         elapsed_time += get_elapsed_time(start, end);
         if(verb){
             if(iter % gs_plot_gap == 0){
-                std::string u_name = work_dir + "/plot/gs_data/u.doc." + std::to_string(iter);
-                std::string v_name = work_dir + "/plot/gs_data/v.doc." + std::to_string(iter);
+                std::string u_name = work_dir + grayscott_data_dir + "/u.doc." + std::to_string(iter);
+                std::string v_name = work_dir + grayscott_data_dir + "/v.doc." + std::to_string(iter);
                 writefile(u_name.c_str(), u, nbEle_padded);
                 writefile(v_name.c_str(), v, nbEle_padded);
                 printf("doc iter %d: u_cr = %.2f\n", iter, 1.0 * nbEle_padded * sizeof(T) / uCmpSize);
@@ -1457,8 +1462,8 @@ void SZp_grayscott_3dLorenzo(
         uOffsets[i] = (int *)malloc(size.block_dim1 * sizeof(int));
         vOffsets[i] = (int *)malloc(size.block_dim1 * sizeof(int));
     }
-    memcpy(uCmpData[0], uCmpDataBuffer, size.nbEle * sizeof(T));
-    memcpy(vCmpData[0], vCmpDataBuffer, size.nbEle * sizeof(T));
+    memcpy(uCmpData[0], uCmpDataBuffer, nbEle_padded * sizeof(T));
+    memcpy(vCmpData[0], vCmpDataBuffer, nbEle_padded * sizeof(T));
 
     size_t u_prefix_length = 0, v_prefix_length = 0;
     int block_index = 0;

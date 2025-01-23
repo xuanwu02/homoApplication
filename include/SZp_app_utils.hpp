@@ -367,11 +367,12 @@ inline void recover_lorenzo_1d(
 }
 
 inline void integerize_quant(
-    SZpAppBufferSet_1d *buffer_set, const int *buffer_pos, int *update_pos
+    SZpAppBufferSet_1d *buffer_set, const int *buffer_pos, int *update_pos, int bias
 ){
     int center = buffer_pos[-1] + buffer_pos[1] + buffer_pos[-buffer_set->buffer_dim0_offset] + buffer_pos[buffer_set->buffer_dim0_offset];
     unsigned char sign = (center >> 31) & 1;
-    *update_pos = (center + (sign ? -2 : 2)) >> 2;
+    char shift = 1 + bias;
+    *update_pos = (center + (sign ? - shift : shift)) >> 2;
 }
 
 inline int update_quant_and_predict(
@@ -452,11 +453,12 @@ inline int recover_lorenzo_2d_verb(
 }
 
 inline void integerize_quant(
-    const int *buffer_pos, int *update_pos, size_t buffer_dim0_offset
+    const int *buffer_pos, int *update_pos, size_t buffer_dim0_offset, int bias
 ){
     int center = buffer_pos[-1] + buffer_pos[1] + buffer_pos[-buffer_dim0_offset] + buffer_pos[buffer_dim0_offset];
     unsigned char sign = (center >> 31) & 1;
-    *update_pos = (center + (sign ? -2 : 2)) >> 2;
+    char shift = 1 + bias;
+    *update_pos = (center + (sign ? - shift : shift)) >> 2;
 }
 
 inline int update_quant_and_predict(

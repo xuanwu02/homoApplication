@@ -14,8 +14,15 @@
 
 std::string work_dir = "/Users/xuanwu/github/backup/homoApplication";
 
-int gs_plot_gap;
+std::string heatdis_data_dir;
 int ht_plot_gap;
+int ht_plot_offset;
+double ht_criteria;
+
+std::string grayscott_data_dir;
+int gs_plot_gap;
+int gs_plot_offset;
+double gs_criteria;
 
 enum class appType
 {

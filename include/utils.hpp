@@ -255,17 +255,19 @@ void compute_dxdydz(
 }
 
 class HeatDis{
-private:
+public:
 	size_t dim1, dim2;
+	size_t dim1_padded, dim2_padded;
 	size_t nbEle_padded;
 	size_t c1, c2;
 	float source_temp;
 	float wall_temp;
 	float ratio;
-public:
 	HeatDis(float src, float wall, float r, size_t d1, size_t d2)
 		: source_temp(src), wall_temp(wall), ratio(r), dim1(d1), dim2(d2){
-		nbEle_padded = (dim1 + 2) * (dim2 + 2);
+        dim1_padded = dim1 + 2;
+        dim2_padded = dim2 + 2;
+		nbEle_padded = dim1_padded * dim2_padded;
 		c1 =  dim2 * (1.0 - ratio) * 0.5 + 1;
 		c2 =  dim2 * (1.0 + ratio) * 0.5 - 1;
 	}
@@ -280,27 +282,25 @@ public:
 	}
     template <class T>
 	void initData(T *h, T *h2, float init_temp){
-		int buffer_dim1 = dim1 + 2;
-		int buffer_dim2 = dim2 + 2;
-		memset(h, 0, buffer_dim1 * buffer_dim2 * sizeof(T));
+		memset(h, 0, nbEle_padded * sizeof(T));
 		T * g = h + 1;
 		for(int j=0; j<dim2; j++){
 			g[j] = wall_temp;
 			if(j>=c1 && j<=c2) g[j] = source_temp;				
 		}
-		g = h + (buffer_dim1 - 1) * buffer_dim2;
-		for(int j=0; j<buffer_dim2; j++){
+		g = h + (dim1_padded - 1) * dim2_padded;
+		for(int j=0; j<dim2_padded; j++){
 			g[j] = wall_temp;
 		}
-		for(int i=0; i<buffer_dim1; i++){
-			h[i * buffer_dim2] = wall_temp, h[(i + 1) * buffer_dim2 - 1] = wall_temp;
+		for(int i=0; i<dim1_padded; i++){
+			h[i * dim2_padded] = wall_temp, h[(i + 1) * dim2_padded - 1] = wall_temp;
 		}
 		for(int i=1; i<=dim1; i++) {
 			for (int j=1; j<=dim2; j++) {
-				h[i * buffer_dim2 + j] = init_temp;
+				h[i * dim2_padded + j] = init_temp;
 			}
 		}
-		memcpy(h2, h, buffer_dim1 * buffer_dim2 * sizeof(T));
+		memcpy(h2, h, dim1_padded * dim2_padded * sizeof(T));
 	}
 	template <class T>
 	void reset_source(T *h, T *h2){
@@ -336,15 +336,24 @@ public:
 		}
 	}
     template <class T>
-	void doWork(T*& h, T*& h2, int num_iter, int plotgap){
+	void doWork(T*& h, T*& h2, double criteria, int num_iter, int plot_gap, int plot_offset=1){
+        float * max_diff_buffer = (float *)malloc(num_iter * sizeof(float));
+        float * buffer_pos = max_diff_buffer;
 		T * tmp = nullptr;
-		for(int iter=1; iter<=num_iter; iter++){
+        int iter = 0;
+        while(iter < num_iter){
 			iterate(h, h2, tmp);
-			if(iter % plotgap == 0){
+            iter++;
+			if(iter >= plot_offset && iter % plot_gap == 0){
 				std::string h_name = work_dir + "/plot/ht_data/h.ref." + std::to_string(iter);
 				writefile(h_name.c_str(), h, nbEle_padded);
 			}
-		}
+            double max_err = verify(h, h2, dim1_padded, dim2_padded);
+            *buffer_pos++ = max_err;
+        }
+        std::string fname = work_dir + "/plot/ht_data/h.ref.error";
+        writefile(fname.c_str(), max_diff_buffer, num_iter);
+        free(max_diff_buffer);
 	}
     template <class T>
 	void trimData(T *padded, T *trimmed){
@@ -380,6 +389,7 @@ public:
 	const double VBorderVal = 0.0;
 	const int d = 6;
     size_t L;
+    size_t L_padded;
     size_t nbEle;
 	size_t nbEle_padded;
     size_t dim0_offset;
@@ -389,10 +399,11 @@ public:
 	gsIntCoeff *intCoeff;
     GrayScott(size_t l, double Du_, double Dv_, double dt_, double Feed, double kill, double eb)
         : L(l), Du(Du_), Dv(Dv_), dt(dt_), F(Feed), k(kill){
+        L_padded = L + 2;
 		nbEle = L * L * L;
-		nbEle_padded = (L + 2) * (L + 2) * (L + 2);
-        dim0_offset = (L + 2) * (L + 2);
-        dim1_offset = (L + 2);
+		nbEle_padded = L_padded * L_padded * L_padded;
+        dim0_offset = L_padded * L_padded;
+        dim1_offset = L_padded;
 		Dudt = Du * dt, Dvdt = Dv * dt;
 		// Dudt = Du * dt / 6.0, Dvdt = Dv * dt / 6.0;
 		Fkdt = (F + k) * dt, Fdt = F * dt;
@@ -496,17 +507,33 @@ public:
 		}
 	}
     template <class T>
-	void doWork(T*& u, T*& v, T*& u2, T*& v2, int num_iter, int plotgap){
+	void doWork(T*& u, T*& v, T*& u2, T*& v2, double criteria, int num_iter, int plot_gap, int plot_offset=1){
+        float * u_max_diff_buffer = (float *)malloc(num_iter * sizeof(float));
+        float * u_buffer_pos = u_max_diff_buffer;
+        float * v_max_diff_buffer = (float *)malloc(num_iter * sizeof(float));
+        float * v_buffer_pos = v_max_diff_buffer;
 		T * tmp = nullptr;
-		for(int iter=1; iter<=num_iter; iter++){
+        int iter = 0;
+        while(iter < num_iter){
 			iterate(u, v, u2, v2, tmp);
-			if(iter % plotgap == 0){
+            iter++;
+			if(iter >= plot_offset && iter % plot_gap == 0){
 				std::string u_name = work_dir + "/plot/gs_data/u.ref." + std::to_string(iter);
 				std::string v_name = work_dir + "/plot/gs_data/v.ref." + std::to_string(iter);
 				writefile(u_name.c_str(), u, nbEle_padded);
 				writefile(v_name.c_str(), v, nbEle_padded);
 			}
-		}
+            double u_max_err = verify(u, u2, L_padded, L_padded, L_padded);
+            double v_max_err = verify(v, v2, L_padded, L_padded, L_padded);
+            *u_buffer_pos++ = u_max_err;
+            *v_buffer_pos++ = v_max_err;
+        }
+        std::string u_fname = work_dir + "/plot/gs_data/u.ref.error";
+        writefile(u_fname.c_str(), u_max_diff_buffer, num_iter);
+        std::string v_fname = work_dir + "/plot/gs_data/v.ref.error";
+        writefile(v_fname.c_str(), v_max_diff_buffer, num_iter);
+        free(u_max_diff_buffer);
+        free(v_max_diff_buffer);
 	}
     template <class T>
 	void trimData(T *padded, T *trimmed){
