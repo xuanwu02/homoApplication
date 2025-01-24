@@ -979,6 +979,7 @@ inline void heatdisUpdatePostPred(
         *buffer_pos++ = max_err;
         if(max_err <= ht_criteria && proceed){
             printf("postpred converges at iter %d\n", iter);
+            fflush(stdout);
             proceed = false;
         }
         if(verb){
@@ -986,6 +987,7 @@ inline void heatdisUpdatePostPred(
                 std::string h_name = work_dir + heatdis_data_dir + "/h2d.post." + std::to_string(iter);
                 writefile(h_name.c_str(), h, size.nbEle);
                 printf("postpred iter %d: cr = %.2f\n", iter, 1.0 * size.nbEle * sizeof(T) / cmpSize);
+                fflush(stdout);
             }
         }
     }
@@ -993,6 +995,7 @@ inline void heatdisUpdatePostPred(
     writefile(fname.c_str(), max_diff_buffer, max_iter);
     printf("postpred exit cr = %.2f\n", 1.0 * size.nbEle * sizeof(T) / cmpSize);
     printf("postpred elapsed_time = %.6f\n", elapsed_time);
+    fflush(stdout);
     free(h);
     free(h2);
     free(max_diff_buffer);
@@ -1033,6 +1036,7 @@ inline void heatdisUpdatePrePred(
         *buffer_pos++ = max_err;
         if(max_err <= ht_criteria && proceed){
             printf("prepred converges at iter %d\n", iter);
+            fflush(stdout);
             proceed = false;
         }
         if(verb){
@@ -1041,6 +1045,7 @@ inline void heatdisUpdatePrePred(
                 writefile(h_name.c_str(), h, size.nbEle);
                 size_t cmpSize = FIXED_RATE_PER_BLOCK_BYTES * size.num_blocks + cmpkit_set->cmpSize;
                 printf("prepred iter %d: cr = %.2f\n", iter, 1.0 * size.nbEle * sizeof(T) / cmpSize);
+                fflush(stdout);
             }
         }
     }
@@ -1048,6 +1053,7 @@ inline void heatdisUpdatePrePred(
     writefile(fname.c_str(), max_diff_buffer, max_iter);
     printf("prepred exit cr = %.2f\n", 1.0 * size.nbEle * sizeof(T) / cmpSize);
     printf("prepred elapsed_time = %.6f\n", elapsed_time);
+    fflush(stdout);
     free(h);
     free(h2);
     free(max_diff_buffer);
@@ -1091,6 +1097,7 @@ inline void heatdisUpdateDOC(
         *buffer_pos++ = max_err;
         if(max_err <= ht_criteria && proceed){
             printf("doc converges at iter %d\n", iter);
+            fflush(stdout);
             proceed = false;
         }
         if(verb){
@@ -1098,6 +1105,7 @@ inline void heatdisUpdateDOC(
                 std::string h_name = work_dir + heatdis_data_dir + "/h2d.doc." + std::to_string(iter);
                 writefile(h_name.c_str(), h, nbEle_padded);
                 printf("doc iter %d: cr = %.2f\n", iter, 1.0 * nbEle_padded * sizeof(T) / cmpSize);
+                fflush(stdout);
             }
         }
     }
@@ -1105,6 +1113,7 @@ inline void heatdisUpdateDOC(
     writefile(fname.c_str(), max_diff_buffer, max_iter);
     printf("doc exit cr = %.2f\n", 1.0 * nbEle_padded * sizeof(T) / cmpSize);
     printf("doc elapsed_time = %.6f\n", elapsed_time);
+    fflush(stdout);
     free(h);
     free(h2);
     free(compressed);

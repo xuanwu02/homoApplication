@@ -518,8 +518,8 @@ public:
 			iterate(u, v, u2, v2, tmp);
             iter++;
 			if(iter >= plot_offset && iter % plot_gap == 0){
-				std::string u_name = work_dir + "/plot/gs_data/u.ref." + std::to_string(iter);
-				std::string v_name = work_dir + "/plot/gs_data/v.ref." + std::to_string(iter);
+				std::string u_name = work_dir + grayscott_data_dir + "/u.ref." + std::to_string(iter);
+				std::string v_name = work_dir + grayscott_data_dir + "/v.ref." + std::to_string(iter);
 				writefile(u_name.c_str(), u, nbEle_padded);
 				writefile(v_name.c_str(), v, nbEle_padded);
 			}
@@ -528,9 +528,9 @@ public:
             *u_buffer_pos++ = u_max_err;
             *v_buffer_pos++ = v_max_err;
         }
-        std::string u_fname = work_dir + "/plot/gs_data/u.ref.error";
+        std::string u_fname = work_dir + grayscott_data_dir + "/u.ref.error";
         writefile(u_fname.c_str(), u_max_diff_buffer, num_iter);
-        std::string v_fname = work_dir + "/plot/gs_data/v.ref.error";
+        std::string v_fname = work_dir + grayscott_data_dir + "/v.ref.error";
         writefile(v_fname.c_str(), v_max_diff_buffer, num_iter);
         free(u_max_diff_buffer);
         free(v_max_diff_buffer);
