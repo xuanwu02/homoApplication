@@ -28,7 +28,7 @@ int main(int argc, char **argv)
     heatdis.initData_noghost(h, h2, s.init_temp);
     size_t cmpSize = 0;
     SZp_compress_2dLorenzo(h, cmpData, s.dim1, s.dim1, s.B, s.eb, cmpSize);
-    SZp_heatdis_2dLorenzo<T>(cmpData, s.dim1, s.dim1, s.B, s.steps, s.src_temp, s.wall_temp, s.init_temp, s.ratio, s.eb, intToDecmpState(stateType), false);
+    SZp_heatdis_2dLorenzo<T>(cmpData, s, intToDecmpState(stateType), false);
 
     free(h);
     free(h2);

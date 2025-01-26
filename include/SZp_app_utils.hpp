@@ -371,8 +371,7 @@ inline void integerize_quant(
 ){
     int center = buffer_pos[-1] + buffer_pos[1] + buffer_pos[-buffer_set->buffer_dim0_offset] + buffer_pos[buffer_set->buffer_dim0_offset];
     unsigned char sign = (center >> 31) & 1;
-    char shift = 1 + bias;
-    *update_pos = (center + (sign ? - shift : shift)) >> 2;
+    *update_pos = (center + (sign ? - bias : bias)) >> 2;
 }
 
 inline int update_quant_and_predict(
@@ -457,8 +456,7 @@ inline void integerize_quant(
 ){
     int center = buffer_pos[-1] + buffer_pos[1] + buffer_pos[-buffer_dim0_offset] + buffer_pos[buffer_dim0_offset];
     unsigned char sign = (center >> 31) & 1;
-    char shift = 1 + bias;
-    *update_pos = (center + (sign ? - shift : shift)) >> 2;
+    *update_pos = (center + (sign ? - bias : bias)) >> 2;
 }
 
 inline int update_quant_and_predict(
@@ -802,20 +800,19 @@ inline int64_t laplacian(
             buffer_pos[-buffer_dim1_offset] + buffer_pos[buffer_dim1_offset] +
             buffer_pos[-buffer_dim0_offset] + buffer_pos[buffer_dim0_offset] -
             6 * buffer_pos[0];
-    unsigned char sign = (res >> 31) & 1;
-    return (res + (sign ? -3 : 3)) / 6;
+    return res;
 }
 
 inline int64_t qprod(int64_t v1, int64_t v2, double eb){
-    int64_t res = v1 * v2 * 2 * eb;
+    int64_t res = v1 * v2 * eb * 2;
     return res;
 }
 inline int64_t qprod(int64_t v1, int64_t v2, int64_t v3, double eb){
-    int64_t res = v1 * v2 * v3 * 4 * eb * eb;
+    int64_t res = v1 * v2 * v3 * eb * eb * 4;
     return res;
 }
 inline int64_t qprod(int64_t v1, int64_t v2, int64_t v3, int64_t v4, double eb){
-    int64_t res = v1 * v2 * v3  * v4 * 8 * eb * eb * eb;
+    int64_t res = v1 * v2 * v3 * v4 * eb * eb * eb * 8;
     return res;
 }
 

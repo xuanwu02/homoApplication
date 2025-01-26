@@ -337,23 +337,20 @@ public:
 	}
     template <class T>
 	void doWork(T*& h, T*& h2, double criteria, int num_iter, int plot_gap, int plot_offset=1){
-        float * max_diff_buffer = (float *)malloc(num_iter * sizeof(float));
-        float * buffer_pos = max_diff_buffer;
 		T * tmp = nullptr;
         int iter = 0;
         while(iter < num_iter){
-			iterate(h, h2, tmp);
             iter++;
 			if(iter >= plot_offset && iter % plot_gap == 0){
-				std::string h_name = work_dir + "/plot/ht_data/h.ref." + std::to_string(iter);
+				std::string h_name = work_dir + heatdis_data_dir + "/h.ref." + std::to_string(iter-1);
 				writefile(h_name.c_str(), h, nbEle_padded);
 			}
-            double max_err = verify(h, h2, dim1_padded, dim2_padded);
-            *buffer_pos++ = max_err;
+			iterate(h, h2, tmp);
         }
-        std::string fname = work_dir + "/plot/ht_data/h.ref.error";
-        writefile(fname.c_str(), max_diff_buffer, num_iter);
-        free(max_diff_buffer);
+        {
+            std::string h_name = work_dir + heatdis_data_dir + "/h.ref." + std::to_string(iter);
+            writefile(h_name.c_str(), h, nbEle_padded);
+        }
 	}
     template <class T>
 	void trimData(T *padded, T *trimmed){
@@ -370,23 +367,10 @@ public:
 
 class GrayScott{
 public:
-    class gsIntCoeff{
-    public:
-		int64_t UBorderVal, VBorderVal;
-        int64_t dt, Dudt, Dvdt, Fdt, Fkdt;
-        gsIntCoeff(double dt_, double dudt, double dvdt,
-		double fdt, double fkdt, double eb, double ub, double vb){
-            dt = (int64_t)SZ_quantize(dt_, eb);
-            Dudt = (int64_t)SZ_quantize(dudt, eb);
-            Dvdt = (int64_t)SZ_quantize(dvdt, eb);
-            Fdt = (int64_t)SZ_quantize(fdt, eb);
-            Fkdt = (int64_t)SZ_quantize(fkdt, eb);
-			UBorderVal = (int64_t)SZ_quantize(ub, eb);
-			VBorderVal = (int64_t)SZ_quantize(vb, eb);
-        }
-    };
-	const double UBorderVal = 1.0;
-	const double VBorderVal = 0.0;
+    const double ub = 1.0;
+    const double vb = 0.0;
+	int UBorderVal;
+	int VBorderVal;
 	const int d = 6;
     size_t L;
     size_t L_padded;
@@ -394,9 +378,9 @@ public:
 	size_t nbEle_padded;
     size_t dim0_offset;
     size_t dim1_offset;
-    double Du, Dv, F, k, dt;
-    double Fk, Dudt, Dvdt, Fdt, Fkdt;
-	gsIntCoeff *intCoeff;
+    double Du, Dv, F, k, Fk, dt;
+    double Dudt, Dvdt, ebdt, Fdt_fl, Fkdt;
+    int64_t Fdt_int;
     GrayScott(size_t l, double Du_, double Dv_, double dt_, double Feed, double kill, double eb)
         : L(l), Du(Du_), Dv(Dv_), dt(dt_), F(Feed), k(kill){
         L_padded = L + 2;
@@ -404,14 +388,15 @@ public:
 		nbEle_padded = L_padded * L_padded * L_padded;
         dim0_offset = L_padded * L_padded;
         dim1_offset = L_padded;
-		Dudt = Du * dt, Dvdt = Dv * dt;
-		// Dudt = Du * dt / 6.0, Dvdt = Dv * dt / 6.0;
-		Fkdt = (F + k) * dt, Fdt = F * dt;
+        UBorderVal = (int64_t)SZ_quantize(ub, eb);
+        VBorderVal = (int64_t)SZ_quantize(vb, eb);
+        Fdt_int = (int64_t)SZ_quantize(F * dt, eb);
+		Dudt = Du * dt / 6.0;
+        Dvdt = Dv * dt / 6.0;
+        ebdt = dt * 4 * eb * eb;
+        Fdt_fl = F * dt;
+		Fkdt = (F + k) * dt;
         Fk = F + k;
-		intCoeff = new gsIntCoeff(dt, Dudt, Dvdt, Fdt, Fkdt, eb, UBorderVal, VBorderVal);
-    }
-    ~GrayScott(){
-        delete intCoeff;
     }
     inline int c2i_noghost(int i, int j, int k){
         return i * L * L + j * L + k;
@@ -419,13 +404,11 @@ public:
     template <class T>
 	void initData_noghost(T *u, T *v, T *u2, T *v2){
 		for(int i=0; i<nbEle; i++){
-			u[i] = UBorderVal, u2[i] = UBorderVal;
-			v[i] = VBorderVal, v2[i] = VBorderVal;
+			u[i] = ub, u2[i] = ub;
+			v[i] = vb, v2[i] = vb;
 		}
-		const int le = L / 2 - d - 1;
-		const int ue = L / 2 + d - 1;
-		// const int le = 2;
-		// const int ue = 4;
+		const int le = L / 2 - d;
+		const int ue = L / 2 + d;
 		for(int i=le; i<ue; i++){
 			for(int j=le; j<ue; j++){
 				for(int k=le; k<ue; k++){
@@ -442,13 +425,11 @@ public:
     template <class T>
 	void initData(T *u, T *v, T *u2, T *v2){
 		for(int i=0; i<nbEle_padded; i++){
-			u[i] = UBorderVal, u2[i] = UBorderVal;
-			v[i] = VBorderVal, v2[i] = VBorderVal;
+			u[i] = ub, u2[i] = ub;
+			v[i] = vb, v2[i] = vb;
 		}
-		const int le = L / 2 - d;
-		const int ue = L / 2 + d;
-		// const int le = 3;
-		// const int ue = 5;
+		const int le = L / 2 - d + 1;
+		const int ue = L / 2 + d + 1;
 		for(int i=le; i<ue; i++){
 			for(int j=le; j<ue; j++){
 				for(int k=le; k<ue; k++){
@@ -508,32 +489,24 @@ public:
 	}
     template <class T>
 	void doWork(T*& u, T*& v, T*& u2, T*& v2, double criteria, int num_iter, int plot_gap, int plot_offset=1){
-        float * u_max_diff_buffer = (float *)malloc(num_iter * sizeof(float));
-        float * u_buffer_pos = u_max_diff_buffer;
-        float * v_max_diff_buffer = (float *)malloc(num_iter * sizeof(float));
-        float * v_buffer_pos = v_max_diff_buffer;
 		T * tmp = nullptr;
         int iter = 0;
         while(iter < num_iter){
-			iterate(u, v, u2, v2, tmp);
             iter++;
 			if(iter >= plot_offset && iter % plot_gap == 0){
-				std::string u_name = work_dir + grayscott_data_dir + "/u.ref." + std::to_string(iter);
-				std::string v_name = work_dir + grayscott_data_dir + "/v.ref." + std::to_string(iter);
+				std::string u_name = work_dir + grayscott_data_dir + "/u.ref." + std::to_string(iter-1);
+				std::string v_name = work_dir + grayscott_data_dir + "/v.ref." + std::to_string(iter-1);
 				writefile(u_name.c_str(), u, nbEle_padded);
 				writefile(v_name.c_str(), v, nbEle_padded);
 			}
-            double u_max_err = verify(u, u2, L_padded, L_padded, L_padded);
-            double v_max_err = verify(v, v2, L_padded, L_padded, L_padded);
-            *u_buffer_pos++ = u_max_err;
-            *v_buffer_pos++ = v_max_err;
+			iterate(u, v, u2, v2, tmp);
         }
-        std::string u_fname = work_dir + grayscott_data_dir + "/u.ref.error";
-        writefile(u_fname.c_str(), u_max_diff_buffer, num_iter);
-        std::string v_fname = work_dir + grayscott_data_dir + "/v.ref.error";
-        writefile(v_fname.c_str(), v_max_diff_buffer, num_iter);
-        free(u_max_diff_buffer);
-        free(v_max_diff_buffer);
+        {
+            std::string u_name = work_dir + grayscott_data_dir + "/u.ref." + std::to_string(iter);
+            std::string v_name = work_dir + grayscott_data_dir + "/v.ref." + std::to_string(iter);
+            writefile(u_name.c_str(), u, nbEle_padded);
+            writefile(v_name.c_str(), v, nbEle_padded);
+        }
 	}
     template <class T>
 	void trimData(T *padded, T *trimmed){
