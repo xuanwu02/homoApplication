@@ -3,15 +3,16 @@
 
 #include <cstdlib>
 #include <iostream>
+#include <string.h>
 #include <algorithm>
 #include "SZ_def.hpp"
 
-struct Temperature_info
+struct TempInfo2D
 {
     float src_temp, wall_temp, init_temp, ratio;
     const int q_S;
     const int q_W;
-    Temperature_info(
+    TempInfo2D(
     float src, float wall, float init, float ratio, double eb)
         : src_temp(src),
           wall_temp(wall),
@@ -118,9 +119,9 @@ struct SZxAppBufferSet_2d
                 break;
             }
             case appType::CENTRALDIFF:{
-                currRow_data_pos = currBlockRow;
-                prevRow_data_pos = prevBlockRow;
-                nextRow_data_pos = nextBlockRow;
+                currRow_data_pos = currBlockRow + buffer_dim0_offset + 1;
+                prevRow_data_pos = prevBlockRow + buffer_dim0_offset + 1;
+                nextRow_data_pos = nextBlockRow + buffer_dim0_offset + 1;
             }
             case appType::MEAN:{
                 break;
@@ -166,6 +167,23 @@ struct SZxAppBufferSet_3d
         nextPlane_data_pos = nextBlockPlane;
     }
 };
+
+template <class T>
+inline void compute_block_mean_difference(
+    int x, int block_dim2, double errorBound, int *block_mean_buffer,
+    T *dx_top_blockmean_diff, T *dx_bott_blockmean_diff, T *dy_blockmean_diff
+){
+    int * currRow_mean_quant = block_mean_buffer + x * block_dim2;
+    int * prevRow_mean_quant = currRow_mean_quant - block_dim2;
+    int * nextRow_mean_quant = currRow_mean_quant + block_dim2;
+    dy_blockmean_diff[0] = 0;
+    dy_blockmean_diff[block_dim2+2] = 0;
+    for(int j=0; j<block_dim2; j++){
+        dy_blockmean_diff[j+1] = (currRow_mean_quant[j+1] - currRow_mean_quant[j]) * errorBound;
+        dx_top_blockmean_diff[j] = (currRow_mean_quant[j] - prevRow_mean_quant[j]) * errorBound;
+        dx_bott_blockmean_diff[j] = (nextRow_mean_quant[j] - currRow_mean_quant[j]) * errorBound;
+    }
+}
 
 template <class T>
 inline int compute_block_mean_quant(
@@ -325,36 +343,54 @@ inline void extract_block_mean(
     }
 }
 
-inline int heatdis_update_block_mean(
-    const int *buffer, size_t buffer_dim0_offset, int size_x, int size_y
+inline int integerize_quant(
+    const int *buffer_pos, int *update_buffer_pos, size_t buffer_dim0_offset, int bias
 ){
-    int64_t updated_mean = 0;
-    int buffer_dim1 = size_x + 2;
-    int buffer_dim2 = size_y + 2;
-    const int * x_data_pos = buffer;
-    for(int i=0; i<buffer_dim1; i++){
-        const int * y_data_pos = x_data_pos;
-        for(int j=0; j<buffer_dim2; j++){
-            int r = std::min({i, buffer_dim1 - 1 - i, j, buffer_dim2 - 1 - j});
-            int weight;
-            if(r >= 2){
-                weight = 4;
-            }else{
-                bool isCorner = ((i == r || i == buffer_dim1 - 1 - r) &&
-                                 (j == r || j == buffer_dim2 - 1 - r));
-                if(r == 0) weight = isCorner ? 0 : 1;     
-                else weight = isCorner ? 2 : 3;
-            }
-            updated_mean += weight * y_data_pos[j];
-        }
-        x_data_pos += buffer_dim0_offset;
-    }
-    return (updated_mean >> 2) / (size_x * size_y);
+    int center = buffer_pos[-1] + buffer_pos[1] + buffer_pos[-buffer_dim0_offset] + buffer_pos[buffer_dim0_offset];
+    unsigned char sign = (center >> 31) & 1;
+    // int res = (center + (sign ? - bias : bias)) >> 2;
+    // *update_buffer_pos = res;
+    // return res;
+    *update_buffer_pos = (center + (sign ? - bias : bias)) >> 2;
+    return center;
 }
 
+// 1d mean-based
+inline int update_block_entries(
+    const int *buffer, int *update_buffer, size_t buffer_dim0_offset, int bias, int block_size
+){
+    int64_t block_sum = 0;
+    const int * data_pos = buffer;
+    int * update_pos = update_buffer;
+    for(int i=0; i<block_size; i++){
+        block_sum += integerize_quant(data_pos++, update_pos++, buffer_dim0_offset, bias);
+    }
+    return static_cast<int>((block_sum >> 2) / block_size);
+}
+
+// 2d mean-based
+inline int update_block_entries(
+    const int *buffer, int *update_buffer, size_t buffer_dim0_offset, int bias, int size_x, int size_y
+){
+    int64_t block_sum = 0;
+    const int * x_data_pos = buffer;
+    int * x_update_pos = update_buffer;
+    for(int i=0; i<size_x; i++){
+        const int * y_data_pos = x_data_pos;
+        int * y_update_pos = x_update_pos;
+        for(int j=0; j<size_y; j++){
+            block_sum += integerize_quant(y_data_pos++, y_update_pos++, buffer_dim0_offset, bias);
+        }
+        x_data_pos += buffer_dim0_offset;
+        x_update_pos += buffer_dim0_offset;
+    }
+    return static_cast<int>((block_sum >> 2) / (size_x * size_y));
+}
+
+template <class Tds>
 inline void set_buffer_border_prepred(
-    int *integer_buffer, DSize_2d size, int size_x, size_t buffer_dim0_offset,
-    Temperature_info temp_info, bool isTopRow, bool isBottomRow
+    int *integer_buffer, Tds size, int size_x, size_t buffer_dim0_offset,
+    TempInfo2D temp_info, bool isTopRow, bool isBottomRow
 ){
     int i;
     size_t j;
@@ -375,14 +411,6 @@ inline void set_buffer_border_prepred(
         buffer_pos = integer_buffer + size_x * buffer_dim0_offset;
         for(j=0; j<size.dim2; j++) buffer_pos[j] = temp_info.q_W;
     }
-}
-
-inline int integerize_quant(
-    const int *buffer_pos, size_t buffer_dim0_offset
-){
-    int center = buffer_pos[-1] + buffer_pos[1] + buffer_pos[-buffer_dim0_offset] + buffer_pos[buffer_dim0_offset];
-    unsigned char sign = (center >> 31) & 1;
-    return (center + (sign ? -2 : 2)) >> 2;
 }
 
 #endif

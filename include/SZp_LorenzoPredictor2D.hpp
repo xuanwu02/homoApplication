@@ -11,12 +11,15 @@
 #include "utils.hpp"
 #include "settings.hpp"
 
+int count = 0;
+
 template <class T>
 void SZp_compress_2dLorenzo(
     const T *oriData, unsigned char *cmpData,
     size_t dim1, size_t dim2, int blockSideLength,
     double errorBound, size_t& cmpSize
 ){
+    count ++;
     DSize_2d size(dim1, dim2, blockSideLength);
     size_t buffer_dim0_offset = size.dim2 + 1;
     int * quant_buffer = (int *)malloc((size.Bsize+1)*(size.dim2+1)*sizeof(int));
@@ -54,6 +57,7 @@ void SZp_compress_2dLorenzo(
             y_data_pos += size.Bsize;
             int fixed_rate = max_err == 0 ? 0 : INT_BITS - __builtin_clz(max_err);
             cmpData[block_ind++] = (unsigned char)fixed_rate;
+            if(count == 20000) std::cout << "DOC block " << block_ind << " fixed_rate = " << fixed_rate << std::endl;
             if(fixed_rate){
                 unsigned int signbyteLength = convertIntArray2ByteArray_fast_1b_args(signFlag, block_size, cmpData_pos);
                 cmpData_pos += signbyteLength;
@@ -319,7 +323,7 @@ double SZp_variance_2dLorenzo_postPredMean(
     free(quant_buffer);
     free(signPredError);
     free(signFlag);
-    double var = ((double)squared_quant_sum - (double)quant_sum * quant_sum / size.nbEle) / (size.nbEle - 1) * (2 * errorBound) * (2 * errorBound);
+    double var = (2 * errorBound) * (2 * errorBound) * ((double)squared_quant_sum - (double)quant_sum * quant_sum / size.nbEle) / (size.nbEle - 1);
     return var;
 }
 
@@ -371,7 +375,7 @@ double SZp_variance_2dLorenzo_prePredMean(
     free(quant_buffer);
     free(signPredError);
     free(signFlag);
-    double var = ((double)squared_quant_sum - (double)quant_sum * quant_sum / size.nbEle) / (size.nbEle - 1) * (2 * errorBound) * (2 * errorBound);
+    double var = (2 * errorBound) * (2 * errorBound)* ((double)squared_quant_sum - (double)quant_sum * quant_sum / size.nbEle) / (size.nbEle - 1);
     return var;
 }
 
@@ -506,25 +510,24 @@ inline void dxdyProcessBlockRowPostPred(
     bool isTopRow, bool isBottomRow
 ){
     int size_x = ((x+1) * size.Bsize < size.dim1) ? size.Bsize : size.dim1 - x * size.Bsize;
-    const int * buffer_pos = buffer_set->currRow_data_pos;
-    T *dx_pos = dx_start_pos;
-    T *dy_pos = dy_start_pos;
+    const int * prevBlockRowBottom_pos = isTopRow ? nullptr : buffer_set->prevRow_data_pos + (size.Bsize - 1) * buffer_set->buffer_dim0_offset - 1;
+    const int * nextBlockRowTop_pos = isBottomRow ? nullptr : buffer_set->nextRow_data_pos - 1;
+    if(!isTopRow) memcpy(buffer_set->currRow_data_pos-buffer_set->buffer_dim0_offset-1, prevBlockRowBottom_pos, buffer_set->buffer_dim0_offset*sizeof(int));
+    if(!isBottomRow) memcpy(buffer_set->currRow_data_pos+size.Bsize*buffer_set->buffer_dim0_offset-1, nextBlockRowTop_pos, buffer_set->buffer_dim0_offset*sizeof(int));
+    T * dx_pos = dx_start_pos;
+    T * dy_pos = dy_start_pos;
+    const int * curr_row = buffer_set->currRow_data_pos;
     for(int i=0; i<size_x; i++){
-        const int * next_buffer_pos = isBottomRow && (i == size_x - 1) ? buffer_pos
-                          : (i == size_x - 1) ? buffer_set->nextRow_data_pos
-                          : buffer_pos + buffer_set->buffer_dim0_offset;
         int dx_buffer = 0;
+        const int * prev_row = curr_row - buffer_set->buffer_dim0_offset;
+        const int * next_row = curr_row + buffer_set->buffer_dim0_offset;
         for(size_t j=0; j<size.dim2; j++){
-            dx_buffer += ((isTopRow && i == 0 ? next_buffer_pos[j] : buffer_pos[j]) + next_buffer_pos[j]);
-            dx_pos[j] = dx_buffer * errorBound;
-            size_t curr_j = j == 0 ? j + 1 : j;
-            size_t next_j = j == size.dim2 - 1 ? j : j + 1;
-            buffer_set->dy_buffer[j] += (buffer_pos[curr_j] + buffer_pos[next_j]);
-            dy_pos[j] = buffer_set->dy_buffer[j] * errorBound;
+            dx_buffer += curr_row[j] + next_row[j];
+            *dx_pos++ = dx_buffer * errorBound;
+            buffer_set->dy_buffer[j] += curr_row[j] + curr_row[j+1];
+            *dy_pos++ = buffer_set->dy_buffer[j] * errorBound;
         }
-        dx_pos += size.dim2;
-        dy_pos += size.dim2;
-        buffer_pos += buffer_set->buffer_dim0_offset;
+        curr_row += buffer_set->buffer_dim0_offset;
     }
 }
 
@@ -535,27 +538,21 @@ inline void dxdyProcessBlockRowPrePred(
     bool isTopRow, bool isBottomRow
 ){
     int size_x = ((x+1) * size.Bsize < size.dim1) ? size.Bsize : size.dim1 - x * size.Bsize;
-    const int * buffer_pos = buffer_set->currRow_data_pos;
-    T *dx_pos = dx_start_pos;
-    T *dy_pos = dy_start_pos;
+    const int * prevBlockRowBottom_pos = isTopRow ? nullptr : buffer_set->prevRow_data_pos + (size.Bsize - 1) * buffer_set->buffer_dim0_offset - 1;
+    const int * nextBlockRowTop_pos = isBottomRow ? nullptr : buffer_set->nextRow_data_pos - 1;
+    if(!isTopRow) memcpy(buffer_set->currRow_data_pos-buffer_set->buffer_dim0_offset-1, prevBlockRowBottom_pos, buffer_set->buffer_dim0_offset*sizeof(int));
+    if(!isBottomRow) memcpy(buffer_set->currRow_data_pos+size.Bsize*buffer_set->buffer_dim0_offset-1, nextBlockRowTop_pos, buffer_set->buffer_dim0_offset*sizeof(int));
+    T * dx_pos = dx_start_pos;
+    T * dy_pos = dy_start_pos;
+    const int * curr_row = buffer_set->currRow_data_pos;
     for(int i=0; i<size_x; i++){
-        const int * prev_buffer_pos = isTopRow && i == 0 ? buffer_pos
-                          : i == 0 ? buffer_set->prevRow_data_pos + (size.Bsize - 1) * buffer_set->buffer_dim0_offset
-                          : buffer_pos - buffer_set->buffer_dim0_offset;
-        const int * next_buffer_pos = isBottomRow && i == size_x - 1 ? buffer_pos
-                          : i == size_x - 1 ? buffer_set->nextRow_data_pos
-                          : buffer_pos + buffer_set->buffer_dim0_offset;
-        int coeff_dx = (isTopRow && i == 0) || (isBottomRow && i == size_x - 1) ? 2 : 1;
+        const int * prev_row = curr_row - buffer_set->buffer_dim0_offset;
+        const int * next_row = curr_row + buffer_set->buffer_dim0_offset;
         for(size_t j=0; j<size.dim2; j++){
-            dx_pos[j] = (next_buffer_pos[j] - prev_buffer_pos[j]) * coeff_dx * errorBound;
-            size_t prev_j = j == 0 ? j : j - 1;
-            size_t next_j = j == size.dim2 - 1 ? j : j + 1;
-            int coeff_dy = (j == 0) || (j == size.dim2 - 1) ? 2 : 1;
-            dy_pos[j] = (buffer_pos[next_j] - buffer_pos[prev_j]) * coeff_dy * errorBound;
+            *dx_pos++ = (next_row[j] - prev_row[j]) * errorBound;
+            *dy_pos++ = (curr_row[j+1] - curr_row[j-1]) * errorBound;
         }
-        dy_pos += size.dim2;
-        dx_pos += size.dim2;
-        buffer_pos += buffer_set->buffer_dim0_offset;
+        curr_row += buffer_set->buffer_dim0_offset;
     }
 }
 
@@ -628,8 +625,8 @@ void SZp_dxdy_2dLorenzo(
     T *dx_result, T *dy_result, decmpState state
 ){
     DSize_2d size(dim1, dim2, blockSideLength);
-    size_t buffer_dim1 = size.Bsize + 1;
-    size_t buffer_dim2 = size.dim2 + 1;
+    size_t buffer_dim1 = size.Bsize + 2;
+    size_t buffer_dim2 = size.dim2 + 2;
     size_t buffer_size = buffer_dim1 * buffer_dim2;
     int * Buffer_2d = (int *)malloc(buffer_size * 3 * sizeof(int));
     int * Buffer_1d = (int *)malloc(buffer_dim2 * 2 * sizeof(int));
@@ -729,11 +726,10 @@ inline void heatdisRecoverBlockRow2PrePred(
 }
 
 inline void heatdisProcessBlockRowPostPred(
-    size_t x, DSize_2d& size, Temperature_info& temp_info,
-    SZpAppBufferSet_2d *buffer_set, int iter,
+    size_t x, DSize_2d& size, TempInfo2D& temp_info,
+    SZpAppBufferSet_2d *buffer_set, int iter, int bias,
     bool isTopRow, bool isBottomRow
 ){
-    int bias = ((iter - 1) & 1) + 1;
     int size_x = ((x+1) * size.Bsize < size.dim1) ? size.Bsize : size.dim1 - x * size.Bsize;
     const int * prevBlockRowBottom_pos = isTopRow ? nullptr : buffer_set->prevRow_data_pos + (size.Bsize - 1) * buffer_set->buffer_dim0_offset - 1;
     const int * nextBlockRowTop_pos = isBottomRow ? nullptr : buffer_set->nextRow_data_pos - 1;
@@ -753,11 +749,10 @@ inline void heatdisProcessBlockRowPostPred(
 }
 
 inline void heatdisProcessBlockRowPrePred(
-    size_t x, DSize_2d& size, Temperature_info& temp_info,
-    SZpAppBufferSet_2d *buffer_set, int iter,
+    size_t x, DSize_2d& size, TempInfo2D& temp_info,
+    SZpAppBufferSet_2d *buffer_set, int iter, int bias,
     bool isTopRow, bool isBottomRow
 ){
-    int bias = ((iter - 1) & 1) + 1;
     int size_x = ((x+1) * size.Bsize < size.dim1) ? size.Bsize : size.dim1 - x * size.Bsize;
     const int * prevBlockRowBottom_pos = isTopRow ? nullptr : buffer_set->prevRow_data_pos + (size.Bsize - 1) * buffer_set->buffer_dim0_offset - 1;
     const int * nextBlockRowTop_pos = isBottomRow ? nullptr : buffer_set->nextRow_data_pos - 1;
@@ -862,6 +857,7 @@ inline void compressBlockRowFromPrePred(
         update_start_pos += size_y;
         int fixed_rate = max_err == 0 ? 0 : INT_BITS - __builtin_clz(max_err);
         cmpData[block_ind++] = (unsigned char)fixed_rate;
+        if(count == 20000) std::cout << "PRE block " << block_ind << " fixed_rate = " << fixed_rate << std::endl;
         if(fixed_rate){
             unsigned int signbyteLength = convertIntArray2ByteArray_fast_1b_args(cmpkit_set->signFlag, block_size, cmpData_pos);
             cmpData_pos += signbyteLength;
@@ -880,12 +876,13 @@ inline void heatdisUpdatePostPred(
     DSize_2d& size,
     SZpCmpBufferSet *cmpkit_set,
     SZpAppBufferSet_2d *buffer_set,
-    Temperature_info& temp_info,
+    TempInfo2D& temp_info,
     int current, int next,
     int iter
 ){
     unsigned char * cmpData = cmpkit_set->cmpData[current];
     unsigned char * encode_pos = cmpData + FIXED_RATE_PER_BLOCK_BYTES * size.num_blocks;
+    int bias = ((iter - 1) & 1) + 1;
     int * tempRow_pos = nullptr;
     cmpkit_set->reset();
     buffer_set->reset();
@@ -893,16 +890,16 @@ inline void heatdisUpdatePostPred(
         if(x == 0){
             heatdisRecoverBlockRow2PostPred(x, size, cmpData, cmpkit_set, encode_pos, buffer_set->currRow_data_pos, buffer_set->buffer_dim0_offset, nullptr, buffer_set->rowSum, buffer_set->colSum);
             heatdisRecoverBlockRow2PostPred(x+1, size, cmpData, cmpkit_set, encode_pos, buffer_set->nextRow_data_pos, buffer_set->buffer_dim0_offset, nullptr, buffer_set->rowSum, buffer_set->colSum);
-            heatdisProcessBlockRowPostPred(x, size, temp_info, buffer_set, iter, true, false);
+            heatdisProcessBlockRowPostPred(x, size, temp_info, buffer_set, iter, bias, true, false);
             compressBlockRowFromPostPred(x, size, buffer_set, cmpkit_set, current, next, iter, true);
         }else{
             rotate_buffer(buffer_set->currRow_data_pos, buffer_set->prevRow_data_pos, buffer_set->nextRow_data_pos, tempRow_pos);
             if(x == size.block_dim1 - 1){
-                heatdisProcessBlockRowPostPred(x, size, temp_info, buffer_set, iter, false, true);
+                heatdisProcessBlockRowPostPred(x, size, temp_info, buffer_set, iter, bias, false, true);
                 compressBlockRowFromPostPred(x, size, buffer_set, cmpkit_set, current, next, iter, false);
             }else{
                 heatdisRecoverBlockRow2PostPred(x+1, size, cmpData, cmpkit_set, encode_pos, buffer_set->nextRow_data_pos, buffer_set->buffer_dim0_offset, nullptr, buffer_set->rowSum, buffer_set->colSum);
-                heatdisProcessBlockRowPostPred(x, size, temp_info, buffer_set, iter, false, false);
+                heatdisProcessBlockRowPostPred(x, size, temp_info, buffer_set, iter, bias, false, false);
                 compressBlockRowFromPostPred(x, size, buffer_set, cmpkit_set, current, next, iter, false);
             }
         }
@@ -913,12 +910,13 @@ inline void heatdisUpdatePrePred(
     DSize_2d& size,
     SZpCmpBufferSet *cmpkit_set,
     SZpAppBufferSet_2d *buffer_set,
-    Temperature_info& temp_info,
+    TempInfo2D& temp_info,
     int current, int next,
     int iter
 ){
     unsigned char * cmpData = cmpkit_set->cmpData[current];
     unsigned char * encode_pos = cmpData + FIXED_RATE_PER_BLOCK_BYTES * size.num_blocks;
+    int bias = ((iter - 1) & 1) + 1;
     int * tempRow_pos = nullptr;
     cmpkit_set->reset();
     buffer_set->reset();
@@ -927,17 +925,17 @@ inline void heatdisUpdatePrePred(
             heatdisRecoverBlockRow2PrePred(x, size, cmpData, cmpkit_set, encode_pos, buffer_set->currRow_data_pos, buffer_set->buffer_dim0_offset, buffer_set->decmp_buffer, nullptr, nullptr);
             memcpy(buffer_set->nextRow_data_pos-buffer_set->buffer_dim0_offset-1, buffer_set->decmp_buffer, buffer_set->buffer_dim0_offset*sizeof(int));
             heatdisRecoverBlockRow2PrePred(x+1, size, cmpData, cmpkit_set, encode_pos, buffer_set->nextRow_data_pos, buffer_set->buffer_dim0_offset, buffer_set->decmp_buffer, nullptr, nullptr);
-            heatdisProcessBlockRowPrePred(x, size, temp_info, buffer_set, iter, true, false);
+            heatdisProcessBlockRowPrePred(x, size, temp_info, buffer_set, iter, bias, true, false);
             compressBlockRowFromPrePred(x, size, buffer_set, cmpkit_set, current, next, iter, true);
         }else{
             rotate_buffer(buffer_set->currRow_data_pos, buffer_set->prevRow_data_pos, buffer_set->nextRow_data_pos, tempRow_pos);
             if(x == size.block_dim1 - 1){
-                heatdisProcessBlockRowPrePred(x, size, temp_info, buffer_set, iter, false, true);
+                heatdisProcessBlockRowPrePred(x, size, temp_info, buffer_set, iter, bias, false, true);
                 compressBlockRowFromPrePred(x, size, buffer_set, cmpkit_set, current, next, iter, false);
             }else{
                 memcpy(buffer_set->nextRow_data_pos-buffer_set->buffer_dim0_offset-1, buffer_set->decmp_buffer, buffer_set->buffer_dim0_offset*sizeof(int));
                 heatdisRecoverBlockRow2PrePred(x+1, size, cmpData, cmpkit_set, encode_pos, buffer_set->nextRow_data_pos, buffer_set->buffer_dim0_offset, buffer_set->decmp_buffer, nullptr, nullptr);
-                heatdisProcessBlockRowPrePred(x, size, temp_info, buffer_set, iter, false, false);
+                heatdisProcessBlockRowPrePred(x, size, temp_info, buffer_set, iter, bias, false, false);
                 compressBlockRowFromPrePred(x, size, buffer_set, cmpkit_set, current, next, iter, false);
             }
         }
@@ -949,7 +947,7 @@ inline void heatdisUpdatePostPred(
     DSize_2d& size,
     SZpCmpBufferSet *cmpkit_set,
     SZpAppBufferSet_2d *buffer_set,
-    Temperature_info& temp_info,
+    TempInfo2D& temp_info,
     double errorBound,
     int max_iter,
     bool verb
@@ -963,12 +961,13 @@ inline void heatdisUpdatePostPred(
     while(iter < max_iter){
         iter++;
         if(verb){
-            if(iter >= ht_plot_offset && iter % ht_plot_gap == 0){
+            if(iter >= ht2d_plot_offset && iter % ht2d_plot_gap == 0){
                 SZp_decompress_2dLorenzo(h, cmpkit_set->cmpData[current], size.dim1, size.dim2, size.Bsize, errorBound);
-                std::string h_name = work_dir + heatdis_data_dir + "/h2d.post." + std::to_string(iter-1);
+                std::string h_name = heatdis2d_data_dir + "/h.L2.post." + std::to_string(iter-1);
                 writefile(h_name.c_str(), h, size.nbEle);
                 cmpSize = FIXED_RATE_PER_BLOCK_BYTES * size.num_blocks + cmpkit_set->cmpSize;
                 printf("postpred iter %d: cr = %.2f\n", iter-1, 1.0 * size.nbEle * sizeof(T) / cmpSize);
+                fflush(stdout);
             }
         }
         clock_gettime(CLOCK_REALTIME, &start);
@@ -980,7 +979,7 @@ inline void heatdisUpdatePostPred(
     }
     {
         SZp_decompress_2dLorenzo(h, cmpkit_set->cmpData[current], size.dim1, size.dim2, size.Bsize, errorBound);
-        std::string h_name = work_dir + heatdis_data_dir + "/h2d.post." + std::to_string(iter);
+        std::string h_name = heatdis2d_data_dir + "/h.L2.post." + std::to_string(iter);
         writefile(h_name.c_str(), h, size.nbEle);
         cmpSize = FIXED_RATE_PER_BLOCK_BYTES * size.num_blocks + cmpkit_set->cmpSize;
         printf("postpred exit cr = %.2f\n", 1.0 * size.nbEle * sizeof(T) / cmpSize);
@@ -994,7 +993,7 @@ inline void heatdisUpdatePrePred(
     DSize_2d& size,
     SZpCmpBufferSet *cmpkit_set,
     SZpAppBufferSet_2d *buffer_set,
-    Temperature_info& temp_info,
+    TempInfo2D& temp_info,
     double errorBound,
     int max_iter,
     bool verb
@@ -1008,12 +1007,13 @@ inline void heatdisUpdatePrePred(
     while(iter < max_iter){
         iter++;
         if(verb){
-            if(iter >= ht_plot_offset && iter % ht_plot_gap == 0){
+            if(iter >= ht2d_plot_offset && iter % ht2d_plot_gap == 0){
                 SZp_decompress_2dLorenzo(h, cmpkit_set->cmpData[current], size.dim1, size.dim2, size.Bsize, errorBound);
-                std::string h_name = work_dir + heatdis_data_dir + "/h2d.pre." + std::to_string(iter-1);
+                std::string h_name = heatdis2d_data_dir + "/h.L2.pre." + std::to_string(iter-1);
                 writefile(h_name.c_str(), h, size.nbEle);
                 cmpSize = FIXED_RATE_PER_BLOCK_BYTES * size.num_blocks + cmpkit_set->cmpSize;
                 printf("prepred iter %d: cr = %.2f\n", iter-1, 1.0 * size.nbEle * sizeof(T) / cmpSize);
+                fflush(stdout);
             }
         }
         clock_gettime(CLOCK_REALTIME, &start);
@@ -1025,7 +1025,7 @@ inline void heatdisUpdatePrePred(
     }
     {
         SZp_decompress_2dLorenzo(h, cmpkit_set->cmpData[current], size.dim1, size.dim2, size.Bsize, errorBound);
-        std::string h_name = work_dir + heatdis_data_dir + "/h2d.pre." + std::to_string(iter);
+        std::string h_name = heatdis2d_data_dir + "/h.L2.pre." + std::to_string(iter);
         writefile(h_name.c_str(), h, size.nbEle);
         cmpSize = FIXED_RATE_PER_BLOCK_BYTES * size.num_blocks + cmpkit_set->cmpSize;
         printf("prepred exit cr = %.2f\n", 1.0 * size.nbEle * sizeof(T) / cmpSize);
@@ -1039,7 +1039,7 @@ inline void heatdisUpdateDOC(
     DSize_2d& size,
     size_t dim1_padded,
     size_t dim2_padded,
-    Temperature_info& temp_info,
+    TempInfo2D& temp_info,
     double errorBound,
     int max_iter,
     bool verb
@@ -1051,22 +1051,26 @@ inline void heatdisUpdateDOC(
     T * h = (T *)malloc(nbEle_padded * sizeof(T));
     T * h2 = (T *)malloc(nbEle_padded * sizeof(T));
     unsigned char * compressed = (unsigned char *)malloc(nbEle_padded * sizeof(T));
-    HeatDis heatdis(temp_info.src_temp, temp_info.wall_temp, temp_info.ratio, size.dim1, size.dim2);
+    HeatDis2D heatdis(temp_info.src_temp, temp_info.wall_temp, temp_info.ratio, size.dim1, size.dim2);
     heatdis.initData(h, h2, temp_info.init_temp);
     SZp_compress_2dLorenzo(h, compressed, dim1_padded, dim2_padded, size.Bsize, errorBound, cmpSize);
     T * tmp = nullptr;
     int iter = 0;
     while(iter < max_iter){
         iter++;
+        clock_gettime(CLOCK_REALTIME, &start);
+        SZp_decompress_2dLorenzo(h, compressed, dim1_padded, dim2_padded, size.Bsize, errorBound);
+        clock_gettime(CLOCK_REALTIME, &end);
+        elapsed_time += get_elapsed_time(start, end);
         if(verb){
-            if(iter >= ht_plot_offset && iter % ht_plot_gap == 0){
-                std::string h_name = work_dir + heatdis_data_dir + "/h2d.doc." + std::to_string(iter-1);
+            if(iter >= ht2d_plot_offset && iter % ht2d_plot_gap == 0){
+                std::string h_name = heatdis2d_data_dir + "/h.L2.doc." + std::to_string(iter-1);
                 writefile(h_name.c_str(), h, nbEle_padded);
                 printf("doc iter %d: cr = %.2f\n", iter-1, 1.0 * nbEle_padded * sizeof(T) / cmpSize);
+                fflush(stdout);
             }
         }
         clock_gettime(CLOCK_REALTIME, &start);
-        SZp_decompress_2dLorenzo(h, compressed, dim1_padded, dim2_padded, size.Bsize, errorBound);
         heatdis.reset_source(h, h2);
         heatdis.iterate(h, h2, tmp);
         SZp_compress_2dLorenzo(h, compressed, dim1_padded, dim2_padded, size.Bsize, errorBound, cmpSize);
@@ -1074,7 +1078,7 @@ inline void heatdisUpdateDOC(
         elapsed_time += get_elapsed_time(start, end);
     }
     {
-        std::string h_name = work_dir + heatdis_data_dir + "/h2d.doc." + std::to_string(iter);
+        std::string h_name = heatdis2d_data_dir + "/h.L2.doc." + std::to_string(iter);
         writefile(h_name.c_str(), h, nbEle_padded);
         printf("doc exit cr = %.2f\n", 1.0 * nbEle_padded * sizeof(T) / cmpSize);
     }
@@ -1130,14 +1134,14 @@ void SZp_heatdis_2dLorenzo(
                 prefix_length += (cmp_block_sign_length + savedbitsbytelength);
         }
     }
-    Temperature_info temp_info(source_temp, wall_temp, init_temp, ratio, errorBound);
+    TempInfo2D temp_info(source_temp, wall_temp, init_temp, ratio, errorBound);
     SZpAppBufferSet_2d * buffer_set = new SZpAppBufferSet_2d(buffer_dim1, buffer_dim2, Buffer_2d, Buffer_1d, appType::HEATDIS);
     SZpCmpBufferSet * cmpkit_set = new SZpCmpBufferSet(cmpData, offsets, absPredError, signPredError, signFlag);
 
     switch(state){
         case decmpState::postPred:{
-            temp_info.prepare_src_row(size.dim2, buffer_set->decmp_buffer, buffer_set->lorenzo_buffer);
-            heatdisUpdatePostPred<T>(size, cmpkit_set, buffer_set, temp_info, errorBound, max_iter, verb);
+            // temp_info.prepare_src_row(size.dim2, buffer_set->decmp_buffer, buffer_set->lorenzo_buffer);
+            // heatdisUpdatePostPred<T>(size, cmpkit_set, buffer_set, temp_info, errorBound, max_iter, verb);
             break;
         }
         case decmpState::prePred:{
@@ -1167,14 +1171,9 @@ void SZp_heatdis_2dLorenzo(
 
 template <class T>
 void SZp_heatdis_2dLorenzo(
-    unsigned char *cmpDataBuffer, htSettings& s, decmpState state, bool verb
+    unsigned char *cmpDataBuffer, ht2DSettings& s, decmpState state, bool verb
 ){
-    ht_plot_gap = s.plotgap;
-    ht_plot_offset = s.offset;
-    ht_criteria = s.criteria;
-    heatdis_data_dir = s.data_dir;
     SZp_heatdis_2dLorenzo<T>(cmpDataBuffer, s.dim1, s.dim2, s.B, s.steps, s.src_temp, s.wall_temp, s.init_temp, s.ratio, s.eb, state, verb);
 }
-
 
 #endif

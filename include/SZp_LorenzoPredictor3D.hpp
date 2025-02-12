@@ -646,39 +646,70 @@ inline void dxdydzProcessBlockPlanePrePred(
     double errorBound, bool isTopPlane, bool isBottomPlane
 ){
     int size_x = ((x+1)*size.Bsize < size.dim1) ? size.Bsize : size.dim1 - x*size.Bsize;
-    size_t buffer_dim0_offset = (size.dim2 + 1) * (size.dim3 + 1);
-    size_t buffer_dim1_offset = size.dim3 + 1;
-    const int * prevBlockPlaneBottom_pos = buffer_set->prevPlane_data_pos + (size.Bsize - 1) * buffer_dim0_offset - buffer_dim1_offset - 1;
-    const int * nextBlockPlaneTop_pos = buffer_set->nextPlane_data_pos - buffer_dim1_offset - 1;
-    const int * curr_plane = buffer_set->currPlane_data_pos - buffer_dim1_offset - 1;
+    const int * prevBlockPlaneBottom_pos = buffer_set->prevPlane_data_pos + (size.Bsize - 1) * buffer_set->buffer_dim0_offset - buffer_set->buffer_dim1_offset - 1;
+    const int * nextBlockPlaneTop_pos = buffer_set->nextPlane_data_pos - buffer_set->buffer_dim1_offset - 1;
+    if(!isTopPlane) memcpy(buffer_set->currPlane_data_pos-buffer_set->buffer_dim0_offset-buffer_set->buffer_dim1_offset-1, prevBlockPlaneBottom_pos, buffer_set->buffer_dim0_offset*sizeof(int));
+    if(!isBottomPlane) memcpy(buffer_set->currPlane_data_pos+size.Bsize*buffer_set->buffer_dim0_offset-buffer_set->buffer_dim1_offset-1, nextBlockPlaneTop_pos, buffer_set->buffer_dim0_offset*sizeof(int));
+    const int * curr_plane = buffer_set->currPlane_data_pos - buffer_set->buffer_dim1_offset - 1;
     for(int i=0; i<size_x; i++){
-        T * dx_pos = dx_start_pos + i * size.dim0_offset;
-        T * dy_pos = dy_start_pos + i * size.dim0_offset;
-        T * dz_pos = dz_start_pos + i * size.dim0_offset;
-        const int * prev_plane = i > 0 ? curr_plane - buffer_dim0_offset
-                               : isTopPlane ? curr_plane : prevBlockPlaneBottom_pos;
-        const int * next_plane = i < size_x - 1 ? curr_plane + buffer_dim0_offset
-                               : isBottomPlane ? curr_plane : nextBlockPlaneTop_pos;
-        const int * curr_row = curr_plane + buffer_dim1_offset + 1;
-        int coeff_dx = (isTopPlane && i == 0) || (isBottomPlane && i == size_x - 1) ? 2 : 1;
+        T * x_dx_pos = dx_start_pos + i * size.dim0_offset;
+        T * x_dy_pos = dy_start_pos + i * size.dim0_offset;
+        T * x_dz_pos = dz_start_pos + i * size.dim0_offset;
+        const int * prev_plane = curr_plane - buffer_set->buffer_dim0_offset;
+        const int * next_plane = curr_plane + buffer_set->buffer_dim0_offset;
+        const int * curr_row = curr_plane + buffer_set->buffer_dim1_offset + 1;
         for(size_t j=0; j<size.dim2; j++){
-            const int * prev_row = j == 0 ? curr_row : curr_row - buffer_dim1_offset;
-            const int * next_row = j == size.dim2 - 1 ? curr_row : curr_row + buffer_dim1_offset;
-            int coeff_dy = (j == 0) || (j == size.dim2 - 1) ? 2 : 1;
+            T * y_dx_pos = x_dx_pos + j * size.dim1_offset;
+            T * y_dy_pos = x_dy_pos + j * size.dim1_offset;
+            T * y_dz_pos = x_dz_pos + j * size.dim1_offset;
+            const int * prev_row = curr_row - buffer_set->buffer_dim1_offset;
+            const int * next_row = curr_row + buffer_set->buffer_dim1_offset;
             for(size_t k=0; k<size.dim3; k++){
-                size_t buffer_index = (j + 1) * buffer_dim1_offset + k + 1;
-                size_t res_index = j * size.dim1_offset + k;
-                size_t prev_k = k == 0 ? k : k - 1;
-                size_t next_k = k == size.dim3 - 1 ? k : k + 1;
-                int coeff_dz = (k == 0) || (k == size.dim3 - 1) ? 2 : 1;
-                dx_pos[res_index] = (next_plane[buffer_index] - prev_plane[buffer_index]) * coeff_dx * errorBound;
-                dy_pos[res_index] = (next_row[k] - prev_row[k]) * coeff_dy * errorBound;
-                dz_pos[res_index] = (curr_row[next_k] - curr_row[prev_k]) * coeff_dz * errorBound;
+                size_t index_1d = k;
+                // size_t buffer_index_1d = k + 1;
+                size_t buffer_index_2d = (j + 1) * buffer_set->buffer_dim1_offset + k + 1;
+                y_dx_pos[index_1d] = (next_plane[buffer_index_2d] - prev_plane[buffer_index_2d]) * errorBound;
+                y_dy_pos[index_1d] = (next_row[index_1d] - prev_row[index_1d]) * errorBound;
+                y_dz_pos[index_1d] = (curr_row[index_1d + 1] - curr_row[index_1d - 1]) * errorBound;
             }
-            curr_row += buffer_dim1_offset;
+            curr_row += buffer_set->buffer_dim1_offset;
         }
-        curr_plane += buffer_dim0_offset;
+        curr_plane += buffer_set->buffer_dim0_offset;
     }
+    // // legacy
+    // size_t buffer_dim0_offset = (size.dim2 + 1) * (size.dim3 + 1);
+    // size_t buffer_dim1_offset = size.dim3 + 1;
+    // const int * prevBlockPlaneBottom_pos = buffer_set->prevPlane_data_pos + (size.Bsize - 1) * buffer_dim0_offset - buffer_dim1_offset - 1;
+    // const int * nextBlockPlaneTop_pos = buffer_set->nextPlane_data_pos - buffer_dim1_offset - 1;
+    // const int * curr_plane = buffer_set->currPlane_data_pos - buffer_dim1_offset - 1;
+    // for(int i=0; i<size_x; i++){
+    //     T * dx_pos = dx_start_pos + i * size.dim0_offset;
+    //     T * dy_pos = dy_start_pos + i * size.dim0_offset;
+    //     T * dz_pos = dz_start_pos + i * size.dim0_offset;
+    //     const int * prev_plane = i > 0 ? curr_plane - buffer_dim0_offset
+    //                            : isTopPlane ? curr_plane : prevBlockPlaneBottom_pos;
+    //     const int * next_plane = i < size_x - 1 ? curr_plane + buffer_dim0_offset
+    //                            : isBottomPlane ? curr_plane : nextBlockPlaneTop_pos;
+    //     const int * curr_row = curr_plane + buffer_dim1_offset + 1;
+    //     int coeff_dx = (isTopPlane && i == 0) || (isBottomPlane && i == size_x - 1) ? 2 : 1;
+    //     for(size_t j=0; j<size.dim2; j++){
+    //         const int * prev_row = j == 0 ? curr_row : curr_row - buffer_dim1_offset;
+    //         const int * next_row = j == size.dim2 - 1 ? curr_row : curr_row + buffer_dim1_offset;
+    //         int coeff_dy = (j == 0) || (j == size.dim2 - 1) ? 2 : 1;
+    //         for(size_t k=0; k<size.dim3; k++){
+    //             size_t buffer_index = (j + 1) * buffer_dim1_offset + k + 1;
+    //             size_t res_index = j * size.dim1_offset + k;
+    //             size_t prev_k = k == 0 ? k : k - 1;
+    //             size_t next_k = k == size.dim3 - 1 ? k : k + 1;
+    //             int coeff_dz = (k == 0) || (k == size.dim3 - 1) ? 2 : 1;
+    //             dx_pos[res_index] = (next_plane[buffer_index] - prev_plane[buffer_index]) * coeff_dx * errorBound;
+    //             dy_pos[res_index] = (next_row[k] - prev_row[k]) * coeff_dy * errorBound;
+    //             dz_pos[res_index] = (curr_row[next_k] - curr_row[prev_k]) * coeff_dz * errorBound;
+    //         }
+    //         curr_row += buffer_dim1_offset;
+    //     }
+    //     curr_plane += buffer_dim0_offset;
+    // }
 }
 
 template <class T>
@@ -720,9 +751,9 @@ void SZp_dxdydz_3dLorenzo(
     T *dx_result, T *dy_result, T *dz_result, decmpState state
 ){
     DSize_3d size(dim1, dim2, dim3, blockSideLength);
-    size_t buffer_dim1 = size.Bsize + 1;
-    size_t buffer_dim2 = size.dim2 + 1;
-    size_t buffer_dim3 = size.dim3 + 1;
+    size_t buffer_dim1 = size.Bsize + 2;
+    size_t buffer_dim2 = size.dim2 + 2;
+    size_t buffer_dim3 = size.dim3 + 2;
     size_t buffer_size = buffer_dim1 * buffer_dim2 * buffer_dim3;
     int * Buffer_3d = (int *)malloc(buffer_size * 3 * sizeof(int));
     int * Buffer_2d = (int *)malloc(buffer_dim2 * buffer_dim3 * sizeof(int));
@@ -780,7 +811,6 @@ void SZp_dxdydz_3dLorenzo(
 }
 
 /**
- * 01/08/2024
  * Use 2dlorenzo in 3d data
  */
 template <class T>
@@ -1117,9 +1147,10 @@ void SZp_dxdydz_2dLorenzo(
 }
 
 // gray-scott 3d lorenzo
+template <class bufferType>
 inline void recoverBlockPlane2PrePred(
     size_t x, DSize_3d& size, unsigned char *& encode_pos, int *buffer_data_pos,
-    gsAppBufferSet *buffer_set, SZpCmpBufferSet *cmpkit_set, int current, int iter
+    bufferType *buffer_set, SZpCmpBufferSet *cmpkit_set, int current, int iter
 ){
     int size_x = ((x+1)*size.Bsize < size.dim1) ? size.Bsize : size.dim1 - x*size.Bsize;
     buffer_set->set_decmp_buffer_border(buffer_data_pos, size_x);
@@ -1213,9 +1244,10 @@ inline void grayscottProcessBlockPlanePrePred(
     }
 }
 
+template <class bufferType>
 inline void compressBlockPlaneFromPrePred(
     size_t x, DSize_3d& size,
-    gsAppBufferSet *buffer_set,
+    bufferType *buffer_set,
     SZpCmpBufferSet *cmpkit_set,
     int next, int iter,
     bool isTopRow
@@ -1344,14 +1376,15 @@ inline void grayscottUpdatePrePred(
             if(iter >= gs_plot_offset && iter % gs_plot_gap == 0){
                 SZp_decompress_3dLorenzo(u, uCmpkit->cmpData[current], size.dim1, size.dim2, size.dim3, size.Bsize, errorBound);
                 SZp_decompress_3dLorenzo(v, vCmpkit->cmpData[current], size.dim1, size.dim2, size.dim3, size.Bsize, errorBound);
-                std::string u_name = work_dir + grayscott_data_dir + "/u.pre." + std::to_string(iter-1);
-                std::string v_name = work_dir + grayscott_data_dir + "/v.pre." + std::to_string(iter-1);
+                std::string u_name = grayscott_data_dir + "/u.pre." + std::to_string(iter-1);
+                std::string v_name = grayscott_data_dir + "/v.pre." + std::to_string(iter-1);
                 writefile(u_name.c_str(), u, size.nbEle);
                 writefile(v_name.c_str(), v, size.nbEle);
                 u_cmpSize = FIXED_RATE_PER_BLOCK_BYTES * size.num_blocks + uCmpkit->cmpSize;
                 printf("prepred iter %d: u_cr = %.2f\n", iter-1, 1.0 * size.nbEle * sizeof(T) / u_cmpSize);
                 v_cmpSize = FIXED_RATE_PER_BLOCK_BYTES * size.num_blocks + vCmpkit->cmpSize;
                 printf("prepred iter %d: v_cr = %.2f\n", iter-1, 1.0 * size.nbEle * sizeof(T) / v_cmpSize);
+                fflush(stdout);
             }
         }
         clock_gettime(CLOCK_REALTIME, &start);
@@ -1364,8 +1397,8 @@ inline void grayscottUpdatePrePred(
     {
         SZp_decompress_3dLorenzo(u, uCmpkit->cmpData[current], size.dim1, size.dim2, size.dim3, size.Bsize, errorBound);
         SZp_decompress_3dLorenzo(v, vCmpkit->cmpData[current], size.dim1, size.dim2, size.dim3, size.Bsize, errorBound);
-        std::string u_name = work_dir + grayscott_data_dir + "/u.pre." + std::to_string(iter);
-        std::string v_name = work_dir + grayscott_data_dir + "/v.pre." + std::to_string(iter);
+        std::string u_name = grayscott_data_dir + "/u.pre." + std::to_string(iter);
+        std::string v_name = grayscott_data_dir + "/v.pre." + std::to_string(iter);
         writefile(u_name.c_str(), u, size.nbEle);
         writefile(v_name.c_str(), v, size.nbEle);
         u_cmpSize = FIXED_RATE_PER_BLOCK_BYTES * size.num_blocks + uCmpkit->cmpSize;
@@ -1406,19 +1439,23 @@ inline void grayscottUpdateDOC(
     int iter = 0;
     while(iter < max_iter){
         iter++;
+        clock_gettime(CLOCK_REALTIME, &start);
+        SZp_decompress_3dLorenzo(u, u_compressed, dim1_padded, dim2_padded, dim3_padded, size.Bsize, errorBound);
+        SZp_decompress_3dLorenzo(v, v_compressed, dim1_padded, dim2_padded, dim3_padded, size.Bsize, errorBound);
+        clock_gettime(CLOCK_REALTIME, &end);
+        elapsed_time += get_elapsed_time(start, end);
         if(verb){
             if(iter >= gs_plot_offset && iter % gs_plot_gap == 0){
-                std::string u_name = work_dir + grayscott_data_dir + "/u.doc." + std::to_string(iter-1);
-                std::string v_name = work_dir + grayscott_data_dir + "/v.doc." + std::to_string(iter-1);
+                std::string u_name = grayscott_data_dir + "/u.doc." + std::to_string(iter-1);
+                std::string v_name = grayscott_data_dir + "/v.doc." + std::to_string(iter-1);
                 writefile(u_name.c_str(), u, nbEle_padded);
                 writefile(v_name.c_str(), v, nbEle_padded);
                 printf("doc iter %d: u_cr = %.2f\n", iter-1, 1.0 * nbEle_padded * sizeof(T) / u_cmpSize);
                 printf("doc iter %d: v_cr = %.2f\n", iter-1, 1.0 * nbEle_padded * sizeof(T) / v_cmpSize);
+                fflush(stdout);
             }
         }
         clock_gettime(CLOCK_REALTIME, &start);
-        SZp_decompress_3dLorenzo(u, u_compressed, dim1_padded, dim2_padded, dim3_padded, size.Bsize, errorBound);
-        SZp_decompress_3dLorenzo(v, v_compressed, dim1_padded, dim2_padded, dim3_padded, size.Bsize, errorBound);
         grayscott->iterate(u, v, u2, v2, tmp);
         SZp_compress_3dLorenzo(u, u_compressed, dim1_padded, dim2_padded, dim3_padded, size.Bsize, errorBound, u_cmpSize);
         SZp_compress_3dLorenzo(v, v_compressed, dim1_padded, dim2_padded, dim3_padded, size.Bsize, errorBound, v_cmpSize);
@@ -1428,8 +1465,8 @@ inline void grayscottUpdateDOC(
     {
         SZp_decompress_3dLorenzo(u, u_compressed, dim1_padded, dim2_padded, dim3_padded, size.Bsize, errorBound);
         SZp_decompress_3dLorenzo(v, v_compressed, dim1_padded, dim2_padded, dim3_padded, size.Bsize, errorBound);
-        std::string u_name = work_dir + grayscott_data_dir + "/u.doc." + std::to_string(iter);
-        std::string v_name = work_dir + grayscott_data_dir + "/v.doc." + std::to_string(iter);
+        std::string u_name = grayscott_data_dir + "/u.doc." + std::to_string(iter);
+        std::string v_name = grayscott_data_dir + "/v.doc." + std::to_string(iter);
         writefile(u_name.c_str(), u, nbEle_padded);
         writefile(v_name.c_str(), v, nbEle_padded);
         printf("doc exit u_cr = %.2f\n", 1.0 * nbEle_padded * sizeof(T) / u_cmpSize);
@@ -1564,11 +1601,285 @@ void SZp_grayscott_3dLorenzo(
     unsigned char *vCmpDataBuffer,
     gsSettings& s, decmpState state, bool verb
 ){
-    gs_plot_gap = s.plotgap;
-    gs_plot_offset = s.offset;
-    gs_criteria = s.criteria;
-    grayscott_data_dir = s.data_dir;
     SZp_grayscott_3dLorenzo<T>(s.Du, s.Dv, s.F, s.k, s.dt, uCmpDataBuffer, vCmpDataBuffer, s.L, s.B, s.steps, s.eb, state, verb);
+}
+
+// 3d heat diffusion
+inline void heatdisProcessBlockPlanePrePred(
+    size_t x, DSize_3d& size,
+    ht3DBufferSet *buffer_set,
+    TempInfo3D &temp_info,
+    float alpha,
+    double errorBound, int iter,
+    bool isTopPlane,
+    bool isBottomPlane
+){
+    int size_x = ((x+1)*size.Bsize < size.dim1) ? size.Bsize : size.dim1 - x*size.Bsize;
+    buffer_set->set_process_buffer(x, isTopPlane, isBottomPlane, size_x, 0);
+    set_buffer_border_prepred(buffer_set->currPlane_data_pos, size, size_x, buffer_set->buffer_dim0_offset, buffer_set->buffer_dim1_offset, temp_info, isTopPlane, isBottomPlane);
+    const int * buffer_start_pos = buffer_set->currPlane_data_pos;
+    int * update_start_pos = buffer_set->updatePlane_data_pos;
+    for(size_t y=0; y<size.block_dim2; y++){
+        for(size_t z=0; z<size.block_dim3; z++){
+            int size_y = ((y+1)*size.Bsize < size.dim2) ? size.Bsize : size.dim2 - y*size.Bsize;
+            int size_z = ((z+1)*size.Bsize < size.dim3) ? size.Bsize : size.dim3 - z*size.Bsize;
+            const int * block_buffer_pos = buffer_start_pos;
+            int * update_pos = update_start_pos;
+            for(int i=0; i<size_x; i++){
+                for(int j=0; j<size_y; j++){
+                    const int * curr_buffer_pos = block_buffer_pos;
+                    int * h_next = update_pos;
+                    for(int k=0; k<size_z; k++){
+                        int64_t th = *curr_buffer_pos;
+                        int h_ = th + alpha * laplacian(curr_buffer_pos++, buffer_set->buffer_dim0_offset, buffer_set->buffer_dim1_offset);
+                        *h_next++ = h_;
+                    }
+                    block_buffer_pos += buffer_set->buffer_dim1_offset;
+                    update_pos += buffer_set->buffer_dim1_offset;
+                }
+                block_buffer_pos += buffer_set->buffer_dim0_offset - size_y * buffer_set->buffer_dim1_offset;
+                update_pos += buffer_set->buffer_dim0_offset - size_y * buffer_set->buffer_dim1_offset;
+            }
+            buffer_start_pos += size.Bsize;
+            update_start_pos += size.Bsize;
+        }
+        buffer_start_pos += size.Bsize * buffer_set->buffer_dim1_offset - size.Bsize * size.block_dim3;
+        update_start_pos += size.Bsize * buffer_set->buffer_dim1_offset - size.Bsize * size.block_dim3;
+    }
+}
+
+inline void heatdisUpdatePrePred(
+    DSize_3d& size,
+    HeatDis3D *heatdis,
+    TempInfo3D& temp_info,
+    ht3DBufferSet *buffer_set,
+    SZpCmpBufferSet *cmpkit_set,
+    double errorBound,
+    int current, int next,
+    int iter
+){
+    unsigned char * cmpData = cmpkit_set->cmpData[current];
+    unsigned char * encode_pos = cmpData + FIXED_RATE_PER_BLOCK_BYTES * size.num_blocks;
+    int * temp = nullptr;
+    cmpkit_set->reset();
+    buffer_set->reset();
+    for(size_t x=0; x<size.block_dim1; x++){
+        if(x == 0){
+            recoverBlockPlane2PrePred(x, size, encode_pos, buffer_set->currPlane_data_pos, buffer_set, cmpkit_set, current, iter);
+            buffer_set->set_next_decmp_buffer_top(buffer_set->nextPlane_data_pos);
+            recoverBlockPlane2PrePred(x+1, size, encode_pos, buffer_set->nextPlane_data_pos, buffer_set, cmpkit_set, current, iter);
+            heatdisProcessBlockPlanePrePred(x, size, buffer_set, temp_info, heatdis->alpha, errorBound, iter, true, false);
+            compressBlockPlaneFromPrePred(x, size, buffer_set, cmpkit_set, next, iter, true);
+        }else{
+            rotate_buffer(buffer_set->currPlane_data_pos, buffer_set->prevPlane_data_pos, buffer_set->nextPlane_data_pos, temp);
+            if(x == size.block_dim1 - 1){
+                heatdisProcessBlockPlanePrePred(x, size, buffer_set, temp_info, heatdis->alpha, errorBound, iter, false, true);
+                compressBlockPlaneFromPrePred(x, size, buffer_set, cmpkit_set, next, iter, false);
+            }else{
+                buffer_set->set_next_decmp_buffer_top(buffer_set->nextPlane_data_pos);
+                recoverBlockPlane2PrePred(x+1, size, encode_pos, buffer_set->nextPlane_data_pos, buffer_set, cmpkit_set, current, iter);
+                heatdisProcessBlockPlanePrePred(x, size, buffer_set, temp_info, heatdis->alpha, errorBound, iter, false, false);
+                compressBlockPlaneFromPrePred(x, size, buffer_set, cmpkit_set, next, iter, false);
+            }
+        }
+    }
+}
+
+template <class T>
+inline void heatdisUpdatePrePred(
+    DSize_3d& size,
+    HeatDis3D *heatdis,
+    TempInfo3D& temp_info,
+    ht3DBufferSet *buffer_set,
+    SZpCmpBufferSet *cmpkit_set,
+    double errorBound,
+    int max_iter,
+    bool verb
+){
+    struct timespec start, end;
+    double elapsed_time = 0;
+    size_t cmpSize;
+    T * h = (T *)malloc(size.nbEle * sizeof(T));
+    int current = 0, next = 1;
+    int iter = 0;
+    while(iter < max_iter){
+        iter++;
+        if(verb){
+            if(iter >= ht3d_plot_offset && iter % ht3d_plot_gap == 0){
+                SZp_decompress_3dLorenzo(h, cmpkit_set->cmpData[current], size.dim1, size.dim2, size.dim3, size.Bsize, errorBound);
+                std::string h_name = heatdis3d_data_dir + "/h.L3.pre." + std::to_string(iter-1);
+                writefile(h_name.c_str(), h, size.nbEle);
+                cmpSize = FIXED_RATE_PER_BLOCK_BYTES * size.num_blocks + cmpkit_set->cmpSize;
+                printf("prepred iter %d: cr = %.2f\n", iter-1, 1.0 * size.nbEle * sizeof(T) / cmpSize);
+                fflush(stdout);
+            }
+        }
+        clock_gettime(CLOCK_REALTIME, &start);
+        heatdisUpdatePrePred(size, heatdis, temp_info, buffer_set, cmpkit_set, errorBound, current, next, iter);
+        current = next;
+        next = 1 - current;
+        clock_gettime(CLOCK_REALTIME, &end);
+        elapsed_time += get_elapsed_time(start, end);
+    }
+    {
+        SZp_decompress_3dLorenzo(h, cmpkit_set->cmpData[current], size.dim1, size.dim2, size.dim3, size.Bsize, errorBound);
+        std::string h_name = heatdis3d_data_dir + "/h.L3.pre." + std::to_string(iter);
+        writefile(h_name.c_str(), h, size.nbEle);
+        cmpSize = FIXED_RATE_PER_BLOCK_BYTES * size.num_blocks + cmpkit_set->cmpSize;
+        printf("prepred exit cr = %.2f\n", 1.0 * size.nbEle * sizeof(T) / cmpSize);
+    }
+    printf("prepred elapsed_time = %.6f\n", elapsed_time);
+    free(h);
+}
+
+template <class T>
+inline void heatdisUpdateDOC(
+    DSize_3d& size,
+    size_t dim1_padded,
+    size_t dim2_padded,
+    size_t dim3_padded,
+    HeatDis3D *heatdis,
+    TempInfo3D& temp_info,
+    double errorBound,
+    int max_iter,
+    bool verb
+){
+    struct timespec start, end;
+    double elapsed_time = 0;
+    size_t cmpSize;
+    size_t nbEle_padded = dim1_padded * dim2_padded * dim3_padded;
+    T * h = (T *)malloc(nbEle_padded * sizeof(T));
+    T * h2 = (T *)malloc(nbEle_padded * sizeof(T));
+    unsigned char * compressed = (unsigned char *)malloc(nbEle_padded * sizeof(T));
+    heatdis->initData(h, h2, temp_info.T_init);
+    SZp_compress_3dLorenzo(h, compressed, dim1_padded, dim2_padded, dim3_padded, size.Bsize, errorBound, cmpSize);
+    T * tmp = nullptr;
+    int iter = 0;
+    while(iter < max_iter){
+        iter++;
+        clock_gettime(CLOCK_REALTIME, &start);
+        SZp_decompress_3dLorenzo(h, compressed, dim1_padded, dim2_padded, dim3_padded, size.Bsize, errorBound);
+        clock_gettime(CLOCK_REALTIME, &end);
+        elapsed_time += get_elapsed_time(start, end);
+        if(verb){
+            if(iter >= ht3d_plot_offset && iter % ht3d_plot_gap == 0){
+                std::string h_name = heatdis3d_data_dir + "/h.L3.doc." + std::to_string(iter-1);
+                writefile(h_name.c_str(), h, nbEle_padded);
+                printf("doc iter %d: cr = %.2f\n", iter-1, 1.0 * nbEle_padded * sizeof(T) / cmpSize);
+                fflush(stdout);
+            }
+        }
+        clock_gettime(CLOCK_REALTIME, &start);
+        heatdis->reset_source(h);
+        heatdis->iterate(h, h2, tmp);
+        SZp_compress_3dLorenzo(h, compressed, dim1_padded, dim2_padded, dim3_padded, size.Bsize, errorBound, cmpSize);
+        clock_gettime(CLOCK_REALTIME, &end);
+        elapsed_time += get_elapsed_time(start, end);
+    }
+    {
+        std::string h_name = heatdis3d_data_dir + "/h.L3.doc." + std::to_string(iter);
+        writefile(h_name.c_str(), h, nbEle_padded);
+        printf("doc exit cr = %.2f\n", 1.0 * nbEle_padded * sizeof(T) / cmpSize);
+    }
+    printf("doc elapsed_time = %.6f\n", elapsed_time);
+    free(compressed);
+    free(h);
+    free(h2);
+}
+
+template <class T>
+void SZp_heatdis_3dLorenzo(
+    unsigned char *cmpDataBuffer,
+    size_t dim1, size_t dim2, size_t dim3,
+    int blockSideLength, int max_iter,
+    float T_top, float T_bott,
+    float T_wall, float T_init,
+    float alpha, double errorBound,
+    decmpState state, bool verb
+){
+    DSize_3d size(dim1, dim2, dim3, blockSideLength);
+    size_t buffer_dim1 = size.Bsize + 2;
+    size_t buffer_dim2 = size.dim2 + 2;
+    size_t buffer_dim3 = size.dim3 + 2;
+    size_t buffer_size = buffer_dim1 * buffer_dim2 * buffer_dim3;
+    size_t dim1_padded = size.dim1 + 2;
+    size_t nbEle_padded = dim1_padded * buffer_dim2 * buffer_dim3;
+    int * Buffer_3d = (int *)malloc(buffer_size * 4 * sizeof(int));
+    int * Buffer_2d = (int *)malloc(buffer_dim2 * buffer_dim3 * 2 * sizeof(int));
+    unsigned int * absPredError = (unsigned int *)malloc(size.max_num_block_elements * sizeof(unsigned int));
+    int * signPredError = (int *)malloc(size.max_num_block_elements * sizeof(int));
+    unsigned char * signFlag = (unsigned char *)malloc(size.max_num_block_elements * sizeof(unsigned char));
+
+    unsigned char **cmpData = (unsigned char **)malloc(2 * sizeof(unsigned char *));
+    int **offsets = (int **)malloc(2*sizeof(int *));
+    for(int i=0; i<2; i++){
+        cmpData[i] = (unsigned char *)malloc(nbEle_padded * sizeof(T));
+        offsets[i] = (int *)malloc(size.block_dim1 * sizeof(int));
+    }
+    memcpy(cmpData[0], cmpDataBuffer, nbEle_padded * sizeof(T));
+
+    size_t prefix_length = 0;
+    int block_index = 0;
+
+    for(size_t x=0; x<size.block_dim1; x++){
+        offsets[0][x] = prefix_length;
+        offsets[1][x] = 0;
+        for(size_t y=0; y<size.block_dim2; y++){
+            for(size_t z=0; z<size.block_dim2; z++){
+                int size_x = ((x+1) * size.Bsize < size.dim1) ? size.Bsize : size.dim1 - x * size.Bsize;
+                int size_y = ((y+1) * size.Bsize < size.dim2) ? size.Bsize : size.dim2 - y * size.Bsize;
+                int size_z = ((z+1) * size.Bsize < size.dim2) ? size.Bsize : size.dim2 - z * size.Bsize;
+                int block_size = size_x * size_y * size_z;
+                int cmp_block_sign_length = (block_size + 7) / 8;
+                int fixed_rate = (int)cmpDataBuffer[block_index];
+                size_t Bytes = compute_encoding_byteLength(block_size, fixed_rate);
+                if(fixed_rate)
+                    prefix_length += (cmp_block_sign_length + Bytes);
+                block_index++;
+            }
+        }
+    }
+
+    SZpCmpBufferSet * cmpkit_set = new SZpCmpBufferSet(cmpData, offsets, absPredError, signPredError, signFlag);
+    ht3DBufferSet * buffer_set = new ht3DBufferSet(dim1, dim2, dim3, Buffer_3d, Buffer_2d);
+    HeatDis3D * heatdis = new HeatDis3D(T_top, T_bott, T_wall, alpha, dim1, dim2, dim3);
+    TempInfo3D temp_info(T_top, T_bott, T_wall, T_init, errorBound);
+
+    switch(state){
+        case decmpState::full:{
+            heatdisUpdateDOC<T>(size, dim1_padded, buffer_dim2, buffer_dim3, heatdis, temp_info, errorBound, max_iter, verb);
+            break;
+        }
+        case decmpState::prePred:{
+            heatdisUpdatePrePred<T>(size, heatdis, temp_info, buffer_set, cmpkit_set, errorBound, max_iter, verb);
+            break;
+        }
+        case decmpState::postPred:{
+            break;
+        }
+    }
+
+    delete(cmpkit_set);
+    delete(buffer_set);
+    delete(heatdis);
+    free(Buffer_3d);
+    free(Buffer_2d);
+    free(absPredError);
+    free(signPredError);
+    free(signFlag);
+    for(int i=0; i<2; i++){
+        free(cmpData[i]);
+        free(offsets[i]);
+    }
+    free(cmpData);
+    free(offsets);
+}
+
+template <class T>
+void SZp_heatdis_3dLorenzo(
+    unsigned char *cmpDataBuffer, ht3DSettings& s, decmpState state, bool verb
+){
+    SZp_heatdis_3dLorenzo<T>(cmpDataBuffer, s.dim1, s.dim2, s.dim3, s.B, s.steps, s.T_top, s.T_bott, s.T_wall, s.T_init, s.alpha, s.eb, state, verb);
 }
 
 #endif

@@ -5,6 +5,7 @@
 #include <iostream>
 #include <iomanip>
 #include <fstream>
+#include <cstring>
 #include <cmath>
 #include <ctime>
 #include <random>
@@ -131,12 +132,68 @@ double verify(const T *oriData, const T *decData, size_t dim1, size_t dim2, size
 }
 
 template <class T>
+double verify_dxdy(const T *oriData, const T *decData, size_t dim1, size_t dim2)
+{
+    int pos = 0, n = 0;
+    double max_error = 0;
+    double v1, v2;
+    for(size_t i=1; i<dim1-1; i++){
+        const T * ori_pos = oriData + i * dim2;
+        const T * dec_pos = decData + i * dim2;
+        for(size_t j=1; j<dim2-1; j++){
+            double diff = fabs(ori_pos[j] - dec_pos[j]);
+            if(diff > max_error){
+                max_error = diff;
+                pos = n;
+                v1 = ori_pos[j];
+                v2 = dec_pos[j];
+            }
+            n++;
+        }
+    }
+    // std::cout << "max_error = " << max_error << ", pos = " << pos << ", x = " << pos / (dim2-2) + 1 << ", y = " << pos % (dim2-2) + 1 << std::endl;
+    // std::cout << "ori = " << v1 << ", dec = " << v2 << std::endl;
+    return max_error;
+}
+
+template <class T>
+double verify_dxdydz(const T *oriData, const T *decData, size_t dim1, size_t dim2, size_t dim3)
+{
+    size_t dim0_offset = dim2 * dim3;
+    size_t dim1_offset = dim3;
+    int pos = 0, n = 0;
+    double max_error = 0;
+    double v1, v2;
+    for(size_t i=1; i<dim1-1; i++){
+        const T * x_ori_pos = oriData + i * dim0_offset;
+        const T * x_dec_pos = decData + i * dim0_offset;
+        for(size_t j=1; j<dim2-1; j++){
+            const T * y_ori_pos = x_ori_pos + j * dim1_offset;
+            const T * y_dec_pos = x_dec_pos + j * dim1_offset;
+            for(size_t k=1; k<dim3-1; k++){
+                double diff = fabs(y_ori_pos[k] - y_dec_pos[k]);
+                if(diff > max_error){
+                    max_error = diff;
+                    pos = n;
+                    v1 = y_ori_pos[k];
+                    v2 = y_dec_pos[k];
+                }
+                n++;
+            }
+        }
+    }
+    // std::cout << "max_error = " << max_error << ", pos = " << pos << ", x = " << pos / ((dim2-2) * (dim3-2)) + 1 << ", y = " << (pos % ((dim2-2) * (dim3-2))) / (dim3-2) + 1 << ", z = " << pos % (dim3-2) + 1 << std::endl;
+    // std::cout << "ori = " << v1 << ", dec = " << v2 << std::endl;
+    return max_error;
+}
+
+template <class T>
 void print_matrix_float(int dim1, int dim2, std::string name, T *mat)
 {
     std::cout << "--------- " << name << " ---------" << std::endl;
     for(int i=0; i<dim1; i++){
         for(int j=0; j<dim2; j++){
-            printf("%.2f  ", mat[i*dim2+j]);
+            printf("%.4f  ", mat[i*dim2+j]);
         }
         printf("\n");
     }
@@ -154,48 +211,6 @@ void print_matrix_int(int dim1, int dim2, std::string name, int *mat)
 }
 
 template <class T>
-void initData(
-    size_t dim1, size_t dim2,
-    T *h, T init_temp
-){
-    for (size_t i = 0; i < dim1; i++) {
-        for (size_t j = 0; j < dim2; j++) {
-            h[i * dim2 + j] = init_temp;
-        }
-    }
-}
-template <class T>
-void doWork(
-    size_t dim1, size_t dim2, T *g, T *h,
-    T src_temp, T wall_temp, double ratio
-){
-    memcpy(h, g, dim1 * dim2 * sizeof(float));
-    size_t c1 =  dim2 * (1.0 - ratio) * 0.5 + 1;
-    size_t c2 =  dim2 * (1.0 + ratio) * 0.5 - 1;
-    T left, right, top, bottom;
-    for (size_t i = 0; i < dim1; i++) {
-        for (size_t j = 0; j < dim2; j++) {
-            size_t index = i * dim2 + j;
-            bool j_flag = (j >= c1) && (j <= c2);
-            left = (j == 0) ? wall_temp : h[index - 1];
-            right = (j == dim2 - 1) ? wall_temp : h[index + 1];
-            top = (i > 0) ? h[index - dim2] : (j_flag ? src_temp : wall_temp);
-            bottom = (i == dim1 - 1) ? wall_temp : h[index + dim2];
-            g[index] = 0.25 * (left + right + top + bottom);
-        }
-    }
-}
-template <class T>
-void doWork(
-    size_t dim1, size_t dim2, int max_iter, T *g, T *h,
-    T src_temp, T wall_temp, double ratio
-){
-    for(int i=0; i<max_iter; i++){
-        doWork(dim1, dim2, g, h, src_temp, wall_temp, ratio);
-    }
-}
-
-template <class T>
 void compute_dxdy(
     size_t dim1, size_t dim2, T *data,
     T *dx_result, T *dy_result
@@ -203,58 +218,81 @@ void compute_dxdy(
     T *curr_row = nullptr, *prev_row = nullptr, *next_row = nullptr;
     T *dx_pos = nullptr, *dy_pos = nullptr;
     size_t i, j;
-    for(i=0; i<dim1; i++){
+    for(i=1; i<dim1-1; i++){
         curr_row = data + i * dim2;
-        prev_row = i == 0 ? curr_row : curr_row - dim2;
-        next_row = i == dim1-1 ? curr_row : curr_row + dim2;
+        prev_row = curr_row - dim2;
+        next_row = curr_row + dim2;
         dx_pos = dx_result + i * dim2;
         dy_pos = dy_result + i * dim2;
-        T coeff_dx = (i == 0 || i == dim1 - 1) ? 1.0 : 0.5;
-        for(j=0; j<dim2; j++){
-            dx_pos[j] = (next_row[j] - prev_row[j]) * coeff_dx;
-            size_t prev_j = j == 0 ? j : j - 1;
-            size_t next_j = j == dim2 - 1 ? j : j + 1;
-            T coeff_dy = (j == 0) || (j == dim2 - 1) ? 1.0 : 0.5;
-            dy_pos[j] = (curr_row[next_j] - curr_row[prev_j]) * coeff_dy;
+        for(j=1; j<dim2-1; j++){
+            dx_pos[j] = (next_row[j] - prev_row[j]) * 0.5;
+            dy_pos[j] = (curr_row[j+1] - curr_row[j-1]) * 0.5;
         }
     }
 }
 
 template <class T>
 void compute_dxdydz(
-    size_t dim1, size_t dim2, size_t dim3, const T *data,
+    size_t dim1, size_t dim2, size_t dim3, T *data,
     T *dx_result, T *dy_result, T *dz_result
 ){
     size_t dim0_offset = dim2 * dim3;
     size_t dim1_offset = dim3;
     size_t i, j, k;
-    const T * curr_plane = data;
-    for(i=0; i<dim1; i++){
-        const T * prev_plane = i == 0 ? curr_plane : curr_plane - dim0_offset;
-        const T * next_plane = i == dim1 - 1 ? curr_plane : curr_plane + dim0_offset;
-        const T * curr_row = curr_plane;
-        T coeff_dx = (i == 0) || (i == dim1 - 1) ? 1.0 : 0.5;
-        for(j=0; j<dim2; j++){
-            const T * prev_row = j == 0 ? curr_row : curr_row - dim1_offset;
-            const T * next_row = j == dim2 - 1 ? curr_row : curr_row + dim1_offset;
-            T coeff_dy = (j == 0) || (j == dim2 - 1) ? 1.0 : 0.5;
-            for(k=0; k<dim3; k++){
-                size_t index = j * dim1_offset + k;
-                size_t res_index = i * dim0_offset + index;
-                size_t prev_k = k == 0 ? k : k - 1;
-                size_t next_k = k == dim3 - 1 ? k : k + 1;
-                T coeff_dz = (k == 0) || (k == dim3 - 1) ? 1.0 : 0.5;
-                dx_result[res_index] = (next_plane[index] - prev_plane[index]) * coeff_dx;
-                dy_result[res_index] = (next_row[k] - prev_row[k]) * coeff_dy;
-                dz_result[res_index] = (curr_row[next_k] - curr_row[prev_k]) * coeff_dz;
+    T *curr_plane = nullptr, *prev_plane = nullptr, *next_plane = nullptr;
+    T *curr_row = nullptr, *prev_row = nullptr, *next_row = nullptr;
+    T *x_dx_pos = nullptr, *x_dy_pos = nullptr, *x_dz_pos = nullptr;
+    T *y_dx_pos = nullptr, *y_dy_pos = nullptr, *y_dz_pos = nullptr;
+    for(i=1; i<dim1-1; i++){
+        curr_plane = data + i * dim0_offset;
+        prev_plane = curr_plane - dim0_offset;
+        next_plane = curr_plane + dim0_offset;
+        curr_row = curr_plane + dim1_offset;
+        x_dx_pos = dx_result + i * dim0_offset;
+        x_dy_pos = dy_result + i * dim0_offset;
+        x_dz_pos = dz_result + i * dim0_offset;
+        for(j=1; j<dim2-1; j++){
+            prev_row = curr_row - dim1_offset;
+            next_row = curr_row + dim1_offset;
+            y_dx_pos = x_dx_pos + j * dim1_offset;
+            y_dy_pos = x_dy_pos + j * dim1_offset;
+            y_dz_pos = x_dz_pos + j * dim1_offset;
+            for(k=1; k<dim3-1; k++){
+                size_t index_1d = k;
+                size_t index_2d = j * dim1_offset + k;
+                y_dx_pos[index_1d] = (next_plane[index_2d] - prev_plane[index_2d]) * 0.5;
+                y_dy_pos[index_1d] = (next_row[index_1d] - prev_row[index_1d]) * 0.5;
+                y_dz_pos[index_1d] = (curr_row[index_1d + 1] - curr_row[index_1d - 1]) * 0.5;
             }
             curr_row += dim1_offset;
         }
-        curr_plane += dim0_offset;
     }
+    // for(i=0; i<dim1; i++){
+    //     const T * prev_plane = i == 0 ? curr_plane : curr_plane - dim0_offset;
+    //     const T * next_plane = i == dim1 - 1 ? curr_plane : curr_plane + dim0_offset;
+    //     const T * curr_row = curr_plane;
+    //     T coeff_dx = (i == 0) || (i == dim1 - 1) ? 1.0 : 0.5;
+    //     for(j=0; j<dim2; j++){
+    //         const T * prev_row = j == 0 ? curr_row : curr_row - dim1_offset;
+    //         const T * next_row = j == dim2 - 1 ? curr_row : curr_row + dim1_offset;
+    //         T coeff_dy = (j == 0) || (j == dim2 - 1) ? 1.0 : 0.5;
+    //         for(k=0; k<dim3; k++){
+    //             size_t index = j * dim1_offset + k;
+    //             size_t res_index = i * dim0_offset + index;
+    //             size_t prev_k = k == 0 ? k : k - 1;
+    //             size_t next_k = k == dim3 - 1 ? k : k + 1;
+    //             T coeff_dz = (k == 0) || (k == dim3 - 1) ? 1.0 : 0.5;
+    //             dx_result[res_index] = (next_plane[index] - prev_plane[index]) * coeff_dx;
+    //             dy_result[res_index] = (next_row[k] - prev_row[k]) * coeff_dy;
+    //             dz_result[res_index] = (curr_row[next_k] - curr_row[prev_k]) * coeff_dz;
+    //         }
+    //         curr_row += dim1_offset;
+    //     }
+    //     curr_plane += dim0_offset;
+    // }
 }
 
-class HeatDis{
+class HeatDis2D{
 public:
 	size_t dim1, dim2;
 	size_t dim1_padded, dim2_padded;
@@ -263,7 +301,7 @@ public:
 	float source_temp;
 	float wall_temp;
 	float ratio;
-	HeatDis(float src, float wall, float r, size_t d1, size_t d2)
+	HeatDis2D(float src, float wall, float r, size_t d1, size_t d2)
 		: source_temp(src), wall_temp(wall), ratio(r), dim1(d1), dim2(d2){
         dim1_padded = dim1 + 2;
         dim2_padded = dim2 + 2;
@@ -316,10 +354,9 @@ public:
 	}
     template <class T>
 	void calc(const T *h, T *h2){
-		int M = dim2 + 2;
 		for(int i=1; i<=dim1; i++){
 			for(int j=1; j<=dim2; j++){
-				h2[i*M+j] = 0.25 * (h[(i*M)+j-1] + h[(i*M)+j+1] + h[(i-1)*M+j] + h[(i+1)*M+j]);
+				h2[i*dim2_padded+j] = 0.25 * (h[(i*dim2_padded)+j-1] + h[(i*dim2_padded)+j+1] + h[(i-1)*dim2_padded+j] + h[(i+1)*dim2_padded+j]);
 			}
 		}
 	}
@@ -342,13 +379,13 @@ public:
         while(iter < num_iter){
             iter++;
 			if(iter >= plot_offset && iter % plot_gap == 0){
-				std::string h_name = work_dir + heatdis_data_dir + "/h.ref." + std::to_string(iter-1);
+				std::string h_name = heatdis2d_data_dir + "/h.ref." + std::to_string(iter-1);
 				writefile(h_name.c_str(), h, nbEle_padded);
 			}
 			iterate(h, h2, tmp);
         }
         {
-            std::string h_name = work_dir + heatdis_data_dir + "/h.ref." + std::to_string(iter);
+            std::string h_name = heatdis2d_data_dir + "/h.ref." + std::to_string(iter);
             writefile(h_name.c_str(), h, nbEle_padded);
         }
 	}
@@ -494,16 +531,16 @@ public:
         while(iter < num_iter){
             iter++;
 			if(iter >= plot_offset && iter % plot_gap == 0){
-				std::string u_name = work_dir + grayscott_data_dir + "/u.ref." + std::to_string(iter-1);
-				std::string v_name = work_dir + grayscott_data_dir + "/v.ref." + std::to_string(iter-1);
+				std::string u_name = grayscott_data_dir + "/u.ref." + std::to_string(iter-1);
+				std::string v_name = grayscott_data_dir + "/v.ref." + std::to_string(iter-1);
 				writefile(u_name.c_str(), u, nbEle_padded);
 				writefile(v_name.c_str(), v, nbEle_padded);
 			}
 			iterate(u, v, u2, v2, tmp);
         }
         {
-            std::string u_name = work_dir + grayscott_data_dir + "/u.ref." + std::to_string(iter);
-            std::string v_name = work_dir + grayscott_data_dir + "/v.ref." + std::to_string(iter);
+            std::string u_name = grayscott_data_dir + "/u.ref." + std::to_string(iter);
+            std::string v_name = grayscott_data_dir + "/v.ref." + std::to_string(iter);
             writefile(u_name.c_str(), u, nbEle_padded);
             writefile(v_name.c_str(), v, nbEle_padded);
         }
@@ -518,6 +555,147 @@ public:
 				memcpy(data, raw, L * sizeof(T));
 				raw += dim1_offset;
 				data += L;
+			}
+		}
+	}
+};
+
+class HeatDis3D{
+public:
+	size_t dim1, dim2, dim3;
+    size_t dim0_offset, dim1_offset;
+	size_t dim1_padded, dim2_padded, dim3_padded;
+	size_t nbEle_padded;
+    size_t dim0_offset_padded, dim1_offset_padded;
+	float T_top, T_bott;
+	float T_wall;
+    float alpha;
+	HeatDis3D(float T_t, float T_b, float T_w, float al, size_t d1, size_t d2, size_t d3)
+		: T_top(T_t), T_bott(T_b), T_wall(T_w), alpha(al), dim1(d1), dim2(d2), dim3(d3){
+        assert(dim1 >= dim2);
+        assert(dim1 >= dim3);
+        dim0_offset = dim2 * dim3;
+        dim1_offset = dim3;
+        dim1_padded = dim1 + 2;
+        dim2_padded = dim2 + 2;
+        dim3_padded = dim3 + 2;
+        dim0_offset_padded = dim2_padded * dim3_padded;
+        dim1_offset_padded = dim3_padded;
+		nbEle_padded = dim1_padded * dim2_padded * dim3_padded;
+	}
+	template <class T>
+	void initData_noghost(T *h, T *h2, float T_init){
+		for(int i=0; i<dim1; i++){
+			for(int j=0; j<dim2; j++){
+                for(int k=0; k<dim3; k++){
+                    h[i * dim0_offset + j * dim1_offset + k] = T_init;
+                    h2[i * dim0_offset + j * dim1_offset + k] = T_init;
+                }
+			}
+		}
+	}
+    template <class T>
+	void initData(T *h, T *h2, float T_init){
+        int i, j, k;
+        for(i=0; i<nbEle_padded; i++){
+            h[i] = T_wall;
+        }
+        T * g1 = h + dim1_offset_padded + 1;
+        T * g2 = h + (dim1 + 1) * dim0_offset_padded + dim1_offset_padded + 1;
+        for(j=0; j<dim2; j++){
+            for(k=0; k<dim3; k++){
+                g1[k] = T_top;
+                g2[k] = T_bott;
+            }
+            g1 += dim1_offset_padded;
+            g2 += dim1_offset_padded;
+        }
+		for(i=1; i<=dim1; i++){
+			for(j=1; j<=dim2; j++){
+                for(k=1; k<=dim3; k++){
+                    h[i * dim0_offset_padded + j * dim1_offset_padded + k] = T_init;
+                }
+			}
+		}
+		memcpy(h2, h, nbEle_padded * sizeof(T));
+	}
+	template <class T>
+	void reset_source(T *h){
+        T * g1 = h + dim1_offset_padded + 1;
+        T * g2 = h + (dim1 + 1) * dim0_offset_padded + dim1_offset_padded + 1;
+        for(int j=0; j<dim2; j++){
+            for(int k=0; k<dim3; k++){
+                g1[k] = T_top;
+                g2[k] = T_bott;
+            }
+            g1 += dim1_offset_padded;
+            g2 += dim1_offset_padded;
+        }
+	}
+    inline int c2i(int i, int j, int k){
+        return i * dim0_offset_padded + j * dim1_offset_padded + k;
+    }
+    template <class T>
+    inline T laplacian(int i, int j, int k, const T *s){
+        T ts = 0.0;
+        ts += s[c2i(i - 1, j, k)];
+        ts += s[c2i(i + 1, j, k)];
+        ts += s[c2i(i, j - 1, k)];
+        ts += s[c2i(i, j + 1, k)];
+        ts += s[c2i(i, j, k - 1)];
+        ts += s[c2i(i, j, k + 1)];
+        ts += -6.0 * s[c2i(i, j, k)];
+        return ts;
+    }
+    template <class T>
+	void calc(const T *h, T *h2){
+		for(int i=1; i<=dim1; i++){
+			for(int j=1; j<=dim2; j++){
+                for(int k=1; k<=dim3; k++){
+                    int index = c2i(i, j, k);
+                    h2[index] = h[index] + alpha * laplacian(i, j, k, h);
+                }
+			}
+		}
+	}
+    template <class T>
+	void iterate(T*& h, T*& h2, T*& tmp){
+		calc(h, h2);
+		exchange_buffer(h, h2, tmp);
+	}
+    template <class T>
+	void doWork(T*& h, T*& h2, int num_iter){
+		T * tmp = nullptr;
+		for(int iter=1; iter<=num_iter; iter++){
+			iterate(h, h2, tmp);
+		}
+	}
+    template <class T>
+	void doWork(T*& h, T*& h2, double criteria, int num_iter, int plot_gap, int plot_offset=1){
+		T * tmp = nullptr;
+        int iter = 0;
+        while(iter < num_iter){
+            iter++;
+			if(iter >= plot_offset && iter % plot_gap == 0){
+				std::string h_name = heatdis3d_data_dir + "/h.ref." + std::to_string(iter-1);
+				writefile(h_name.c_str(), h, nbEle_padded);
+			}
+			iterate(h, h2, tmp);
+        }
+        {
+            std::string h_name = heatdis3d_data_dir + "/h.ref." + std::to_string(iter);
+            writefile(h_name.c_str(), h, nbEle_padded);
+        }
+	}
+    template <class T>
+	void trimData(T *padded, T *trimmed){
+		for(int i=0; i<dim1; i++){
+			T * raw = padded + (i + 1) * dim0_offset_padded + dim1_offset_padded + 1;
+			T * data = trimmed + i * dim0_offset;
+			for(int j=0; j<dim2; j++){
+				memcpy(data, raw, dim3 * sizeof(T));
+				raw += dim1_offset_padded;
+				data += dim3;
 			}
 		}
 	}

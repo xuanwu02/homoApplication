@@ -41,9 +41,9 @@ int main(int argc, char **argv)
     SZx_decompress_2dMeanbased(decData, cmpData, s.dim1, s.dim2, s.B, s.eb);
     compute_dxdy(s.dim1, s.dim2, decData, decop_dx_result, decop_dy_result);
     double err;
-    err = verify(decop_dx_result, dx_result, s.dim1, s.dim2);
+    err = verify_dxdy(decop_dx_result, dx_result, s.dim1, s.dim2);
     printf("dx max error = %.2e\n", err);
-    err = verify(decop_dy_result, dy_result, s.dim1, s.dim2);
+    err = verify_dxdy(decop_dy_result, dy_result, s.dim1, s.dim2);
     printf("dy max error = %.2e\n", err);
 
     free(decData);

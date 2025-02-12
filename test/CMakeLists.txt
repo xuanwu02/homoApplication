@@ -10,4 +10,8 @@ endfunction()
 #     add_my_executable(${TEST_NAME} ${TEST_FILE})
 # endforeach(TEST_FILE)
 
-add_my_executable(vis_grayscott vis_grayscott.cpp)
+add_my_executable(test_szx_derivative_2d test_szx_derivative_2d.cpp)
+add_my_executable(test_szp_derivative_2d test_szp_derivative_2d.cpp)
+add_my_executable(test_szp_derivative_3d test_szp_derivative_3d.cpp)
+
+add_my_executable(test_szx_derivative_3d test_szx_derivative_3d.cpp)

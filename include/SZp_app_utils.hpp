@@ -6,12 +6,12 @@
 #include "SZ_def.hpp"
 #include "utils.hpp"
 
-struct Temperature_info
+struct TempInfo2D
 {
     float src_temp, wall_temp, init_temp, ratio;
     const int q_S;
     const int q_W;
-    Temperature_info(
+    TempInfo2D(
     float src, float wall, float init, float ratio, double eb)
         : src_temp(src),
           wall_temp(wall),
@@ -68,7 +68,6 @@ struct SZpCmpBufferSet
     }
 };
 
-// TODO: abstract SZpAppBufferSet_nd
 struct SZpAppBufferSet_1d
 {
     appType type;
@@ -566,7 +565,7 @@ inline void deriv_lorenzo_2d(
 
 inline void set_buffer_border_postpred(
     size_t x, int *integer_buffer, DSize_1d size, size_t size_x,
-    SZpAppBufferSet_1d *buffer_set, Temperature_info& temp_info,
+    SZpAppBufferSet_1d *buffer_set, TempInfo2D& temp_info,
     bool isTopRow, bool isBottomRow
 ){
     int * buffer_pos = integer_buffer;
@@ -590,7 +589,7 @@ inline void set_buffer_border_postpred(
 
 inline void set_buffer_border_prepred(
     int *integer_buffer, DSize_1d size, size_t buffer_dim0_offset,
-    Temperature_info& temp_info, bool isTopRow, bool isBottomRow
+    TempInfo2D& temp_info, bool isTopRow, bool isBottomRow
 ){
     int i;
     size_t j;
@@ -616,7 +615,7 @@ inline void set_buffer_border_prepred(
 
 inline void set_buffer_border_postpred(
     size_t x, int *integer_buffer, DSize_2d size, int size_x,
-    SZpAppBufferSet_2d *buffer_set, Temperature_info& temp_info,
+    SZpAppBufferSet_2d *buffer_set, TempInfo2D& temp_info,
     bool isTopRow, bool isBottomRow
 ){
     int i;
@@ -646,7 +645,7 @@ inline void set_buffer_border_postpred(
 
 inline void set_buffer_border_prepred(
     int *integer_buffer, DSize_2d size, int size_x, size_t buffer_dim0_offset,
-    Temperature_info& temp_info, bool isTopRow, bool isBottomRow
+    TempInfo2D& temp_info, bool isTopRow, bool isBottomRow
 ){
     int i;
     size_t j;
@@ -815,5 +814,160 @@ inline int64_t qprod(int64_t v1, int64_t v2, int64_t v3, int64_t v4, double eb){
     int64_t res = v1 * v2 * v3 * v4 * eb * eb * eb * 8;
     return res;
 }
+
+// heatdis3d
+struct TempInfo3D
+{
+	float T_top, T_bott;
+    float T_wall, T_init;
+    const int q_T, q_B, q_W;
+    TempInfo3D(
+    float T_t, float T_b, float T_w, float T_i, double eb)
+        : T_top(T_t),
+          T_bott(T_b),
+          T_wall(T_w),
+          T_init(T_i),
+          q_T(SZ_quantize(T_t, eb)),
+          q_B(SZ_quantize(T_b, eb)),
+          q_W(SZ_quantize(T_w, eb))
+    {}
+};
+
+inline void set_buffer_border_prepred(
+    int *integer_buffer,
+    DSize_3d size, int size_x,
+    size_t buffer_dim0_offset,
+    size_t buffer_dim1_offset,
+    TempInfo3D& temp_info,
+    bool isTop,
+    bool isBottom
+){
+    int i, j, k;
+    int * buffer_pos = nullptr;
+    if(isTop){
+        buffer_pos = integer_buffer - buffer_dim0_offset;
+        for(j=0; j<size.dim2; j++){
+            for(k=0; k<size.dim3; k++){
+                buffer_pos[k] = temp_info.q_T;
+            }
+            buffer_pos += buffer_dim1_offset;
+        }
+    }else if(isBottom){
+        buffer_pos = integer_buffer + size_x * buffer_dim0_offset;
+        for(j=0; j<size.dim2; j++){
+            for(k=0; k<size.dim3; k++){
+                buffer_pos[k] = temp_info.q_B;
+            }
+            buffer_pos += buffer_dim1_offset;
+        }
+    }
+}
+
+struct ht3DBufferSet
+{
+    size_t buffer_dim1;
+    size_t buffer_dim2;
+    size_t buffer_dim3;
+    size_t buffer_size;
+    size_t buffer_dim0_offset;
+    size_t buffer_dim1_offset;
+    int * buffer_2d;
+    int * decmp_buffer;
+    int * cmp_buffer;
+    int * buffer_3d;
+    int * prevBlockPlane;
+    int * currBlockPlane;
+    int * nextBlockPlane;
+    int * updateBlockPlane;
+    int * currPlane_data_pos;
+    int * prevPlane_data_pos;
+    int * nextPlane_data_pos;
+    int * updatePlane_data_pos;
+    ht3DBufferSet(
+    size_t dim1, size_t dim2, size_t dim3, int *buffer_3d_, int *buffer_2d_)
+        : buffer_dim1(dim1),
+          buffer_dim2(dim2),
+          buffer_dim3(dim3),
+          buffer_3d(buffer_3d_),
+          buffer_2d(buffer_2d_)
+    {
+        buffer_size = buffer_dim1 * buffer_dim2 * buffer_dim3;
+        buffer_dim0_offset = buffer_dim2 * buffer_dim3;
+        buffer_dim1_offset = buffer_dim3;
+        decmp_buffer = buffer_2d;
+        cmp_buffer = buffer_2d + buffer_dim0_offset;
+        prevBlockPlane = buffer_3d;
+        currBlockPlane = buffer_3d + buffer_size;
+        nextBlockPlane = buffer_3d + 2 * buffer_size;
+        updateBlockPlane = buffer_3d + 3 * buffer_size;
+    }
+    inline void reset(){
+        memset(buffer_3d, 0, 3 * buffer_size * sizeof(int));
+        memset(buffer_2d, 0, 2 * buffer_dim0_offset * sizeof(int));
+        currPlane_data_pos = currBlockPlane + buffer_dim0_offset + buffer_dim1_offset + 1;
+        prevPlane_data_pos = prevBlockPlane + buffer_dim0_offset + buffer_dim1_offset + 1;
+        nextPlane_data_pos = nextBlockPlane + buffer_dim0_offset + buffer_dim1_offset + 1;
+        updatePlane_data_pos = updateBlockPlane + buffer_dim0_offset + buffer_dim1_offset + 1;
+    }
+    inline void set_decmp_buffer_border(int *buffer_data_pos, size_t size_x){
+        int * buffer_top = buffer_data_pos - buffer_dim0_offset - buffer_dim1_offset - 1;
+        int * buffer_bottom = buffer_data_pos + size_x * buffer_dim0_offset - buffer_dim1_offset - 1;
+        int i, j, k;
+        for(i=0; i<=size_x+1; i++){
+            int * buffer_pos = buffer_top + i * buffer_dim0_offset;
+            int * first_row = buffer_pos, * last_row = buffer_pos + (buffer_dim2 - 1) * buffer_dim1_offset;
+            for(k=0; k<buffer_dim3; k++){
+                first_row[k] = 0;
+                last_row[k] = 0;
+            }
+            for(j=1; j<=buffer_dim2-2; j++){
+                int * row = first_row + j * buffer_dim1_offset;
+                row[0] = 0;
+                row[buffer_dim3-1] = 0;
+            }
+        }
+    }
+    inline void save_decmp_buffer_bottom(int *buffer_data_pos, int Bsize){
+        memcpy(decmp_buffer, buffer_data_pos+(Bsize-1)*buffer_dim0_offset-buffer_dim1_offset-1, buffer_dim0_offset*sizeof(int));        
+    }
+    inline void set_next_decmp_buffer_top(int *buffer_data_pos){
+        memcpy(buffer_data_pos-buffer_dim0_offset-buffer_dim1_offset-1, decmp_buffer, buffer_dim0_offset*sizeof(int));
+    }
+    inline void set_process_buffer(size_t x, bool isTop, bool isBottom, size_t size_x, int border_val){
+        int * buffer_top = currPlane_data_pos - buffer_dim0_offset - buffer_dim1_offset - 1;
+        int * buffer_bottom = currPlane_data_pos + size_x * buffer_dim0_offset - buffer_dim1_offset - 1;
+        if(!isTop){
+            const int * prevBlockPlaneBottom_pos = prevPlane_data_pos + (size_x - 1) * buffer_dim0_offset - buffer_dim1_offset - 1;            
+            memcpy(buffer_top, prevBlockPlaneBottom_pos, buffer_dim0_offset*sizeof(int));
+        }
+        if(!isBottom){
+            const int * nextBlockPlaneTop_pos = nextPlane_data_pos - buffer_dim1_offset - 1;
+            memcpy(buffer_bottom, nextBlockPlaneTop_pos, buffer_dim0_offset*sizeof(int));
+        }
+        // int i, j, k;
+        // if(isTop) for(i=0; i<buffer_dim0_offset; i++) buffer_top[i] = border_val;
+        // if(isBottom) for(i=0; i<buffer_dim0_offset; i++) buffer_bottom[i] = border_val;
+        // for(i=1; i<=size_x+1; i++){
+        //     int * buffer_pos = buffer_top + i * buffer_dim0_offset;
+        //     int * first_row = buffer_pos, * last_row = buffer_pos + (buffer_dim2 - 1) * buffer_dim1_offset;
+        //     for(k=0; k<buffer_dim3; k++){
+        //         first_row[k] = border_val;
+        //         last_row[k] = border_val;
+        //     }
+        //     for(j=1; j<=buffer_dim2-2; j++){
+        //         int * row = first_row + j * buffer_dim1_offset;
+        //         row[0] = border_val;
+        //         row[buffer_dim3-1] = border_val;
+        //     }
+        // }
+    }
+    inline void set_cmp_buffer_top(bool isTopRow){
+        if(isTopRow) memset(updatePlane_data_pos-buffer_dim0_offset-buffer_dim1_offset-1, 0, buffer_dim0_offset*sizeof(int));
+        else memcpy(updatePlane_data_pos-buffer_dim0_offset-buffer_dim1_offset-1, cmp_buffer, buffer_dim0_offset*sizeof(int));
+    }
+    inline void save_cmp_buffer_buttom(int size_x){
+        memcpy(cmp_buffer, updatePlane_data_pos+(size_x-1)*buffer_dim0_offset-buffer_dim1_offset-1, buffer_dim0_offset*sizeof(int));
+    }
+};
 
 #endif

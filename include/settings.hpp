@@ -55,7 +55,6 @@ public:
     int plotgap;
     int offset;
     double criteria;
-    std::string data_dir;
     inline gsSettings()
         : L(128),
           B(10),
@@ -68,8 +67,7 @@ public:
           steps(200),
           plotgap(20),
           offset(1),
-          criteria(1e-6),
-          data_dir("gs_data")
+          criteria(1e-6)
     {}
     static gsSettings from_json(const std::string &fname);
 };
@@ -88,7 +86,6 @@ inline void from_json(const nlohmann::json &j, gsSettings &s)
     j.at("plotgap").get_to(s.plotgap);
     j.at("offset").get_to(s.offset);
     j.at("criteria").get_to(s.criteria);
-    j.at("data_dir").get_to(s.data_dir);
 }
 
 inline gsSettings gsSettings::from_json(const std::string &fname)
@@ -99,12 +96,12 @@ inline gsSettings gsSettings::from_json(const std::string &fname)
     return j.get<gsSettings>();
 }
 
-/* heatdis */
-class htSettings{
+/* heatdis2D */
+class ht2DSettings{
 public:
-    int dim1;
-    int dim2;
-    int lorenzo;
+    int dim1, dim2;
+    std::string type;
+    int dim;
     int B;
     double eb;
     float src_temp;
@@ -115,11 +112,11 @@ public:
     int plotgap;
     int offset;
     double criteria;
-    std::string data_dir;
-    inline htSettings()
+    inline ht2DSettings()
         : dim1(100),
           dim2(100),
-          lorenzo(2),
+          type("p"),
+          dim(2),
           B(8),
           eb(1e-4),
           src_temp(100.0),
@@ -129,17 +126,17 @@ public:
           steps(200),
           plotgap(20),
           offset(1),
-          criteria(1e-4),
-          data_dir("ht_data")
+          criteria(1e-4)
     {}
-    static htSettings from_json(const std::string &fname);
+    static ht2DSettings from_json(const std::string &fname);
 };
 
-inline void from_json(const nlohmann::json &j, htSettings &s)
+inline void from_json(const nlohmann::json &j, ht2DSettings &s)
 {
     j.at("dim1").get_to(s.dim1);
     j.at("dim2").get_to(s.dim2);
-    j.at("lorenzo").get_to(s.lorenzo);
+    j.at("type").get_to(s.type);
+    j.at("dim").get_to(s.dim);
     j.at("B").get_to(s.B);
     j.at("eb").get_to(s.eb);
     j.at("src_temp").get_to(s.src_temp);
@@ -150,15 +147,80 @@ inline void from_json(const nlohmann::json &j, htSettings &s)
     j.at("plotgap").get_to(s.plotgap);
     j.at("offset").get_to(s.offset);
     j.at("criteria").get_to(s.criteria);
-    j.at("data_dir").get_to(s.data_dir);
 }
 
-inline htSettings htSettings::from_json(const std::string &fname)
+inline ht2DSettings ht2DSettings::from_json(const std::string &fname)
 {
     std::ifstream ifs(fname);
     nlohmann::json j;
     ifs >> j;
-    return j.get<htSettings>();
+    return j.get<ht2DSettings>();
+}
+
+/* heatdis3D */
+class ht3DSettings{
+public:
+    int dim1, dim2, dim3;
+    std::string type;
+    int dim;
+    int B;
+    double eb;
+    float alpha;
+    float T_top;
+    float T_bott;
+    float T_wall;
+    float T_init;
+    int steps;
+    int plotgap;
+    int offset;
+    double criteria;
+    inline ht3DSettings()
+        : dim1(64),
+          dim2(64),
+          dim3(64),
+          type("p"),
+          dim(3),
+          B(8),
+          eb(1e-4),
+          alpha(0.01),
+          T_top(-20.0),
+          T_bott(20.0),
+          T_wall(0.0),
+          T_init(0.0),
+          steps(200),
+          plotgap(20),
+          offset(1),
+          criteria(1e-4)
+    {}
+    static ht3DSettings from_json(const std::string &fname);
+};
+
+inline void from_json(const nlohmann::json &j, ht3DSettings &s)
+{
+    j.at("dim1").get_to(s.dim1);
+    j.at("dim2").get_to(s.dim2);
+    j.at("dim3").get_to(s.dim3);
+    j.at("type").get_to(s.type);
+    j.at("dim").get_to(s.dim);
+    j.at("B").get_to(s.B);
+    j.at("eb").get_to(s.eb);
+    j.at("alpha").get_to(s.alpha);
+    j.at("T_top").get_to(s.T_top);
+    j.at("T_bott").get_to(s.T_bott);
+    j.at("T_wall").get_to(s.T_wall);
+    j.at("T_init").get_to(s.T_init);
+    j.at("steps").get_to(s.steps);
+    j.at("plotgap").get_to(s.plotgap);
+    j.at("offset").get_to(s.offset);
+    j.at("criteria").get_to(s.criteria);
+}
+
+inline ht3DSettings ht3DSettings::from_json(const std::string &fname)
+{
+    std::ifstream ifs(fname);
+    nlohmann::json j;
+    ifs >> j;
+    return j.get<ht3DSettings>();
 }
 
 #endif

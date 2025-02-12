@@ -29,8 +29,8 @@ int main(int argc, char **argv)
     T * decData = (T *)malloc(nbEle * sizeof(T));
     T * dx_result = (T *)malloc(nbEle * sizeof(T));
     T * dy_result = (T *)malloc(nbEle * sizeof(T));
-    T * decop_dx_result = (T *)malloc(nbEle * sizeof(T));
-    T * decop_dy_result = (T *)malloc(nbEle * sizeof(T));
+    T * ref_dx_result = (T *)malloc(nbEle * sizeof(T));
+    T * ref_dy_result = (T *)malloc(nbEle * sizeof(T));
 
     size_t cmpSize = 0;
     SZp_compress_2dLorenzo(oriData, cmpData, s.dim1, s.dim2, s.B, s.eb, cmpSize);
@@ -39,19 +39,19 @@ int main(int argc, char **argv)
     SZp_dxdy_2dLorenzo(cmpData, s.dim1, s.dim2, s.B, s.eb, dx_result, dy_result, intToDecmpState(stateType));
 
     SZp_decompress_2dLorenzo(decData, cmpData, s.dim1, s.dim2, s.B, s.eb);
-    compute_dxdy(s.dim1, s.dim2, decData, decop_dx_result, decop_dy_result);
+    compute_dxdy(s.dim1, s.dim2, decData, ref_dx_result, ref_dy_result);
     double err;
-    err = verify(decop_dx_result, dx_result, s.dim1, s.dim2);
+    err = verify_dxdy(ref_dx_result, dx_result, s.dim1, s.dim2);
     printf("dx max error = %.2e\n", err);
-    err = verify(decop_dy_result, dy_result, s.dim1, s.dim2);
+    err = verify_dxdy(ref_dy_result, dy_result, s.dim1, s.dim2);
     printf("dy max error = %.2e\n", err);
 
     free(decData);
     free(cmpData);
     free(dx_result);
     free(dy_result);
-    free(decop_dx_result);
-    free(decop_dy_result);
+    free(ref_dx_result);
+    free(ref_dy_result);
 
     return 0;
 }

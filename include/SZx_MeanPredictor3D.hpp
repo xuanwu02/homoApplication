@@ -150,7 +150,52 @@ double SZx_mean_3d_decOp(
     return mean;
 }
 
-double SZx_mean_3dMeanbased(
+double SZx_mean_3d_prePred(
+    unsigned char *cmpData, size_t dim1, size_t dim2, size_t dim3,
+    int blockSideLength, double errorBound
+){
+    DSize_3d size(dim1, dim2, dim3, blockSideLength);
+    int * signPredError = (int *)malloc(size.max_num_block_elements*sizeof(int));
+    unsigned char * signFlag = (unsigned char *)malloc(size.max_num_block_elements*sizeof(unsigned char));
+    int * blocks_mean_quant = (int *)malloc(size.num_blocks * sizeof(int));
+    unsigned char * encode_pos = cmpData + (FIXED_RATE_PER_BLOCK_BYTES + INT_BYTES) * size.num_blocks;
+    int64_t quant_sum = 0;
+    int block_ind = 0;
+    extract_block_mean(cmpData+size.num_blocks, blocks_mean_quant, size.num_blocks);
+    for(size_t x=0; x<size.block_dim1; x++){
+        int size_x = ((x+1)*size.Bsize < size.dim1) ? size.Bsize : size.dim1 - x*size.Bsize;
+        for(size_t y=0; y<size.block_dim2; y++){
+            int size_y = ((y+1)*size.Bsize < size.dim2) ? size.Bsize : size.dim2 - y*size.Bsize;
+            for(size_t z=0; z<size.block_dim3; z++){
+                int size_z = ((z+1)*size.Bsize < size.dim3) ? size.Bsize : size.dim3 - z*size.Bsize;
+                int block_size = size_x * size_y * size_z;
+                int mean_quant = blocks_mean_quant[block_ind];
+                int fixed_rate = (int)cmpData[block_ind++];
+                if(fixed_rate){
+                    size_t cmp_block_sign_length = (block_size + 7) / 8;
+                    convertByteArray2IntArray_fast_1b_args(block_size, encode_pos, cmp_block_sign_length, signFlag);
+                    encode_pos += cmp_block_sign_length;
+                    unsigned int savedbitsbytelength = Jiajun_extract_fixed_length_bits(encode_pos, block_size, signPredError, fixed_rate);
+                    encode_pos += savedbitsbytelength;
+                    convert2SignIntArray(signFlag, signPredError, block_size);
+                    int * pred_err_pos = signPredError;
+                    for(int i=0; i<block_size; i++){
+                        quant_sum += *pred_err_pos++ + mean_quant;
+                    }
+                }else{
+                    quant_sum += mean_quant * block_size;
+                }
+            }
+        }
+    }
+    free(signPredError);
+    free(signFlag);
+    free(blocks_mean_quant);
+    double mean = quant_sum * 2 * errorBound / size.nbEle;
+    return mean;
+}
+
+double SZx_mean_3d_postPred(
     unsigned char *cmpData, size_t dim1, size_t dim2, size_t dim3,
     int blockSideLength, double errorBound
 ){
@@ -176,11 +221,11 @@ double SZx_mean_3d(
             break;
         }
         case decmpState::prePred:{
-            mean = SZx_mean_3dMeanbased(cmpData, dim1, dim2, dim3, blockSideLength, errorBound);            
+            mean = SZx_mean_3d_prePred(cmpData, dim1, dim2, dim3, blockSideLength, errorBound);            
             break;
         }
         case decmpState::postPred:{
-            exit(0);
+            mean = SZx_mean_3d_postPred(cmpData, dim1, dim2, dim3, blockSideLength, errorBound);            
             break;
         }
     }
@@ -392,40 +437,71 @@ inline void dxdydzProcessBlockPlanePrePred(
     bool isTopPlane, bool isBottomPlane
 ){
     int size_x = ((x+1)*size.Bsize < size.dim1) ? size.Bsize : size.dim1 - x*size.Bsize;
-    size_t buffer_dim0_offset = (size.dim2 + 1) * (size.dim3 + 1);
-    size_t buffer_dim1_offset = size.dim3 + 1;
-    size_t buffer_index_offset = buffer_dim1_offset + 1;
-    const int * prevBlockPlaneBottom_pos = buffer_set->prevPlane_data_pos + (size.Bsize - 1) * buffer_dim0_offset - buffer_dim1_offset - 1;
-    const int * nextBlockPlaneTop_pos = buffer_set->nextPlane_data_pos - buffer_dim1_offset - 1;
-    const int * curr_plane = buffer_set->currPlane_data_pos - buffer_dim1_offset - 1;
+    const int * prevBlockPlaneBottom_pos = buffer_set->prevPlane_data_pos + (size.Bsize - 1) * buffer_set->buffer_dim0_offset - buffer_set->buffer_dim1_offset - 1;
+    const int * nextBlockPlaneTop_pos = buffer_set->nextPlane_data_pos - buffer_set->buffer_dim1_offset - 1;
+    if(!isTopPlane) memcpy(buffer_set->currPlane_data_pos-buffer_set->buffer_dim0_offset-buffer_set->buffer_dim1_offset-1, prevBlockPlaneBottom_pos, buffer_set->buffer_dim0_offset*sizeof(int));
+    if(!isBottomPlane) memcpy(buffer_set->currPlane_data_pos+size.Bsize*buffer_set->buffer_dim0_offset-buffer_set->buffer_dim1_offset-1, nextBlockPlaneTop_pos, buffer_set->buffer_dim0_offset*sizeof(int));
+    const int * curr_plane = buffer_set->currPlane_data_pos - buffer_set->buffer_dim1_offset - 1;
     for(int i=0; i<size_x; i++){
-        T * dx_pos = dx_start_pos + i * size.dim0_offset;
-        T * dy_pos = dy_start_pos + i * size.dim0_offset;
-        T * dz_pos = dz_start_pos + i * size.dim0_offset;
-        const int * prev_plane = i > 0 ? curr_plane - buffer_dim0_offset
-                               : isTopPlane ? curr_plane : prevBlockPlaneBottom_pos;
-        const int * next_plane = i < size_x - 1 ? curr_plane + buffer_dim0_offset
-                               : isBottomPlane ? curr_plane : nextBlockPlaneTop_pos;
-        const int * curr_row = curr_plane + buffer_dim1_offset + 1;
-        int coeff_dx = (isTopPlane && i == 0) || (isBottomPlane && i == size_x - 1) ? 2 : 1;
+        T * x_dx_pos = dx_start_pos + i * size.dim0_offset;
+        T * x_dy_pos = dy_start_pos + i * size.dim0_offset;
+        T * x_dz_pos = dz_start_pos + i * size.dim0_offset;
+        const int * prev_plane = curr_plane - buffer_set->buffer_dim0_offset;
+        const int * next_plane = curr_plane + buffer_set->buffer_dim0_offset;
+        const int * curr_row = curr_plane + buffer_set->buffer_dim1_offset + 1;
         for(size_t j=0; j<size.dim2; j++){
-            const int * prev_row = j == 0 ? curr_row : curr_row - buffer_dim1_offset;
-            const int * next_row = j == size.dim2 - 1 ? curr_row : curr_row + buffer_dim1_offset;
-            int coeff_dy = (j == 0) || (j == size.dim2 - 1) ? 2 : 1;
+            T * y_dx_pos = x_dx_pos + j * size.dim1_offset;
+            T * y_dy_pos = x_dy_pos + j * size.dim1_offset;
+            T * y_dz_pos = x_dz_pos + j * size.dim1_offset;
+            const int * prev_row = curr_row - buffer_set->buffer_dim1_offset;
+            const int * next_row = curr_row + buffer_set->buffer_dim1_offset;
             for(size_t k=0; k<size.dim3; k++){
-                size_t buffer_index = (j + 1) * buffer_dim1_offset + k + 1;
-                size_t res_index = j * size.dim1_offset + k;
-                size_t prev_k = k == 0 ? k : k - 1;
-                size_t next_k = k == size.dim3 - 1 ? k : k + 1;
-                int coeff_dz = (k == 0) || (k == size.dim3 - 1) ? 2 : 1;
-                dx_pos[res_index] = (next_plane[buffer_index] - prev_plane[buffer_index]) * coeff_dx * errorBound;
-                dy_pos[res_index] = (next_row[k] - prev_row[k]) * coeff_dy * errorBound;
-                dz_pos[res_index] = (curr_row[next_k] - curr_row[prev_k]) * coeff_dz * errorBound;
+                size_t index_1d = k;
+                // size_t buffer_index_1d = k + 1;
+                size_t buffer_index_2d = (j + 1) * buffer_set->buffer_dim1_offset + k + 1;
+                y_dx_pos[index_1d] = (next_plane[buffer_index_2d] - prev_plane[buffer_index_2d]) * errorBound;
+                y_dy_pos[index_1d] = (next_row[index_1d] - prev_row[index_1d]) * errorBound;
+                y_dz_pos[index_1d] = (curr_row[index_1d + 1] - curr_row[index_1d - 1]) * errorBound;
             }
-            curr_row += buffer_dim1_offset;
+            curr_row += buffer_set->buffer_dim1_offset;
         }
-        curr_plane += buffer_dim0_offset;
+        curr_plane += buffer_set->buffer_dim0_offset;
     }
+    // int size_x = ((x+1)*size.Bsize < size.dim1) ? size.Bsize : size.dim1 - x*size.Bsize;
+    // size_t buffer_dim0_offset = (size.dim2 + 1) * (size.dim3 + 1);
+    // size_t buffer_dim1_offset = size.dim3 + 1;
+    // size_t buffer_index_offset = buffer_dim1_offset + 1;
+    // const int * prevBlockPlaneBottom_pos = buffer_set->prevPlane_data_pos + (size.Bsize - 1) * buffer_dim0_offset - buffer_dim1_offset - 1;
+    // const int * nextBlockPlaneTop_pos = buffer_set->nextPlane_data_pos - buffer_dim1_offset - 1;
+    // const int * curr_plane = buffer_set->currPlane_data_pos - buffer_dim1_offset - 1;
+    // for(int i=0; i<size_x; i++){
+    //     T * dx_pos = dx_start_pos + i * size.dim0_offset;
+    //     T * dy_pos = dy_start_pos + i * size.dim0_offset;
+    //     T * dz_pos = dz_start_pos + i * size.dim0_offset;
+    //     const int * prev_plane = i > 0 ? curr_plane - buffer_dim0_offset
+    //                            : isTopPlane ? curr_plane : prevBlockPlaneBottom_pos;
+    //     const int * next_plane = i < size_x - 1 ? curr_plane + buffer_dim0_offset
+    //                            : isBottomPlane ? curr_plane : nextBlockPlaneTop_pos;
+    //     const int * curr_row = curr_plane + buffer_dim1_offset + 1;
+    //     int coeff_dx = (isTopPlane && i == 0) || (isBottomPlane && i == size_x - 1) ? 2 : 1;
+    //     for(size_t j=0; j<size.dim2; j++){
+    //         const int * prev_row = j == 0 ? curr_row : curr_row - buffer_dim1_offset;
+    //         const int * next_row = j == size.dim2 - 1 ? curr_row : curr_row + buffer_dim1_offset;
+    //         int coeff_dy = (j == 0) || (j == size.dim2 - 1) ? 2 : 1;
+    //         for(size_t k=0; k<size.dim3; k++){
+    //             size_t buffer_index = (j + 1) * buffer_dim1_offset + k + 1;
+    //             size_t res_index = j * size.dim1_offset + k;
+    //             size_t prev_k = k == 0 ? k : k - 1;
+    //             size_t next_k = k == size.dim3 - 1 ? k : k + 1;
+    //             int coeff_dz = (k == 0) || (k == size.dim3 - 1) ? 2 : 1;
+    //             dx_pos[res_index] = (next_plane[buffer_index] - prev_plane[buffer_index]) * coeff_dx * errorBound;
+    //             dy_pos[res_index] = (next_row[k] - prev_row[k]) * coeff_dy * errorBound;
+    //             dz_pos[res_index] = (curr_row[next_k] - curr_row[prev_k]) * coeff_dz * errorBound;
+    //         }
+    //         curr_row += buffer_dim1_offset;
+    //     }
+    //     curr_plane += buffer_dim0_offset;
+    // }
 }
 
 template <class T>
@@ -465,14 +541,15 @@ void SZx_dxdydz_3dLorenzo(
     int blockSideLength, double errorBound, T *dx_result,
     T *dy_result, T *dz_result, decmpState state
 ){
-    const DSize_3d size(dim1, dim2, dim3, blockSideLength);
-    size_t buffer_dim1 = size.Bsize + 1;
-    size_t buffer_dim2 = size.dim2 + 1;
-    size_t buffer_dim3 = size.dim3 + 1;
+    DSize_3d size(dim1, dim2, dim3, blockSideLength);
+    size_t buffer_dim1 = size.Bsize + 2;
+    size_t buffer_dim2 = size.dim2 + 2;
+    size_t buffer_dim3 = size.dim3 + 2;
     size_t buffer_size = buffer_dim1 * buffer_dim2 * buffer_dim3;
     int * Buffer_3d = (int *)malloc(buffer_size * 3 * sizeof(int));
     int * signPredError = (int *)malloc(size.max_num_block_elements*sizeof(int));
     unsigned char * signFlag = (unsigned char *)malloc(size.max_num_block_elements*sizeof(unsigned char));
+    T * decData = (T *)malloc(size.nbEle * sizeof(T));
     int * blocks_mean_quant = (int *)malloc(size.num_blocks * sizeof(int));
     SZxAppBufferSet_3d * buffer_set = new SZxAppBufferSet_3d(buffer_dim1, buffer_dim2, buffer_dim3, Buffer_3d, appType::CENTRALDIFF);
     SZxCmpBufferSet * cmpkit_set = new SZxCmpBufferSet(cmpData, blocks_mean_quant, signPredError, signFlag);
@@ -480,6 +557,10 @@ void SZx_dxdydz_3dLorenzo(
     T * dx_pos = dx_result;
     T * dy_pos = dy_result;
     T * dz_pos = dz_result;
+
+    struct timespec start, end;
+    double elapsed_time;
+    clock_gettime(CLOCK_REALTIME, &start);
     switch(state){
         case decmpState::postPred:{
             printf("Not implemented\n");
@@ -488,12 +569,21 @@ void SZx_dxdydz_3dLorenzo(
         case decmpState::prePred:{
             dxdydzProcessBlocksPrePred(size, cmpkit_set, buffer_set, encode_pos, dx_pos, dy_pos, dz_pos, errorBound);
         }
+        case decmpState::full:{
+            SZx_decompress_3dMeanbased(decData, cmpData, dim1, dim2, dim3, blockSideLength, errorBound);
+            compute_dxdydz(dim1, dim2, dim3, decData, dx_pos, dy_pos, dz_pos);
+        }
     }
+    clock_gettime(CLOCK_REALTIME, &end);
+    elapsed_time = get_elapsed_time(start, end);
+    printf("elapsed_time = %.6f\n", elapsed_time);
+
     delete buffer_set;
     delete cmpkit_set;
     free(Buffer_3d);
     free(signPredError);
     free(signFlag);
+    free(decData);
     free(blocks_mean_quant);
 }
 

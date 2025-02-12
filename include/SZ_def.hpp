@@ -2,8 +2,10 @@
 #define _SZ_DEF_HPP
 
 #include <cstdlib>
-#include <cstring>
 #include <cstdint>
+#include <stdexcept>
+#include <string>
+#include <cmath>
 
 #define INT_BITS 32
 #define INT_BYTES 4
@@ -12,12 +14,15 @@
 #define REG_COEFF_SIZE_2D 3
 #define REG_COEFF_SIZE_3D 4
 
-std::string work_dir = "/Users/xuanwu/github/backup/homoApplication";
+std::string heatdis2d_data_dir;
+int ht2d_plot_gap;
+int ht2d_plot_offset;
+double ht2d_criteria;
 
-std::string heatdis_data_dir;
-int ht_plot_gap;
-int ht_plot_offset;
-double ht_criteria;
+std::string heatdis3d_data_dir;
+int ht3d_plot_gap;
+int ht3d_plot_offset;
+double ht3d_criteria;
 
 std::string grayscott_data_dir;
 int gs_plot_gap;

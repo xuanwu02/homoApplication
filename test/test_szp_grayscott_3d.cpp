@@ -34,7 +34,7 @@ int main(int argc, char **argv)
     SZp_compress_3dLorenzo(u, u_cmpData, s.L, s.L, s.L, s.B, s.eb, u_cmpSize);
     SZp_compress_3dLorenzo(v, v_cmpData, s.L, s.L, s.L, s.B, s.eb, v_cmpSize);
 
-    SZp_grayscott_3dLorenzo<T>(u_cmpData, v_cmpData, s, intToDecmpState(stateType), true);
+    SZp_grayscott_3dLorenzo<T>(u_cmpData, v_cmpData, s, intToDecmpState(stateType), false);
 
     free(u);
     free(v);

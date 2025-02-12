@@ -5,7 +5,7 @@
 #include <cmath>
 #include <ctime>
 #include <cassert>
-#include "SZp_LorenzoPredictor3D.hpp"
+#include "SZx_MeanPredictor3D.hpp"
 #include "utils.hpp"
 #include "settings.hpp"
 
@@ -35,12 +35,12 @@ int main(int argc, char **argv)
     T * decop_dz_result = (T *)malloc(nbEle * sizeof(T));
 
     size_t cmpSize = 0;
-    SZp_compress_3dLorenzo(oriData, cmpData, s.dim1, s.dim2, s.dim3, s.B, s.eb, cmpSize);
+    SZx_compress_3dMeanbased(oriData, cmpData, s.dim1, s.dim2, s.dim3, s.B, s.eb, cmpSize);
     printf("cr = %.2f\n", 1.0 * nbEle * sizeof(T) / cmpSize);
 
-    SZp_dxdydz_3dLorenzo(cmpData, s.dim1, s.dim2, s.dim3, s.B, s.eb, dx_result, dy_result, dz_result, intToDecmpState(stateType));
+    SZx_dxdydz_3dLorenzo(cmpData, s.dim1, s.dim2, s.dim3, s.B, s.eb, dx_result, dy_result, dz_result, intToDecmpState(stateType));
 
-    SZp_decompress_3dLorenzo(decData, cmpData, s.dim1, s.dim2, s.dim3, s.B, s.eb);
+    SZx_decompress_3dMeanbased(decData, cmpData, s.dim1, s.dim2, s.dim3, s.B, s.eb);
     compute_dxdydz(s.dim1, s.dim2, s.dim3, decData, decop_dx_result, decop_dy_result, decop_dz_result);
     double err;
     err = verify_dxdydz(decop_dx_result, dx_result, s.dim1, s.dim2, s.dim3);

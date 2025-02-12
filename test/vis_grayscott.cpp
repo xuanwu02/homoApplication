@@ -11,8 +11,14 @@
 
 int main(int argc, char **argv)
 {
-    std::string gs_config(argv[1]);
+    int argv_id = 1;
+    std::string gs_config(argv[argv_id++]);
+    int run_reference = atoi(argv[argv_id++]);
+    grayscott_data_dir = argv[argv_id++];
     gsSettings s = gsSettings::from_json(gs_config);
+    gs_plot_gap = s.plotgap;
+    gs_plot_offset = s.offset;
+    gs_criteria = s.criteria;
 
     using T = double;
     size_t nbEle = s.L * s.L * s.L;
@@ -26,16 +32,19 @@ int main(int argc, char **argv)
     unsigned char * u_cmpData = (unsigned char *)malloc(buffer_size * sizeof(T));
     unsigned char * v_cmpData = (unsigned char *)malloc(buffer_size * sizeof(T));
 
-    gs.initData_noghost(u, v, u2, v2);
+    if(run_reference){
+        gs.initData(u, v, u2, v2);
+        gs.doWork(u, v, u2, v2, s.criteria, s.steps, s.plotgap, s.offset);
+        exit(0);
+    }
 
+    gs.initData_noghost(u, v, u2, v2);
     size_t u_cmpSize = 0, v_cmpSize = 0;
     SZp_compress_3dLorenzo(u, u_cmpData, s.L, s.L, s.L, s.B, s.eb, u_cmpSize);
     SZp_compress_3dLorenzo(v, v_cmpData, s.L, s.L, s.L, s.B, s.eb, v_cmpSize);
 
     SZp_grayscott_3dLorenzo<T>(u_cmpData, v_cmpData, s, decmpState::full, true);
     SZp_grayscott_3dLorenzo<T>(u_cmpData, v_cmpData, s, decmpState::prePred, true);
-    gs.initData(u, v, u2, v2);
-    gs.doWork(u, v, u2, v2, s.criteria, s.steps, s.plotgap, s.offset);
 
     free(u);
     free(v);
