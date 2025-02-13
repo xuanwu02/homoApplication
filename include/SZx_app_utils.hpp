@@ -187,6 +187,22 @@ inline void compute_block_mean_difference(
 
 template <class T>
 inline int compute_block_mean_quant(
+    int block_size, const T *data_pos, int *block_buffer, double errorBound
+){
+    int64_t sum = 0;
+    int * block_buffer_pos = block_buffer;
+    const T * curr_data_pos = data_pos;
+    for(int i=0; i<block_size; i++){
+        int curr_quant = SZ_quantize(*curr_data_pos++, errorBound);
+        *block_buffer_pos++ = curr_quant;
+        sum += curr_quant;
+    }
+    int mean_quant = sum / block_size;
+    return mean_quant;
+}
+
+template <class T>
+inline int compute_block_mean_quant(
     int size_x, int size_y, size_t dim0_offset,
     const T *data_pos, int *block_buffer, double errorBound
 ){
