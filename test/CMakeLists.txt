@@ -11,7 +11,8 @@ endfunction()
 # endforeach(TEST_FILE)
 
 add_my_executable(test_szx_derivative_2d test_szx_derivative_2d.cpp)
-add_my_executable(test_szp_derivative_2d test_szp_derivative_2d.cpp)
-add_my_executable(test_szp_derivative_3d test_szp_derivative_3d.cpp)
+add_my_executable(test_szx_derivative_2d_nd test_szx_derivative_2d_nd.cpp)
+# add_my_executable(test_szp_derivative_2d test_szp_derivative_2d.cpp)
+# add_my_executable(test_szp_derivative_3d test_szp_derivative_3d.cpp)
 
-add_my_executable(test_szx_derivative_3d test_szx_derivative_3d.cpp)
+# add_my_executable(test_szx_heatdis_2d test_szx_heatdis_2d.cpp)

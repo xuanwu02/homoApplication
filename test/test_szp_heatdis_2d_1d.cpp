@@ -15,6 +15,9 @@ int main(int argc, char **argv)
     std::string ht_config(argv[argv_id++]);
     int stateType = atoi(argv[argv_id++]);
     ht2DSettings s = ht2DSettings::from_json(ht_config);
+    ht2d_plot_gap = s.plotgap;
+    ht2d_plot_offset = s.offset;
+    ht2d_criteria = s.criteria;
 
     printf("2D heat distribution (1D lorenzo): stateType = %d, B = %d, eb = %g, gap = %d\n", stateType, s.B, s.eb, s.plotgap);
 

@@ -457,7 +457,6 @@ inline void dxdydzProcessBlockPlanePrePred(
             const int * next_row = curr_row + buffer_set->buffer_dim1_offset;
             for(size_t k=0; k<size.dim3; k++){
                 size_t index_1d = k;
-                // size_t buffer_index_1d = k + 1;
                 size_t buffer_index_2d = (j + 1) * buffer_set->buffer_dim1_offset + k + 1;
                 y_dx_pos[index_1d] = (next_plane[buffer_index_2d] - prev_plane[buffer_index_2d]) * errorBound;
                 y_dy_pos[index_1d] = (next_row[index_1d] - prev_row[index_1d]) * errorBound;
@@ -467,41 +466,6 @@ inline void dxdydzProcessBlockPlanePrePred(
         }
         curr_plane += buffer_set->buffer_dim0_offset;
     }
-    // int size_x = ((x+1)*size.Bsize < size.dim1) ? size.Bsize : size.dim1 - x*size.Bsize;
-    // size_t buffer_dim0_offset = (size.dim2 + 1) * (size.dim3 + 1);
-    // size_t buffer_dim1_offset = size.dim3 + 1;
-    // size_t buffer_index_offset = buffer_dim1_offset + 1;
-    // const int * prevBlockPlaneBottom_pos = buffer_set->prevPlane_data_pos + (size.Bsize - 1) * buffer_dim0_offset - buffer_dim1_offset - 1;
-    // const int * nextBlockPlaneTop_pos = buffer_set->nextPlane_data_pos - buffer_dim1_offset - 1;
-    // const int * curr_plane = buffer_set->currPlane_data_pos - buffer_dim1_offset - 1;
-    // for(int i=0; i<size_x; i++){
-    //     T * dx_pos = dx_start_pos + i * size.dim0_offset;
-    //     T * dy_pos = dy_start_pos + i * size.dim0_offset;
-    //     T * dz_pos = dz_start_pos + i * size.dim0_offset;
-    //     const int * prev_plane = i > 0 ? curr_plane - buffer_dim0_offset
-    //                            : isTopPlane ? curr_plane : prevBlockPlaneBottom_pos;
-    //     const int * next_plane = i < size_x - 1 ? curr_plane + buffer_dim0_offset
-    //                            : isBottomPlane ? curr_plane : nextBlockPlaneTop_pos;
-    //     const int * curr_row = curr_plane + buffer_dim1_offset + 1;
-    //     int coeff_dx = (isTopPlane && i == 0) || (isBottomPlane && i == size_x - 1) ? 2 : 1;
-    //     for(size_t j=0; j<size.dim2; j++){
-    //         const int * prev_row = j == 0 ? curr_row : curr_row - buffer_dim1_offset;
-    //         const int * next_row = j == size.dim2 - 1 ? curr_row : curr_row + buffer_dim1_offset;
-    //         int coeff_dy = (j == 0) || (j == size.dim2 - 1) ? 2 : 1;
-    //         for(size_t k=0; k<size.dim3; k++){
-    //             size_t buffer_index = (j + 1) * buffer_dim1_offset + k + 1;
-    //             size_t res_index = j * size.dim1_offset + k;
-    //             size_t prev_k = k == 0 ? k : k - 1;
-    //             size_t next_k = k == size.dim3 - 1 ? k : k + 1;
-    //             int coeff_dz = (k == 0) || (k == size.dim3 - 1) ? 2 : 1;
-    //             dx_pos[res_index] = (next_plane[buffer_index] - prev_plane[buffer_index]) * coeff_dx * errorBound;
-    //             dy_pos[res_index] = (next_row[k] - prev_row[k]) * coeff_dy * errorBound;
-    //             dz_pos[res_index] = (curr_row[next_k] - curr_row[prev_k]) * coeff_dz * errorBound;
-    //         }
-    //         curr_row += buffer_dim1_offset;
-    //     }
-    //     curr_plane += buffer_dim0_offset;
-    // }
 }
 
 template <class T>

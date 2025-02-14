@@ -6,7 +6,7 @@
 #include <cstring>
 #include <string>
 #include <vector>
-#include "typemanager.hpp"
+#include "typemanager_nd_one_pass.hpp"
 #include "SZx_app_utils.hpp"
 #include "utils.hpp"
 #include "settings.hpp"
@@ -417,13 +417,8 @@ inline void recoverBlockRow2PostPred(
             size_t cmp_block_sign_length = (block_size + 7) / 8;
             convertByteArray2IntArray_fast_1b_args(block_size, encode_pos, cmp_block_sign_length, cmpkit_set->signFlag);
             encode_pos += cmp_block_sign_length;
-            unsigned int savedbitsbytelength = Jiajun_extract_fixed_length_bits(encode_pos, block_size, cmpkit_set->signPredError, fixed_rate);
+            unsigned int savedbitsbytelength = extract_fixed_length_bits_2D(encode_pos, block_size, buffer_start_pos, fixed_rate, cmpkit_set->signFlag, size_x, size_y, buffer_dim0_offset);
             encode_pos += savedbitsbytelength;
-            convert2SignIntArray(cmpkit_set->signFlag, cmpkit_set->signPredError, block_size);
-            int * data_pos = cmpkit_set->signPredError;
-            for(int i=0; i<size_x; i++){
-                memcpy(curr_buffer_pos+i*buffer_dim0_offset, data_pos+i*size_y, size_y*sizeof(int));
-            }
         }
         buffer_start_pos += size.Bsize;
     }
@@ -766,16 +761,14 @@ inline void heatdisUpdatePrePred(
     int iter = 0;
     while(iter < max_iter){
         iter++;
-        if(iter >= ht2d_plot_offset && iter % ht2d_plot_gap == 0){
-            if(record){
+        if(record){
+            if(iter >= ht2d_plot_offset && iter % ht2d_plot_gap == 0){
                 SZx_decompress_2dMeanbased(h, cmpkit_set->cmpData[current], size.dim1, size.dim2, size.Bsize, errorBound);
                 std::string h_name = heatdis2d_data_dir + "/h.M2.pre." + std::to_string(iter-1);
                 writefile(h_name.c_str(), h, size.nbEle);
+                cmpSize = FIXED_RATE_PER_BLOCK_BYTES * size.num_blocks + cmpkit_set->cmpSize;
+                printf("prepred iter %d: cr = %.2f\n", iter-1, 1.0 * size.nbEle * sizeof(T) / cmpSize);
             }
-            cmpSize = FIXED_RATE_PER_BLOCK_BYTES * size.num_blocks + cmpkit_set->cmpSize;
-            printf("prepred iter %d: cr = %.2f\n", iter-1, 1.0 * size.nbEle * sizeof(T) / cmpSize);
-            printf("prepred iter %d: time = %.6f\n", iter-1, elapsed_time);
-            fflush(stdout);
         }
         clock_gettime(CLOCK_REALTIME, &start);
         heatdisUpdatePrePred(size, cmpkit_set, buffer_set, temp_info, errorBound, current, next, iter);
@@ -823,10 +816,11 @@ inline void heatdisUpdateDOC(
         SZx_decompress_2dMeanbased(h, compressed, dim1_padded, dim2_padded, size.Bsize, errorBound);
         clock_gettime(CLOCK_REALTIME, &end);
         elapsed_time += get_elapsed_time(start, end);
-        if(iter >= ht2d_plot_offset && iter % ht2d_plot_gap == 0){
-            if(record){
+        if(record){
+            if(iter >= ht2d_plot_offset && iter % ht2d_plot_gap == 0){
                 std::string h_name = heatdis2d_data_dir + "/h.M2.doc." + std::to_string(iter-1);
                 writefile(h_name.c_str(), h, nbEle_padded);
+                printf("doc iter %d: cr = %.2f\n", iter-1, 1.0 * nbEle_padded * sizeof(T) / cmpSize);
             }
         }
         clock_gettime(CLOCK_REALTIME, &start);
@@ -835,11 +829,6 @@ inline void heatdisUpdateDOC(
         SZx_compress_2dMeanbased(h, compressed, dim1_padded, dim2_padded, size.Bsize, errorBound, cmpSize);
         clock_gettime(CLOCK_REALTIME, &end);
         elapsed_time += get_elapsed_time(start, end);
-        if(iter >= ht2d_plot_offset && iter % ht2d_plot_gap == 0){
-            printf("doc iter %d: cr = %.2f\n", iter-1, 1.0 * nbEle_padded * sizeof(T) / cmpSize);
-            printf("doc iter %d: time = %.6f\n", iter-1, elapsed_time);
-            fflush(stdout);
-        }
     }
     {
         std::string h_name = heatdis2d_data_dir + "/h.M2.doc." + std::to_string(iter);

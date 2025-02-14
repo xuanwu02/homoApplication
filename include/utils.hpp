@@ -88,14 +88,14 @@ double get_elapsed_time(struct timespec &start, struct timespec &end){
     return (double)(end.tv_sec - start.tv_sec) + (double)(end.tv_nsec - start.tv_nsec)/(double)1000000000;
 }
 
-// template <class T>
-// void initRandomData(T min, T max, unsigned int seed, size_t n, T *data){
-//     std::mt19937 generator(seed);  
-//     std::uniform_real_distribution<T> distribution(min, max);
-//     for(size_t i=0; i<n; i++){
-//         data[i] = distribution(generator);
-//     }
-// }
+template <class T>
+void initRandomData(T min, T max, unsigned int seed, size_t n, T *data){
+    std::mt19937 generator(seed);  
+    std::uniform_real_distribution<T> distribution(min, max);
+    for(size_t i=0; i<n; i++){
+        data[i] = distribution(generator);
+    }
+}
 
 template <class T>
 double verify(const T *oriData, const T *decData, size_t dim1, size_t dim2)

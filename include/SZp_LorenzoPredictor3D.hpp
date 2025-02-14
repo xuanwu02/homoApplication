@@ -1361,7 +1361,7 @@ inline void grayscottUpdatePrePred(
     SZpCmpBufferSet *vCmpkit,
     double errorBound,
     int max_iter,
-    bool verb
+    bool record
 ){
     struct timespec start, end;
     double elapsed_time = 0;
@@ -1372,7 +1372,7 @@ inline void grayscottUpdatePrePred(
     int iter = 0;
     while(iter < max_iter){
         iter++;
-        if(verb){
+        if(record){
             if(iter >= gs_plot_offset && iter % gs_plot_gap == 0){
                 SZp_decompress_3dLorenzo(u, uCmpkit->cmpData[current], size.dim1, size.dim2, size.dim3, size.Bsize, errorBound);
                 SZp_decompress_3dLorenzo(v, vCmpkit->cmpData[current], size.dim1, size.dim2, size.dim3, size.Bsize, errorBound);
@@ -1421,7 +1421,7 @@ inline void grayscottUpdateDOC(
     GrayScott *grayscott,
     double errorBound,
     int max_iter,
-    bool verb
+    bool record
 ){
     struct timespec start, end;
     double elapsed_time = 0;
@@ -1444,7 +1444,7 @@ inline void grayscottUpdateDOC(
         SZp_decompress_3dLorenzo(v, v_compressed, dim1_padded, dim2_padded, dim3_padded, size.Bsize, errorBound);
         clock_gettime(CLOCK_REALTIME, &end);
         elapsed_time += get_elapsed_time(start, end);
-        if(verb){
+        if(record){
             if(iter >= gs_plot_offset && iter % gs_plot_gap == 0){
                 std::string u_name = grayscott_data_dir + "/u.doc." + std::to_string(iter-1);
                 std::string v_name = grayscott_data_dir + "/v.doc." + std::to_string(iter-1);
@@ -1489,7 +1489,7 @@ void SZp_grayscott_3dLorenzo(
     unsigned char *vCmpDataBuffer,
     size_t L, int blockSideLength,
     int max_iter, double errorBound,
-    decmpState state, bool verb
+    decmpState state, bool record
 ){
     DSize_3d size(L, L, L, blockSideLength);
     size_t buffer_dim1 = size.Bsize + 2;
@@ -1555,11 +1555,11 @@ void SZp_grayscott_3dLorenzo(
 
     switch(state){
         case decmpState::full:{
-            grayscottUpdateDOC<T>(size, dim1_padded, buffer_dim2, buffer_dim3, nbEle_padded, grayscott, errorBound, max_iter, verb);
+            grayscottUpdateDOC<T>(size, dim1_padded, buffer_dim2, buffer_dim3, nbEle_padded, grayscott, errorBound, max_iter, record);
             break;
         }
         case decmpState::prePred:{
-            grayscottUpdatePrePred<T>(size, grayscott, uAppBuffer, vAppBuffer, uCmpkit, vCmpkit, errorBound, max_iter, verb);
+            grayscottUpdatePrePred<T>(size, grayscott, uAppBuffer, vAppBuffer, uCmpkit, vCmpkit, errorBound, max_iter, record);
             break;
         }
         case decmpState::postPred:{
@@ -1599,9 +1599,9 @@ template <class T>
 void SZp_grayscott_3dLorenzo(
     unsigned char *uCmpDataBuffer,
     unsigned char *vCmpDataBuffer,
-    gsSettings& s, decmpState state, bool verb
+    gsSettings& s, decmpState state, bool record
 ){
-    SZp_grayscott_3dLorenzo<T>(s.Du, s.Dv, s.F, s.k, s.dt, uCmpDataBuffer, vCmpDataBuffer, s.L, s.B, s.steps, s.eb, state, verb);
+    SZp_grayscott_3dLorenzo<T>(s.Du, s.Dv, s.F, s.k, s.dt, uCmpDataBuffer, vCmpDataBuffer, s.L, s.B, s.steps, s.eb, state, record);
 }
 
 // 3d heat diffusion
@@ -1694,7 +1694,7 @@ inline void heatdisUpdatePrePred(
     SZpCmpBufferSet *cmpkit_set,
     double errorBound,
     int max_iter,
-    bool verb
+    bool record
 ){
     struct timespec start, end;
     double elapsed_time = 0;
@@ -1704,7 +1704,7 @@ inline void heatdisUpdatePrePred(
     int iter = 0;
     while(iter < max_iter){
         iter++;
-        if(verb){
+        if(record){
             if(iter >= ht3d_plot_offset && iter % ht3d_plot_gap == 0){
                 SZp_decompress_3dLorenzo(h, cmpkit_set->cmpData[current], size.dim1, size.dim2, size.dim3, size.Bsize, errorBound);
                 std::string h_name = heatdis3d_data_dir + "/h.L3.pre." + std::to_string(iter-1);
@@ -1742,7 +1742,7 @@ inline void heatdisUpdateDOC(
     TempInfo3D& temp_info,
     double errorBound,
     int max_iter,
-    bool verb
+    bool record
 ){
     struct timespec start, end;
     double elapsed_time = 0;
@@ -1761,7 +1761,7 @@ inline void heatdisUpdateDOC(
         SZp_decompress_3dLorenzo(h, compressed, dim1_padded, dim2_padded, dim3_padded, size.Bsize, errorBound);
         clock_gettime(CLOCK_REALTIME, &end);
         elapsed_time += get_elapsed_time(start, end);
-        if(verb){
+        if(record){
             if(iter >= ht3d_plot_offset && iter % ht3d_plot_gap == 0){
                 std::string h_name = heatdis3d_data_dir + "/h.L3.doc." + std::to_string(iter-1);
                 writefile(h_name.c_str(), h, nbEle_padded);
@@ -1795,7 +1795,7 @@ void SZp_heatdis_3dLorenzo(
     float T_top, float T_bott,
     float T_wall, float T_init,
     float alpha, double errorBound,
-    decmpState state, bool verb
+    decmpState state, bool record
 ){
     DSize_3d size(dim1, dim2, dim3, blockSideLength);
     size_t buffer_dim1 = size.Bsize + 2;
@@ -1847,11 +1847,11 @@ void SZp_heatdis_3dLorenzo(
 
     switch(state){
         case decmpState::full:{
-            heatdisUpdateDOC<T>(size, dim1_padded, buffer_dim2, buffer_dim3, heatdis, temp_info, errorBound, max_iter, verb);
+            heatdisUpdateDOC<T>(size, dim1_padded, buffer_dim2, buffer_dim3, heatdis, temp_info, errorBound, max_iter, record);
             break;
         }
         case decmpState::prePred:{
-            heatdisUpdatePrePred<T>(size, heatdis, temp_info, buffer_set, cmpkit_set, errorBound, max_iter, verb);
+            heatdisUpdatePrePred<T>(size, heatdis, temp_info, buffer_set, cmpkit_set, errorBound, max_iter, record);
             break;
         }
         case decmpState::postPred:{
@@ -1877,9 +1877,9 @@ void SZp_heatdis_3dLorenzo(
 
 template <class T>
 void SZp_heatdis_3dLorenzo(
-    unsigned char *cmpDataBuffer, ht3DSettings& s, decmpState state, bool verb
+    unsigned char *cmpDataBuffer, ht3DSettings& s, decmpState state, bool record
 ){
-    SZp_heatdis_3dLorenzo<T>(cmpDataBuffer, s.dim1, s.dim2, s.dim3, s.B, s.steps, s.T_top, s.T_bott, s.T_wall, s.T_init, s.alpha, s.eb, state, verb);
+    SZp_heatdis_3dLorenzo<T>(cmpDataBuffer, s.dim1, s.dim2, s.dim3, s.B, s.steps, s.T_top, s.T_bott, s.T_wall, s.T_init, s.alpha, s.eb, state, record);
 }
 
 #endif

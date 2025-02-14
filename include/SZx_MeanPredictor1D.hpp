@@ -249,7 +249,7 @@ inline void heatdisUpdatePrePred(
     TempInfo2D& temp_info,
     double errorBound,
     int max_iter,
-    bool verb
+    bool record
 ){
     struct timespec start, end;
     double elapsed_time = 0;
@@ -259,7 +259,7 @@ inline void heatdisUpdatePrePred(
     int iter = 0;
     while(iter < max_iter){
         iter++;
-        if(verb){
+        if(record){
             if(iter >= ht2d_plot_offset && iter % ht2d_plot_gap == 0){
                 SZx_decompress_1dMeanbased(h, cmpkit_set->cmpData[current], size.dim1, size.dim2, size.Bsize, errorBound);
                 std::string h_name = heatdis2d_data_dir + "/h.M1.pre." + std::to_string(iter-1);
@@ -294,7 +294,7 @@ inline void heatdisUpdateDOC(
     TempInfo2D& temp_info,
     double errorBound,
     int max_iter,
-    bool verb
+    bool record
 ){
     struct timespec start, end;
     double elapsed_time = 0;
@@ -314,7 +314,7 @@ inline void heatdisUpdateDOC(
         SZx_decompress_1dMeanbased(h, compressed, dim1_padded, dim2_padded, size.Bsize, errorBound);
         clock_gettime(CLOCK_REALTIME, &end);
         elapsed_time += get_elapsed_time(start, end);
-        if(verb){
+        if(record){
             if(iter >= ht2d_plot_offset && iter % ht2d_plot_gap == 0){
                 std::string h_name = heatdis2d_data_dir + "/h.M1.doc." + std::to_string(iter-1);
                 writefile(h_name.c_str(), h, nbEle_padded);
@@ -347,7 +347,7 @@ void SZx_heatdis_1dMeanbased(
     float source_temp, float wall_temp,
     float init_temp, float ratio,
     double errorBound,
-    decmpState state, bool verb
+    decmpState state, bool record
 ){
     DSize_1d size(dim1, dim2, blockSideLength);
     size_t numblockRow = (size.dim1 - 1) / size.Bwidth + 1;
@@ -396,11 +396,11 @@ void SZx_heatdis_1dMeanbased(
             break;
         }
         case decmpState::prePred:{
-            heatdisUpdatePrePred<T>(size, numblockRow, cmpkit_set, buffer_set, temp_info, errorBound, max_iter, verb);
+            heatdisUpdatePrePred<T>(size, numblockRow, cmpkit_set, buffer_set, temp_info, errorBound, max_iter, record);
             break;
         }
         case decmpState::full:{
-            heatdisUpdateDOC<T>(size, dim1_padded, buffer_dim2, temp_info, errorBound, max_iter, verb);
+            heatdisUpdateDOC<T>(size, dim1_padded, buffer_dim2, temp_info, errorBound, max_iter, record);
             break;
         }
     }
@@ -422,9 +422,9 @@ void SZx_heatdis_1dMeanbased(
 
 template <class T>
 void SZx_heatdis_1dMeanbased(
-    unsigned char *cmpDataBuffer, ht2DSettings& s, decmpState state, bool verb
+    unsigned char *cmpDataBuffer, ht2DSettings& s, decmpState state, bool record
 ){
-    SZx_heatdis_1dMeanbased<T>(cmpDataBuffer, s.dim1, s.dim2, s.B, s.steps, s.src_temp, s.wall_temp, s.init_temp, s.ratio, s.eb, state, verb);
+    SZx_heatdis_1dMeanbased<T>(cmpDataBuffer, s.dim1, s.dim2, s.B, s.steps, s.src_temp, s.wall_temp, s.init_temp, s.ratio, s.eb, state, record);
 }
 
 #endif
