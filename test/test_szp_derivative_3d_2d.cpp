@@ -43,11 +43,11 @@ int main(int argc, char **argv)
     SZp_decompress_2dLorenzo(decData, cmpData, s.dim1, s.dim2, s.dim3, s.B, s.eb);
     compute_dxdydz(s.dim1, s.dim2, s.dim3, decData, decop_dx_result, decop_dy_result, decop_dz_result);
     double err;
-    err = verify(decop_dx_result, dx_result, s.dim1, s.dim2, s.dim3);
+    err = verify_dxdydz(decop_dx_result, dx_result, s.dim1, s.dim2, s.dim3);
     printf("dx max error = %.2e\n", err);
-    err = verify(decop_dy_result, dy_result, s.dim1, s.dim2, s.dim3);
+    err = verify_dxdydz(decop_dy_result, dy_result, s.dim1, s.dim2, s.dim3);
     printf("dy max error = %.2e\n", err);
-    err = verify(decop_dz_result, dz_result, s.dim1, s.dim2, s.dim3);
+    err = verify_dxdydz(decop_dz_result, dz_result, s.dim1, s.dim2, s.dim3);
     printf("dz max error = %.2e\n", err);
 
     free(decData);

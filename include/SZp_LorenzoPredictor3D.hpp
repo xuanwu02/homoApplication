@@ -149,6 +149,137 @@ void SZp_decompress_3dLorenzo(
     free(signFlag);
 }
 
+void SZp_decompress_to_PrePred_3dLorenzo(
+    int *decData, unsigned char *cmpData,
+    size_t dim1, size_t dim2, size_t dim3, int blockSideLength,
+    double errorBound
+){
+    DSize_3d size(dim1, dim2, dim3, blockSideLength);
+    size_t buffer_dim0_offset = (size.dim2 + 1) * (size.dim3 + 1);
+    size_t buffer_dim1_offset = size.dim3 + 1;
+    int * pred_buffer = (int *)malloc((size.Bsize+1)*(size.dim2+1)*(size.dim3+1)*sizeof(int));
+    memset(pred_buffer, 0, (size.Bsize+1)*(size.dim2+1)*(size.dim3+1)*sizeof(int));
+    int * signPredError = (int *)malloc(size.max_num_block_elements*sizeof(int));
+    unsigned char * signFlag = (unsigned char *)malloc(size.max_num_block_elements*sizeof(unsigned char));
+    int * x_data_pos = decData;
+    unsigned char * cmpData_pos = cmpData + size.num_blocks;
+    int block_ind = 0;
+    for(size_t x=0; x<size.block_dim1; x++){
+        int * y_data_pos = x_data_pos;
+        int * buffer_start_pos = pred_buffer + buffer_dim0_offset + buffer_dim1_offset + 1;
+        for(size_t y=0; y<size.block_dim2; y++){
+            int * z_data_pos = y_data_pos;
+            for(size_t z=0; z<size.block_dim3; z++){
+                int size_x = ((x+1)*size.Bsize < size.dim1) ? size.Bsize : size.dim1 - x*size.Bsize;
+                int size_y = ((y+1)*size.Bsize < size.dim2) ? size.Bsize : size.dim2 - y*size.Bsize;
+                int size_z = ((z+1)*size.Bsize < size.dim3) ? size.Bsize : size.dim3 - z*size.Bsize;
+                int block_size = size_x * size_y * size_z;
+                int fixed_rate = (int)cmpData[block_ind++];
+                if(!fixed_rate){
+                    memset(signPredError, 0, size.max_num_block_elements*sizeof(int));
+                }else{
+                    size_t cmp_block_sign_length = (block_size + 7) / 8;
+                    convertByteArray2IntArray_fast_1b_args(block_size, cmpData_pos, cmp_block_sign_length, signFlag);
+                    cmpData_pos += cmp_block_sign_length;
+                    unsigned int savedbitsbytelength = Jiajun_extract_fixed_length_bits(cmpData_pos, block_size, signPredError, fixed_rate);
+                    cmpData_pos += savedbitsbytelength;
+                    convert2SignIntArray(signFlag, signPredError, block_size);
+                }
+                int * curr_data_pos = z_data_pos;
+                int * block_buffer_pos = buffer_start_pos;
+                for(int i=0; i<size_x; i++){
+                    for(int j=0; j<size_y; j++){
+                        memcpy(block_buffer_pos, signPredError+i*size_y*size_z+j*size_z, size_z*sizeof(int));
+                        int * curr_buffer_pos = block_buffer_pos;
+                        for(int k=0; k<size_z; k++){
+                            recover_lorenzo_3d(curr_buffer_pos, buffer_dim0_offset, buffer_dim1_offset);
+                            *curr_data_pos++ = *curr_buffer_pos++;
+                        }
+                        block_buffer_pos += buffer_dim1_offset;
+                        curr_data_pos += size.dim1_offset - size_z;
+                    }
+                    block_buffer_pos += buffer_dim0_offset - size_y * buffer_dim1_offset;
+                    curr_data_pos += size.dim0_offset - size_y * size.dim1_offset;
+                }
+                buffer_start_pos += size.Bsize;
+                z_data_pos += size_z;
+            }
+            buffer_start_pos += size.Bsize * buffer_dim1_offset - size.Bsize * size.block_dim3;
+            y_data_pos += size.Bsize * size.dim1_offset;
+        }
+        memcpy(pred_buffer, pred_buffer+size.Bsize*buffer_dim0_offset, buffer_dim0_offset*sizeof(int));
+        x_data_pos += size.Bsize * size.dim0_offset;
+    }
+    free(pred_buffer);
+    free(signPredError);
+    free(signFlag);
+}
+
+void SZp_decompress_to_PostPred_3dLorenzo(
+    int *decData, unsigned char *cmpData,
+    size_t dim1, size_t dim2, size_t dim3, int blockSideLength,
+    double errorBound
+){
+    DSize_3d size(dim1, dim2, dim3, blockSideLength);
+    size_t buffer_dim0_offset = (size.dim2 + 1) * (size.dim3 + 1);
+    size_t buffer_dim1_offset = size.dim3 + 1;
+    int * pred_buffer = (int *)malloc((size.Bsize+1)*(size.dim2+1)*(size.dim3+1)*sizeof(int));
+    memset(pred_buffer, 0, (size.Bsize+1)*(size.dim2+1)*(size.dim3+1)*sizeof(int));
+    int * signPredError = (int *)malloc(size.max_num_block_elements*sizeof(int));
+    unsigned char * signFlag = (unsigned char *)malloc(size.max_num_block_elements*sizeof(unsigned char));
+    int * x_data_pos = decData;
+    unsigned char * cmpData_pos = cmpData + size.num_blocks;
+    int block_ind = 0;
+    for(size_t x=0; x<size.block_dim1; x++){
+        int * y_data_pos = x_data_pos;
+        int * buffer_start_pos = pred_buffer + buffer_dim0_offset + buffer_dim1_offset + 1;
+        for(size_t y=0; y<size.block_dim2; y++){
+            int * z_data_pos = y_data_pos;
+            for(size_t z=0; z<size.block_dim3; z++){
+                int size_x = ((x+1)*size.Bsize < size.dim1) ? size.Bsize : size.dim1 - x*size.Bsize;
+                int size_y = ((y+1)*size.Bsize < size.dim2) ? size.Bsize : size.dim2 - y*size.Bsize;
+                int size_z = ((z+1)*size.Bsize < size.dim3) ? size.Bsize : size.dim3 - z*size.Bsize;
+                int block_size = size_x * size_y * size_z;
+                int fixed_rate = (int)cmpData[block_ind++];
+                if(!fixed_rate){
+                    memset(signPredError, 0, size.max_num_block_elements*sizeof(int));
+                }else{
+                    size_t cmp_block_sign_length = (block_size + 7) / 8;
+                    convertByteArray2IntArray_fast_1b_args(block_size, cmpData_pos, cmp_block_sign_length, signFlag);
+                    cmpData_pos += cmp_block_sign_length;
+                    unsigned int savedbitsbytelength = Jiajun_extract_fixed_length_bits(cmpData_pos, block_size, signPredError, fixed_rate);
+                    cmpData_pos += savedbitsbytelength;
+                    convert2SignIntArray(signFlag, signPredError, block_size);
+                }
+                int * curr_data_pos = z_data_pos;
+                int * block_buffer_pos = buffer_start_pos;
+                for(int i=0; i<size_x; i++){
+                    for(int j=0; j<size_y; j++){
+                        memcpy(block_buffer_pos, signPredError+i*size_y*size_z+j*size_z, size_z*sizeof(int));
+                        int * curr_buffer_pos = block_buffer_pos;
+                        for(int k=0; k<size_z; k++){
+                            *curr_data_pos++ = *curr_buffer_pos++;
+                        }
+                        block_buffer_pos += buffer_dim1_offset;
+                        curr_data_pos += size.dim1_offset - size_z;
+                    }
+                    block_buffer_pos += buffer_dim0_offset - size_y * buffer_dim1_offset;
+                    curr_data_pos += size.dim0_offset - size_y * size.dim1_offset;
+                }
+                buffer_start_pos += size.Bsize;
+                z_data_pos += size_z;
+            }
+            buffer_start_pos += size.Bsize * buffer_dim1_offset - size.Bsize * size.block_dim3;
+            y_data_pos += size.Bsize * size.dim1_offset;
+        }
+        memcpy(pred_buffer, pred_buffer+size.Bsize*buffer_dim0_offset, buffer_dim0_offset*sizeof(int));
+        x_data_pos += size.Bsize * size.dim0_offset;
+    }
+    free(pred_buffer);
+    free(signPredError);
+    free(signFlag);
+}
+
 double SZp_mean_3dLorenzo_recover2PostPred(
     unsigned char *cmpData, size_t dim1, size_t dim2, size_t dim3,
     int blockSideLength, double errorBound

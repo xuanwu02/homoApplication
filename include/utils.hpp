@@ -267,29 +267,6 @@ void compute_dxdydz(
             curr_row += dim1_offset;
         }
     }
-    // for(i=0; i<dim1; i++){
-    //     const T * prev_plane = i == 0 ? curr_plane : curr_plane - dim0_offset;
-    //     const T * next_plane = i == dim1 - 1 ? curr_plane : curr_plane + dim0_offset;
-    //     const T * curr_row = curr_plane;
-    //     T coeff_dx = (i == 0) || (i == dim1 - 1) ? 1.0 : 0.5;
-    //     for(j=0; j<dim2; j++){
-    //         const T * prev_row = j == 0 ? curr_row : curr_row - dim1_offset;
-    //         const T * next_row = j == dim2 - 1 ? curr_row : curr_row + dim1_offset;
-    //         T coeff_dy = (j == 0) || (j == dim2 - 1) ? 1.0 : 0.5;
-    //         for(k=0; k<dim3; k++){
-    //             size_t index = j * dim1_offset + k;
-    //             size_t res_index = i * dim0_offset + index;
-    //             size_t prev_k = k == 0 ? k : k - 1;
-    //             size_t next_k = k == dim3 - 1 ? k : k + 1;
-    //             T coeff_dz = (k == 0) || (k == dim3 - 1) ? 1.0 : 0.5;
-    //             dx_result[res_index] = (next_plane[index] - prev_plane[index]) * coeff_dx;
-    //             dy_result[res_index] = (next_row[k] - prev_row[k]) * coeff_dy;
-    //             dz_result[res_index] = (curr_row[next_k] - curr_row[prev_k]) * coeff_dz;
-    //         }
-    //         curr_row += dim1_offset;
-    //     }
-    //     curr_plane += dim0_offset;
-    // }
 }
 
 class HeatDis2D{

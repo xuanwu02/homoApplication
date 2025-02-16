@@ -118,6 +118,118 @@ void SZx_decompress_2dMeanbased(
     free(blocks_mean_quant);
 }
 
+void SZx_decompress_to_PrePred_2dMeanbased(
+    int *decData, unsigned char *cmpData,
+    size_t dim1, size_t dim2, int blockSideLength,
+    double errorBound
+){
+    const DSize_2d size(dim1, dim2, blockSideLength);
+    int * signPredError = (int *)malloc(size.max_num_block_elements*sizeof(int));
+    unsigned char * signFlag = (unsigned char *)malloc(size.max_num_block_elements*sizeof(unsigned char));
+    int * blocks_mean_quant = (int *)malloc(size.num_blocks * sizeof(int));
+    unsigned char * encode_pos = cmpData + (FIXED_RATE_PER_BLOCK_BYTES + INT_BYTES) * size.num_blocks;
+    int * x_data_pos = decData;
+    int block_ind = 0;
+    extract_block_mean(cmpData+FIXED_RATE_PER_BLOCK_BYTES*size.num_blocks, blocks_mean_quant, size.num_blocks);
+    for(size_t x=0; x<size.block_dim1; x++){
+        int * y_data_pos = x_data_pos;
+        for(size_t y=0; y<size.block_dim2; y++){
+            int size_x = ((x+1)*size.Bsize < size.dim1) ? size.Bsize : size.dim1 - x*size.Bsize;
+            int size_y = ((y+1)*size.Bsize < size.dim2) ? size.Bsize : size.dim2 - y*size.Bsize;
+            int block_size = size_x * size_y;
+            int mean_quant = blocks_mean_quant[block_ind];
+            int fixed_rate = (int)cmpData[block_ind++];
+            int * curr_data_pos = y_data_pos;
+            if(fixed_rate){
+                size_t cmp_block_sign_length = (block_size + 7) / 8;
+                convertByteArray2IntArray_fast_1b_args(block_size, encode_pos, cmp_block_sign_length, signFlag);
+                encode_pos += cmp_block_sign_length;
+                unsigned int savedbitsbytelength = Jiajun_extract_fixed_length_bits(encode_pos, block_size, signPredError, fixed_rate);
+                encode_pos += savedbitsbytelength;
+                convert2SignIntArray(signFlag, signPredError, block_size);
+                int * pred_err_pos = signPredError;
+                for(int i=0; i<size_x; i++){
+                    for(int j=0; j<size_y; j++){
+                        *curr_data_pos++ = (*pred_err_pos++ + mean_quant);
+                    }
+                    curr_data_pos += size.dim2 - size_y;
+                }
+            }else{
+                for(int i=0; i<size_x; i++){
+                    for(int j=0; j<size_y; j++){
+                        *curr_data_pos++ = mean_quant;
+                    }
+                    curr_data_pos += size.dim2 - size_y;
+                }
+            }
+            y_data_pos += size.Bsize;
+        }
+        x_data_pos += size.Bsize * size.dim2;
+    }
+    free(signPredError);
+    free(signFlag);
+    free(blocks_mean_quant);
+}
+
+void SZx_decompress_to_PostPred_2dMeanbased(
+    int *decData, unsigned char *cmpData,
+    size_t dim1, size_t dim2, int blockSideLength,
+    double errorBound
+){
+    const DSize_2d size(dim1, dim2, blockSideLength);
+    int * signPredError = (int *)malloc(size.max_num_block_elements*sizeof(int));
+    unsigned char * signFlag = (unsigned char *)malloc(size.max_num_block_elements*sizeof(unsigned char));
+    int * blocks_mean_quant = (int *)malloc(size.num_blocks * sizeof(int));
+    unsigned char * encode_pos = cmpData + (FIXED_RATE_PER_BLOCK_BYTES + INT_BYTES) * size.num_blocks;
+    int * x_data_pos = decData;
+    int block_ind = 0;
+    int count = 0;
+    extract_block_mean(cmpData+FIXED_RATE_PER_BLOCK_BYTES*size.num_blocks, blocks_mean_quant, size.num_blocks);
+    for(size_t x=0; x<size.block_dim1; x++){
+        int * y_data_pos = x_data_pos;
+        for(size_t y=0; y<size.block_dim2; y++){
+            int size_x = ((x+1)*size.Bsize < size.dim1) ? size.Bsize : size.dim1 - x*size.Bsize;
+            int size_y = ((y+1)*size.Bsize < size.dim2) ? size.Bsize : size.dim2 - y*size.Bsize;
+            int block_size = size_x * size_y;
+            int mean_quant = blocks_mean_quant[block_ind];
+            int fixed_rate = (int)cmpData[block_ind++];
+            int * curr_data_pos = y_data_pos;
+            if(fixed_rate){
+                size_t cmp_block_sign_length = (block_size + 7) / 8;
+                convertByteArray2IntArray_fast_1b_args(block_size, encode_pos, cmp_block_sign_length, signFlag);
+                encode_pos += cmp_block_sign_length;
+                unsigned int savedbitsbytelength = Jiajun_extract_fixed_length_bits(encode_pos, block_size, signPredError, fixed_rate);
+                encode_pos += savedbitsbytelength;
+                convert2SignIntArray(signFlag, signPredError, block_size);
+                int * pred_err_pos = signPredError;
+                for(int i=0; i<size_x; i++){
+                    memcpy(curr_data_pos, pred_err_pos, size_y * sizeof(int));
+                    pred_err_pos += size_y;
+                    // for(int j=0; j<size_y; j++){
+                    //     *curr_data_pos++ = *pred_err_pos++;
+                    // }
+                    curr_data_pos += size.dim2 - size_y;
+                }
+            }else{
+                count ++;
+                for(int i=0; i<size_x; i++){
+                    memset(curr_data_pos, 0, size_y * sizeof(int));
+                //     // for(int j=0; j<size_y; j++){
+                //     //     *curr_data_pos++ = 0;
+                //     // }
+                    curr_data_pos += size.dim2 - size_y;
+                }
+            }
+            y_data_pos += size.Bsize;
+        }
+        x_data_pos += size.Bsize * size.dim2;
+    }
+    // printf("#constant block = %d, percent = %.4f\n", count, count * 1.0 / (size.block_dim1 * size.block_dim2));
+    free(signPredError);
+    free(signFlag);
+    free(blocks_mean_quant);
+}
+
 double SZx_mean_2d_prePred(
     unsigned char *cmpData, size_t dim1, size_t dim2,
     int blockSideLength, double errorBound
