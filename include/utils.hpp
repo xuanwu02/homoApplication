@@ -81,7 +81,7 @@ void set_relative_eb(const std::vector<T>& oriData_vec, double& errorBound){
     auto min_val = *std::min_element(oriData_vec.begin(), oriData_vec.end());
     auto range = max_val - min_val;
     errorBound *= range;
-    std::cout << "Max = " << max_val << ", min = " << min_val << ", range = " << range << ", abs_eb = " << errorBound << std::endl;
+    printf("Max = %.4e, min = %.4e, range = %.6e, abs_eb = %.6e\n", max_val, min_val, range, errorBound);
 }
 
 double get_elapsed_time(struct timespec &start, struct timespec &end){
@@ -263,6 +263,58 @@ void compute_dxdydz(
                 y_dx_pos[index_1d] = (next_plane[index_2d] - prev_plane[index_2d]) * 0.5;
                 y_dy_pos[index_1d] = (next_row[index_1d] - prev_row[index_1d]) * 0.5;
                 y_dz_pos[index_1d] = (curr_row[index_1d + 1] - curr_row[index_1d - 1]) * 0.5;
+            }
+            curr_row += dim1_offset;
+        }
+    }
+}
+
+template <class T>
+void compute_laplacian_2d(
+    size_t dim1, size_t dim2, T *data, T *result
+){
+    T *curr_row = nullptr, *prev_row = nullptr, *next_row = nullptr;
+    T *result_pos = nullptr;
+    size_t i, j;
+    for(i=1; i<dim1-1; i++){
+        curr_row = data + i * dim2;
+        prev_row = curr_row - dim2;
+        next_row = curr_row + dim2;
+        result_pos = result + i * dim2;
+        for(j=1; j<dim2-1; j++){
+            result_pos[j] = curr_row[j-1] + curr_row[j+1] + prev_row[j] + next_row[j] - 4 * curr_row[j];
+        }
+    }
+}
+
+template <class T>
+void compute_laplacian_3d(
+    size_t dim1, size_t dim2, size_t dim3, T *data, T *result
+){
+    size_t dim0_offset = dim2 * dim3;
+    size_t dim1_offset = dim3;
+    size_t i, j, k;
+    T *curr_plane = nullptr, *prev_plane = nullptr, *next_plane = nullptr;
+    T *curr_row = nullptr, *prev_row = nullptr, *next_row = nullptr;
+    T *x_res_pos = nullptr;
+    T *y_res_pos = nullptr;
+    for(i=1; i<dim1-1; i++){
+        curr_plane = data + i * dim0_offset;
+        prev_plane = curr_plane - dim0_offset;
+        next_plane = curr_plane + dim0_offset;
+        curr_row = curr_plane + dim1_offset;
+        x_res_pos = result + i * dim0_offset;
+        for(j=1; j<dim2-1; j++){
+            prev_row = curr_row - dim1_offset;
+            next_row = curr_row + dim1_offset;
+            y_res_pos = x_res_pos + j * dim1_offset;
+            for(k=1; k<dim3-1; k++){
+                size_t index_1d = k;
+                size_t index_2d = j * dim1_offset + k;
+                y_res_pos[index_1d] = curr_row[k-1] + curr_row[k+1] +
+                                      prev_row[k] + next_row[k] +
+                                      prev_plane[index_2d] + next_plane[index_2d] -
+                                      6 * curr_row[k];
             }
             curr_row += dim1_offset;
         }

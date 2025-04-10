@@ -12,15 +12,18 @@ struct TempInfo2D
     float src_temp, wall_temp, init_temp, ratio;
     const int q_S;
     const int q_W;
+    double inver_eb;
     TempInfo2D(
     float src, float wall, float init, float ratio, double eb)
         : src_temp(src),
           wall_temp(wall),
           init_temp(init),
           ratio(ratio), 
-          q_S(SZ_quantize(src, eb)),
-          q_W(SZ_quantize(wall, eb))
-    {}
+          inver_eb(0.5 / eb),
+          q_S(SZ_quantize(src, inver_eb)),
+          q_W(SZ_quantize(wall, inver_eb))
+    {
+    }
     void prepare_src_row(size_t dim2, int *quant_buffer){
         size_t c1 =  dim2 * (1.0 - ratio) * 0.5 + 1;
         size_t c2 =  dim2 * (1.0 + ratio) * 0.5 - 1;
@@ -67,6 +70,80 @@ struct SZxCmpBufferSet
     }
 };
 
+struct SZxAppBufferSet_2d1d
+{
+    appType type;
+    size_t buffer_dim1;
+    size_t buffer_dim2;
+    size_t buffer_size;
+    size_t buffer_dim0_offset;
+    int residual;
+    int * buffer_2d;
+    int * prevBlockRow;
+    int * currBlockRow;
+    int * nextBlockRow;
+    int * currRow_data_pos;
+    int * prevRow_data_pos;
+    int * nextRow_data_pos;
+    SZxAppBufferSet_2d1d(
+    size_t dim1, size_t dim2, int *buffer_2d_, appType type_)
+        : buffer_dim1(dim1),
+          buffer_dim2(dim2),
+          buffer_2d(buffer_2d_),
+          type(type_)
+    {
+        buffer_size = buffer_dim1 * buffer_dim2;
+        buffer_dim0_offset = buffer_dim2;
+        prevBlockRow = buffer_2d;
+        currBlockRow = buffer_2d + buffer_size;
+        nextBlockRow = buffer_2d + 2 * buffer_size;
+    }
+    void reset(){
+        currRow_data_pos = currBlockRow + buffer_dim0_offset + 1;
+        prevRow_data_pos = prevBlockRow + buffer_dim0_offset + 1;
+        nextRow_data_pos = nextBlockRow + buffer_dim0_offset + 1;
+    }
+};
+
+struct SZxAppBufferSet_3d1d
+{
+    appType type;
+    size_t buffer_dim1;
+    size_t buffer_dim2;
+    size_t buffer_dim3;
+    size_t buffer_size;
+    size_t buffer_dim0_offset;
+    size_t buffer_dim1_offset;
+    int * buffer_3d;
+    int * prevBlockPlane;
+    int * currBlockPlane;
+    int * nextBlockPlane;
+    int * currPlane_data_pos;
+    int * prevPlane_data_pos;
+    int * nextPlane_data_pos;
+    SZxAppBufferSet_3d1d(
+    size_t dim1, size_t dim2, size_t dim3, int *buffer_3d_, appType type_)
+        : buffer_dim1(dim1),
+          buffer_dim2(dim2),
+          buffer_dim3(dim3),
+          buffer_3d(buffer_3d_),
+          type(type_)
+    {
+        buffer_size = buffer_dim1 * buffer_dim2 * buffer_dim3;
+        buffer_dim0_offset = buffer_dim2 * buffer_dim3;
+        buffer_dim1_offset = buffer_dim3;
+        prevBlockPlane = buffer_3d;
+        currBlockPlane = buffer_3d + buffer_size;
+        nextBlockPlane = buffer_3d + 2 * buffer_size;
+    }
+    void reset(){
+        currPlane_data_pos = currBlockPlane + buffer_dim0_offset + buffer_dim1_offset + 1;
+        prevPlane_data_pos = prevBlockPlane + buffer_dim0_offset + buffer_dim1_offset + 1;
+        nextPlane_data_pos = nextBlockPlane + buffer_dim0_offset + buffer_dim1_offset + 1;
+    }
+};
+
+template <class T>
 struct SZxAppBufferSet_2d
 {
     appType type;
@@ -74,17 +151,17 @@ struct SZxAppBufferSet_2d
     size_t buffer_dim2;
     size_t buffer_size;
     size_t buffer_dim0_offset;
-    int * buffer_2d;
-    int * prevBlockRow;
-    int * currBlockRow;
-    int * nextBlockRow;
-    int * updateBlockRow;
-    int * updateRow_data_pos;
-    int * currRow_data_pos;
-    int * prevRow_data_pos;
-    int * nextRow_data_pos;
+    T * buffer_2d;
+    T * prevBlockRow;
+    T * currBlockRow;
+    T * nextBlockRow;
+    T * updateBlockRow;
+    T * updateRow_data_pos;
+    T * currRow_data_pos;
+    T * prevRow_data_pos;
+    T * nextRow_data_pos;
     SZxAppBufferSet_2d(
-    size_t dim1, size_t dim2, int *buffer_2d_, appType type_)
+    size_t dim1, size_t dim2, T *buffer_2d_, appType type_)
         : buffer_dim1(dim1),
           buffer_dim2(dim2),
           buffer_2d(buffer_2d_),
@@ -111,7 +188,7 @@ struct SZxAppBufferSet_2d
     void reset(){
         switch(type){
             case appType::HEATDIS:{
-                memset(buffer_2d, 0, 3 * buffer_size * sizeof(int));
+                memset(buffer_2d, 0, 3 * buffer_size * sizeof(T));
                 updateRow_data_pos = updateBlockRow + buffer_dim0_offset + 1;
                 currRow_data_pos = currBlockRow + buffer_dim0_offset + 1;
                 prevRow_data_pos = prevBlockRow + buffer_dim0_offset + 1;
@@ -130,6 +207,7 @@ struct SZxAppBufferSet_2d
     }
 };
 
+template <class T>
 struct SZxAppBufferSet_3d
 {
     appType type;
@@ -139,15 +217,15 @@ struct SZxAppBufferSet_3d
     size_t buffer_size;
     size_t buffer_dim0_offset;
     size_t buffer_dim1_offset;
-    int * buffer_3d;
-    int * prevBlockPlane;
-    int * currBlockPlane;
-    int * nextBlockPlane;
-    int * currPlane_data_pos;
-    int * prevPlane_data_pos;
-    int * nextPlane_data_pos;
+    T * buffer_3d;
+    T * prevBlockPlane;
+    T * currBlockPlane;
+    T * nextBlockPlane;
+    T * currPlane_data_pos;
+    T * prevPlane_data_pos;
+    T * nextPlane_data_pos;
     SZxAppBufferSet_3d(
-    size_t dim1, size_t dim2, size_t dim3, int *buffer_3d_, appType type_)
+    size_t dim1, size_t dim2, size_t dim3, T *buffer_3d_, appType type_)
         : buffer_dim1(dim1),
           buffer_dim2(dim2),
           buffer_dim3(dim3),
@@ -162,14 +240,31 @@ struct SZxAppBufferSet_3d
         nextBlockPlane = buffer_3d + 2 * buffer_size;
     }
     void reset(){
-        currPlane_data_pos = currBlockPlane;
-        prevPlane_data_pos = prevBlockPlane;
-        nextPlane_data_pos = nextBlockPlane;
+        currPlane_data_pos = currBlockPlane + buffer_dim0_offset + buffer_dim1_offset + 1;
+        prevPlane_data_pos = prevBlockPlane + buffer_dim0_offset + buffer_dim1_offset + 1;
+        nextPlane_data_pos = nextBlockPlane + buffer_dim0_offset + buffer_dim1_offset + 1;
     }
 };
 
 template <class T>
-inline void compute_block_mean_difference(
+inline void laplacian_compute_block_mean_difference(
+    int x, int block_dim2, double errorBound, int *block_mean_buffer,
+    T *dx_top_blockmean_diff, T *dx_bott_blockmean_diff, T *dy_blockmean_diff
+){
+    int * currRow_mean_quant = block_mean_buffer + x * block_dim2;
+    int * prevRow_mean_quant = currRow_mean_quant - block_dim2;
+    int * nextRow_mean_quant = currRow_mean_quant + block_dim2;
+    dy_blockmean_diff[0] = 0;
+    dy_blockmean_diff[block_dim2+2] = 0;
+    for(int j=0; j<block_dim2; j++){
+        dy_blockmean_diff[j+1] = (currRow_mean_quant[j+1] - currRow_mean_quant[j]) * errorBound * 2;
+        dx_top_blockmean_diff[j] = (currRow_mean_quant[j] - prevRow_mean_quant[j]) * errorBound * 2;
+        dx_bott_blockmean_diff[j] = (nextRow_mean_quant[j] - currRow_mean_quant[j]) * errorBound * 2;
+    }
+}
+
+template <class T>
+inline void dxdy_compute_block_mean_difference(
     int x, int block_dim2, double errorBound, int *block_mean_buffer,
     T *dx_top_blockmean_diff, T *dx_bott_blockmean_diff, T *dy_blockmean_diff
 ){
@@ -187,13 +282,13 @@ inline void compute_block_mean_difference(
 
 template <class T>
 inline int compute_block_mean_quant(
-    int block_size, const T *data_pos, int *block_buffer, double errorBound
+    int block_size, const T *data_pos, int *block_buffer, double inver_eb
 ){
     int64_t sum = 0;
     int * block_buffer_pos = block_buffer;
     const T * curr_data_pos = data_pos;
     for(int i=0; i<block_size; i++){
-        int curr_quant = SZ_quantize(*curr_data_pos++, errorBound);
+        int curr_quant = SZ_quantize(*curr_data_pos++, inver_eb);
         *block_buffer_pos++ = curr_quant;
         sum += curr_quant;
     }
@@ -204,14 +299,14 @@ inline int compute_block_mean_quant(
 template <class T>
 inline int compute_block_mean_quant(
     int size_x, int size_y, size_t dim0_offset,
-    const T *data_pos, int *block_buffer, double errorBound
+    const T *data_pos, int *block_buffer, double inver_eb
 ){
     int64_t sum = 0;
     int * block_buffer_pos = block_buffer;
     const T * curr_data_pos = data_pos;
     for(int i=0; i<size_x; i++){
         for(int j=0; j<size_y; j++){
-            int curr_quant = SZ_quantize(*curr_data_pos++, errorBound);
+            int curr_quant = SZ_quantize(*curr_data_pos++, inver_eb);
             *block_buffer_pos++ = curr_quant;
             sum += curr_quant;
         }
@@ -224,7 +319,7 @@ inline int compute_block_mean_quant(
 template <class T>
 inline int compute_block_mean_quant(
     int size_x, int size_y, int size_z, size_t dim0_offset,
-    size_t dim1_offset, const T *data_pos, int *block_buffer, double errorBound
+    size_t dim1_offset, const T *data_pos, int *block_buffer, double inver_eb
 ){
     int64_t sum = 0;
     int * block_buffer_pos = block_buffer;
@@ -234,7 +329,7 @@ inline int compute_block_mean_quant(
         for(int j=0; j<size_y; j++){
             const T * z_data_pos = y_data_pos;
             for(int k=0; k<size_z; k++){
-                int curr_quant = SZ_quantize(*z_data_pos++, errorBound);
+                int curr_quant = SZ_quantize(*z_data_pos++, inver_eb);
                 *block_buffer_pos++ = curr_quant;
                 sum += curr_quant;
             }
@@ -266,6 +361,54 @@ inline double compute_mean_2d(
     }
     double mean = sum * 2 * errorBound / size.nbEle;
     return mean;
+}
+
+template <class T>
+inline T compute_integer_mean_2d_1d(
+    DSize_2d1d& size, const unsigned char *cmpData_pos, int *blocks_mean_quant
+){
+    const unsigned char * qmean_pos = cmpData_pos;
+    int block_ind = 0;
+    T sum = 0;
+    for(size_t x=0; x<size.block_dim1; x++){
+        for(size_t y=0; y<size.block_dim2; y++){
+            int block_size = ((y+1)*size.Bsize < size.dim2) ? size.Bsize : size.dim2 - y*size.Bsize;
+            int mean = (0xff000000 & (*qmean_pos << 24)) |
+                        (0x00ff0000 & (*(qmean_pos+1) << 16)) |
+                        (0x0000ff00 & (*(qmean_pos+2) << 8)) |
+                        (0x000000ff & *(qmean_pos+3));
+            blocks_mean_quant[block_ind++] = mean;
+            qmean_pos += 4;
+            sum += mean * block_size;
+        }
+    }
+    T int_mean = sum / (T)size.nbEle;
+    return int_mean;
+}
+
+template <class T>
+inline T compute_integer_mean_3d_1d(
+    DSize_3d1d& size, const unsigned char *cmpData_pos, int *blocks_mean_quant
+){
+    const unsigned char * qmean_pos = cmpData_pos;
+    int block_ind = 0;
+    T sum = 0;
+    for(size_t x=0; x<size.block_dim1; x++){
+        for(size_t y=0; y<size.block_dim2; y++){
+            for(size_t z=0; z<size.block_dim3; z++){
+                int block_size = ((z+1)*size.Bsize < size.dim3) ? size.Bsize : size.dim3 - z*size.Bsize;
+                int mean = (0xff000000 & (*qmean_pos << 24)) |
+                            (0x00ff0000 & (*(qmean_pos+1) << 16)) |
+                            (0x0000ff00 & (*(qmean_pos+2) << 8)) |
+                            (0x000000ff & *(qmean_pos+3));
+                blocks_mean_quant[block_ind++] = mean;
+                qmean_pos += 4;
+                sum += mean * block_size;
+            }
+        }
+    }
+    T int_mean = sum / (T)size.nbEle;
+    return int_mean;
 }
 
 template <class T>

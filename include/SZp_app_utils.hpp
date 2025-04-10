@@ -11,15 +11,18 @@ struct TempInfo2D
     float src_temp, wall_temp, init_temp, ratio;
     const int q_S;
     const int q_W;
+    double inver_eb;
     TempInfo2D(
     float src, float wall, float init, float ratio, double eb)
         : src_temp(src),
           wall_temp(wall),
           init_temp(init),
-          ratio(ratio), 
-          q_S(SZ_quantize(src, eb)),
-          q_W(SZ_quantize(wall, eb))
-    {}
+          ratio(ratio),
+          inver_eb(0.5 / eb),
+          q_S(SZ_quantize(src, inver_eb)),
+          q_W(SZ_quantize(wall, inver_eb))
+    {
+    }
     void prepare_src_row(size_t dim2, int *quant_buffer, int *pred_err_buffer){
         size_t c1 =  dim2 * (1.0 - ratio) * 0.5 + 1;
         size_t c2 =  dim2 * (1.0 + ratio) * 0.5 - 1;
@@ -54,7 +57,7 @@ struct SZpCmpBufferSet
           signFlag(signFlag_)
     {}
     SZpCmpBufferSet(
-    unsigned char **& cmpData_, int **offsets_,
+    unsigned char ** cmpData_, int **offsets_,
     unsigned int *absPredError_, int *signPredError_, unsigned char *signFlag_)
         : cmpData(cmpData_),
           offsets(offsets_),
@@ -68,7 +71,7 @@ struct SZpCmpBufferSet
     }
 };
 
-struct SZpAppBufferSet_1d
+struct SZpAppBufferSet_2d1d
 {
     appType type;
     size_t buffer_dim1;
@@ -90,7 +93,7 @@ struct SZpAppBufferSet_1d
     int * currRow_data_pos;
     int * prevRow_data_pos;
     int * nextRow_data_pos;
-    SZpAppBufferSet_1d(
+    SZpAppBufferSet_2d1d(
     size_t dim1, size_t dim2, int *buffer_2d_, int *buffer_1d_, appType type_)
         : buffer_dim1(dim1),
           buffer_dim2(dim2),
@@ -123,9 +126,9 @@ struct SZpAppBufferSet_1d
     void reset(){
         switch(type){
             case appType::CENTRALDIFF:{
-                currRow_data_pos = currBlockRow + 1;
-                prevRow_data_pos = prevBlockRow + 1;
-                nextRow_data_pos = nextBlockRow + 1;
+                currRow_data_pos = currBlockRow + buffer_dim0_offset + 1;
+                prevRow_data_pos = prevBlockRow + buffer_dim0_offset + 1;
+                nextRow_data_pos = nextBlockRow + buffer_dim0_offset + 1;
                 break;
             }
             case appType::HEATDIS:{
@@ -156,6 +159,45 @@ struct SZpAppBufferSet_1d
     }
 };
 
+struct SZpAppBufferSet_3d1d
+{
+    appType type;
+    size_t buffer_dim1;
+    size_t buffer_dim2;
+    size_t buffer_dim3;
+    size_t buffer_size;
+    size_t buffer_dim0_offset;
+    size_t buffer_dim1_offset;
+    int * buffer_3d;
+    int * prevBlockPlane;
+    int * currBlockPlane;
+    int * nextBlockPlane;
+    int * currPlane_data_pos;
+    int * prevPlane_data_pos;
+    int * nextPlane_data_pos;
+    SZpAppBufferSet_3d1d(
+    size_t dim1, size_t dim2, size_t dim3, int *buffer_3d_, appType type_)
+        : buffer_dim1(dim1),
+          buffer_dim2(dim2),
+          buffer_dim3(dim3),
+          buffer_3d(buffer_3d_),
+          type(type_)
+    {
+        buffer_size = buffer_dim1 * buffer_dim2 * buffer_dim3;
+        buffer_dim0_offset = buffer_dim2 * buffer_dim3;
+        buffer_dim1_offset = buffer_dim3;
+        prevBlockPlane = buffer_3d;
+        currBlockPlane = buffer_3d + buffer_size;
+        nextBlockPlane = buffer_3d + 2 * buffer_size;
+    }
+    void reset(){
+        currPlane_data_pos = currBlockPlane + buffer_dim0_offset + buffer_dim1_offset + 1;
+        prevPlane_data_pos = prevBlockPlane + buffer_dim0_offset + buffer_dim1_offset + 1;
+        nextPlane_data_pos = nextBlockPlane + buffer_dim0_offset + buffer_dim1_offset + 1;
+    }
+};
+
+template <class T>
 struct SZpAppBufferSet_2d
 {
     appType type;
@@ -164,24 +206,24 @@ struct SZpAppBufferSet_2d
     size_t buffer_size;
     size_t buffer_dim0_offset;
     int residual;
-    int * buffer_2d;
-    int * prevBlockRow;
-    int * currBlockRow;
-    int * nextBlockRow;
-    int * updateBlockRow;
+    T * buffer_2d;
+    T * prevBlockRow;
+    T * currBlockRow;
+    T * nextBlockRow;
+    T * updateBlockRow;
+    T * dy_buffer;
+    T * decmp_buffer;
     int * buffer_1d;
-    int * dy_buffer;
-    int * decmp_buffer;
-    int * cmp_buffer;
+    int * cmp_buffer; // heatdis
     int * rowSum;
     int * colSum;
     int * lorenzo_buffer;
-    int * updateRow_data_pos;
-    int * currRow_data_pos;
-    int * prevRow_data_pos;
-    int * nextRow_data_pos;
+    T * updateRow_data_pos;
+    T * currRow_data_pos;
+    T * prevRow_data_pos;
+    T * nextRow_data_pos;
     SZpAppBufferSet_2d(
-    size_t dim1, size_t dim2, int *buffer_2d_, int *buffer_1d_, appType type_)
+    size_t dim1, size_t dim2, T *buffer_2d_, int *buffer_1d_, appType type_)
         : buffer_dim1(dim1),
           buffer_dim2(dim2),
           buffer_2d(buffer_2d_),
@@ -195,13 +237,13 @@ struct SZpAppBufferSet_2d
         nextBlockRow = buffer_2d + 2 * buffer_size;
         switch(type){
             case appType::CENTRALDIFF:{
-                decmp_buffer = buffer_1d;
-                dy_buffer = buffer_1d + buffer_dim0_offset;
+                decmp_buffer = buffer_2d + 3 * buffer_size; // 1d buffer
+                dy_buffer = buffer_2d + 3 * buffer_size + buffer_dim0_offset; // 1d buffer
                 break;
             }
             case appType::HEATDIS:{
                 updateBlockRow = buffer_2d + 3 * buffer_size;
-                decmp_buffer = buffer_1d;
+                decmp_buffer = reinterpret_cast<T*>(buffer_1d);
                 cmp_buffer = buffer_1d + buffer_dim0_offset;
                 rowSum = buffer_1d + 2 * buffer_dim0_offset;
                 colSum = buffer_1d + 3 * buffer_dim0_offset;
@@ -219,7 +261,6 @@ struct SZpAppBufferSet_2d
         nextRow_data_pos = nextBlockRow + buffer_dim0_offset + 1;
         switch(type){
             case appType::CENTRALDIFF:{
-                memset(buffer_1d, 0, 2 * buffer_dim2 * sizeof(int));
                 break;
             }
             case appType::HEATDIS:{
@@ -270,6 +311,34 @@ struct derivIntBuffer_3d
         dx_buffer = px;
         dy_buffer = py;
         dz_buffer = pz;
+    }
+};
+
+struct laplaceBuffer_3d
+{
+    int * x_buffer;
+    int * y_buffer;
+    int * z_buffer;
+    int * x_level_0, * x_level_1;
+    int * y_level_0, * y_level_1;
+    int * z_level_0, * z_level_1;
+    int * x_curr, x_next;
+    int * y_curr, y_next;
+    int * z_curr, z_next;
+    laplaceBuffer_3d(int *_x, int *_y, int *_z, size_t sx, size_t sy, size_t sz)
+    : x_buffer(_x),
+      y_buffer(_y),
+      z_buffer(_z)
+    {
+        x_level_0 = x_buffer;
+        x_level_0 = x_buffer + sx;
+        y_level_0 = y_buffer;
+        y_level_0 = y_buffer + sy;
+        z_level_0 = z_buffer;
+        z_level_0 = z_buffer + sz;
+    }
+    inline void exchange(int * p0, int * p1){
+        std::swap(p0, p1);
     }
 };
 
@@ -337,9 +406,9 @@ struct SZpAppBufferSet_3d
 
 template <class T>
 inline int predict_lorenzo_1d(
-    const T *data_pos, int *buffer_pos, double errorBound
+    const T *data_pos, int *buffer_pos, double inver_eb
 ){
-    int curr_quant = SZ_quantize(data_pos[0], errorBound);
+    int curr_quant = SZ_quantize(data_pos[0], inver_eb);
     buffer_pos[0] = curr_quant;
     int err = curr_quant - buffer_pos[-1];
     return err;
@@ -366,24 +435,15 @@ inline void recover_lorenzo_1d(
 }
 
 inline void integerize_quant(
-    SZpAppBufferSet_1d *buffer_set, const int *buffer_pos, int *update_pos, int bias
+    SZpAppBufferSet_2d1d *buffer_set, const int *buffer_pos, int *update_pos, int bias
 ){
     int center = buffer_pos[-1] + buffer_pos[1] + buffer_pos[-buffer_set->buffer_dim0_offset] + buffer_pos[buffer_set->buffer_dim0_offset];
     unsigned char sign = (center >> 31) & 1;
     *update_pos = (center + (sign ? - bias : bias)) >> 2;
 }
 
-inline int update_quant_and_predict(
-    SZpAppBufferSet_1d *buffer_set, const int *buffer_pos, int *update_pos
-){
-    int center = buffer_pos[-1] + buffer_pos[1] + buffer_pos[-buffer_set->buffer_dim0_offset] + buffer_pos[buffer_set->buffer_dim0_offset];
-    unsigned char sign = (center >> 31) & 1;
-    *update_pos = (center + (sign ? -2 : 2)) >> 2;
-    return update_pos[0] - update_pos[-1];
-}
-
 inline void integerize_pred_err(
-    SZpAppBufferSet_1d *buffer_set, const int *buffer_pos,
+    SZpAppBufferSet_2d1d *buffer_set, const int *buffer_pos,
     const int *altern, bool flag, int bias, int *update_pos
 ){
     int center = (flag ? altern[0] : buffer_pos[-1]) + buffer_pos[1] + buffer_pos[-buffer_set->buffer_dim0_offset] + buffer_pos[buffer_set->buffer_dim0_offset];
@@ -393,7 +453,7 @@ inline void integerize_pred_err(
 }
 
 inline int update_pred_err_and_predict(
-    SZpAppBufferSet_1d *buffer_set, const int *buffer_pos,
+    SZpAppBufferSet_2d1d *buffer_set, const int *buffer_pos,
     const int *altern, bool flag, int bias, int *update_pos
 ){
     int center = (flag ? altern[0] : buffer_pos[-1]) + buffer_pos[1] + buffer_pos[-buffer_set->buffer_dim0_offset] + buffer_pos[buffer_set->buffer_dim0_offset];
@@ -406,9 +466,9 @@ inline int update_pred_err_and_predict(
 template <class T>
 inline int predict_lorenzo_2d(
     const T *data_pos, int *buffer_pos,
-    size_t buffer_dim0_offset, double errorBound
+    size_t buffer_dim0_offset, double inver_eb
 ){
-    int curr_quant = SZ_quantize(data_pos[0], errorBound);
+    int curr_quant = SZ_quantize(data_pos[0], inver_eb);
     buffer_pos[0] = curr_quant;
     int err = curr_quant - buffer_pos[-1] - buffer_pos[-buffer_dim0_offset] + buffer_pos[-buffer_dim0_offset-1];
     return err;
@@ -437,8 +497,9 @@ inline void recover_lorenzo_2d(
     quant_sum += buffer_pos[0];
 }
 
+template <class T>
 inline void recover_lorenzo_2d(
-    int *buffer_pos, size_t buffer_dim0_offset
+    T *buffer_pos, size_t buffer_dim0_offset
 ){
     buffer_pos[0] += (buffer_pos[-1] + buffer_pos[-buffer_dim0_offset] - buffer_pos[-buffer_dim0_offset-1]);
 }
@@ -458,17 +519,8 @@ inline void integerize_quant(
     *update_pos = (center + (sign ? - bias : bias)) >> 2;
 }
 
-inline int update_quant_and_predict(
-    SZpAppBufferSet_2d *buffer_set, const int *buffer_pos, int *update_pos
-){
-    int center = buffer_pos[-1] + buffer_pos[1] + buffer_pos[-buffer_set->buffer_dim0_offset] + buffer_pos[buffer_set->buffer_dim0_offset];
-    unsigned char sign = (center >> 31) & 1;
-    *update_pos = (center + (sign ? -2 : 2)) >> 2;
-    return update_pos[0] - update_pos[-1] - update_pos[-buffer_set->buffer_dim0_offset] + update_pos[-buffer_set->buffer_dim0_offset-1];
-}
-
 inline void integerize_pred_err(
-    SZpAppBufferSet_2d *buffer_set, const int *buffer_pos,
+    SZpAppBufferSet_2d<int> *buffer_set, const int *buffer_pos,
     const int *altern, bool flag, int bias, int *update_pos
 ){
     int center = buffer_pos[-1] + buffer_pos[1] + (flag ? altern[0] : buffer_pos[-buffer_set->buffer_dim0_offset]) + buffer_pos[buffer_set->buffer_dim0_offset];
@@ -477,23 +529,23 @@ inline void integerize_pred_err(
     buffer_set->residual = (err & 0x3) - bias;
 }
 
-inline int update_pred_err_and_predict(
-    SZpAppBufferSet_2d *buffer_set, const int *buffer_pos,
-    const int *altern, bool flag, int bias, int *update_pos
-){
-    int center = buffer_pos[-1] + buffer_pos[1] + (flag ? altern[0] : buffer_pos[-buffer_set->buffer_dim0_offset]) + buffer_pos[buffer_set->buffer_dim0_offset];
-    int err = center + buffer_set->residual + bias;
-    *update_pos = err >> 2;
-    buffer_set->residual = (err & 0x3) - bias;
-    return update_pos[0];
-}
+// inline int update_pred_err_and_predict(
+//     SZpAppBufferSet_2d *buffer_set, const int *buffer_pos,
+//     const int *altern, bool flag, int bias, int *update_pos
+// ){
+//     int center = buffer_pos[-1] + buffer_pos[1] + (flag ? altern[0] : buffer_pos[-buffer_set->buffer_dim0_offset]) + buffer_pos[buffer_set->buffer_dim0_offset];
+//     int err = center + buffer_set->residual + bias;
+//     *update_pos = err >> 2;
+//     buffer_set->residual = (err & 0x3) - bias;
+//     return update_pos[0];
+// }
 
 template <class T>
 inline int predict_lorenzo_3d(
-    const T *data_pos, int *buffer_pos, double errorBound,
+    const T *data_pos, int *buffer_pos, double inver_eb,
     size_t buffer_dim0_offset, size_t buffer_dim1_offset
 ){
-    int curr_quant = SZ_quantize(data_pos[0], errorBound);
+    int curr_quant = SZ_quantize(data_pos[0], inver_eb);
     buffer_pos[0] = curr_quant;
     int pred = buffer_pos[-1] + buffer_pos[-buffer_dim1_offset] + buffer_pos[-buffer_dim0_offset] 
             - buffer_pos[-buffer_dim1_offset - 1] - buffer_pos[-buffer_dim0_offset - 1] 
@@ -563,9 +615,16 @@ inline void deriv_lorenzo_2d(
     res_pos[0] = res_integer * errorBound;
 }
 
+template <class T>
+inline void laplacian_lorenzo_2d(
+    const int *pred_level_pos, int *res_int_buffer_pos, size_t res_buffer_dim1_offset
+){
+    res_int_buffer_pos[0] = pred_level_pos[0] + res_int_buffer_pos[-1] + res_int_buffer_pos[-res_buffer_dim1_offset] - res_int_buffer_pos[-res_buffer_dim1_offset-1];
+}
+
 inline void set_buffer_border_postpred(
-    size_t x, int *integer_buffer, DSize_1d size, size_t size_x,
-    SZpAppBufferSet_1d *buffer_set, TempInfo2D& temp_info,
+    size_t x, int *integer_buffer, DSize_2d1d size, size_t size_x,
+    SZpAppBufferSet_2d1d *buffer_set, TempInfo2D& temp_info,
     bool isTopRow, bool isBottomRow
 ){
     int * buffer_pos = integer_buffer;
@@ -588,7 +647,7 @@ inline void set_buffer_border_postpred(
 }
 
 inline void set_buffer_border_prepred(
-    int *integer_buffer, DSize_1d size, size_t buffer_dim0_offset,
+    int *integer_buffer, DSize_2d1d size, size_t buffer_dim0_offset,
     TempInfo2D& temp_info, bool isTopRow, bool isBottomRow
 ){
     int i;
@@ -615,7 +674,7 @@ inline void set_buffer_border_prepred(
 
 inline void set_buffer_border_postpred(
     size_t x, int *integer_buffer, DSize_2d size, int size_x,
-    SZpAppBufferSet_2d *buffer_set, TempInfo2D& temp_info,
+    SZpAppBufferSet_2d<int> *buffer_set, TempInfo2D& temp_info,
     bool isTopRow, bool isBottomRow
 ){
     int i;
@@ -821,16 +880,19 @@ struct TempInfo3D
 	float T_top, T_bott;
     float T_wall, T_init;
     const int q_T, q_B, q_W;
+    double inver_eb;
     TempInfo3D(
     float T_t, float T_b, float T_w, float T_i, double eb)
         : T_top(T_t),
           T_bott(T_b),
           T_wall(T_w),
           T_init(T_i),
-          q_T(SZ_quantize(T_t, eb)),
-          q_B(SZ_quantize(T_b, eb)),
-          q_W(SZ_quantize(T_w, eb))
-    {}
+          inver_eb(0.5 / eb),
+          q_T(SZ_quantize(T_t, inver_eb)),
+          q_B(SZ_quantize(T_b, inver_eb)),
+          q_W(SZ_quantize(T_w, inver_eb))
+    {
+    }
 };
 
 inline void set_buffer_border_prepred(

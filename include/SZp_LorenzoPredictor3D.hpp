@@ -11,12 +11,17 @@
 #include "utils.hpp"
 #include "settings.hpp"
 
+struct timespec start2, end2;
+double rec_time = 0;
+double op_time = 0;
+
 template <class T>
 void SZp_compress_3dLorenzo(
     const T *oriData, unsigned char *cmpData,
     size_t dim1, size_t dim2, size_t dim3, int blockSideLength,
     double errorBound, size_t& cmpSize
 ){
+    double inver_eb = 0.5 / errorBound;
     DSize_3d size(dim1, dim2, dim3, blockSideLength);
     size_t buffer_dim0_offset = (size.dim2 + 1) * (size.dim3 + 1);
     size_t buffer_dim1_offset = size.dim3 + 1;
@@ -46,7 +51,7 @@ void SZp_compress_3dLorenzo(
                     for(int j=0; j<size_y; j++){
                         int * curr_buffer_pos = block_buffer_pos;
                         for(int k=0; k<size_z; k++){
-                            quant_diff = predict_lorenzo_3d(curr_data_pos++, curr_buffer_pos++, errorBound, buffer_dim0_offset, buffer_dim1_offset);
+                            quant_diff = predict_lorenzo_3d(curr_data_pos++, curr_buffer_pos++, inver_eb, buffer_dim0_offset, buffer_dim1_offset);
                             (*sign_pos++) = (quant_diff < 0);
                             unsigned int abs_diff = abs(quant_diff);
                             (*abs_diff_pos++) = abs_diff;
@@ -281,7 +286,7 @@ void SZp_decompress_to_PostPred_3dLorenzo(
             buffer_start_pos += size.Bsize * buffer_dim1_offset - size.Bsize * size.block_dim3;
             y_data_pos += size.Bsize * size.dim1_offset;
         }
-        memcpy(pred_buffer, pred_buffer+size.Bsize*buffer_dim0_offset, buffer_dim0_offset*sizeof(int));
+        // memcpy(pred_buffer, pred_buffer+size.Bsize*buffer_dim0_offset, buffer_dim0_offset*sizeof(int));
         x_data_pos += size.Bsize * size.dim0_offset;
     }
     free(pred_buffer);
@@ -454,7 +459,8 @@ double SZp_variance_3dLorenzo_postPredMean(
     unsigned char * signFlag = (unsigned char *)malloc(size.max_num_block_elements*sizeof(unsigned char));
     unsigned char * cmpData_pos = cmpData + size.num_blocks;
     int block_ind = 0;
-    int64_t quant_sum = 0, squared_quant_sum = 0;
+    int64_t quant_sum = 0;
+    uint64_t squared_quant_sum = 0;
     int index_x = 0;
     for(size_t x=0; x<size.block_dim1; x++){
         int index_y = 0;
@@ -492,7 +498,9 @@ double SZp_variance_3dLorenzo_postPredMean(
                         int * curr_buffer_pos = block_buffer_pos;
                         for(int k=0; k<size_z; k++){
                             int curr_quant = recover_lorenzo_3d_verb(curr_buffer_pos++, buffer_dim0_offset, buffer_dim1_offset);
-                            squared_quant_sum += curr_quant * curr_quant;
+                            int64_t d = static_cast<int64_t>(curr_quant);
+                            uint64_t d2 = d * d;
+                            squared_quant_sum += d2;
                         }
                         block_buffer_pos += buffer_dim1_offset;
                     }
@@ -510,7 +518,7 @@ double SZp_variance_3dLorenzo_postPredMean(
     free(quant_buffer);
     free(signPredError);
     free(signFlag);
-    double var = ((double)squared_quant_sum - (double)quant_sum * quant_sum / size.nbEle) / (size.nbEle - 1) * (2 * errorBound) * (2 * errorBound);
+    double var = (2 * errorBound) * (2 * errorBound) * ((double)squared_quant_sum - (double)quant_sum * quant_sum / size.nbEle) / (size.nbEle - 1);
     return var;
 }
 
@@ -527,7 +535,8 @@ double SZp_variance_3dLorenzo_prePredMean(
     unsigned char * signFlag = (unsigned char *)malloc(size.max_num_block_elements*sizeof(unsigned char));
     unsigned char * cmpData_pos = cmpData + size.num_blocks;
     int block_ind = 0;
-    int64_t quant_sum = 0, squared_quant_sum = 0;
+    int64_t quant_sum = 0;
+    uint64_t squared_quant_sum = 0;
     for(size_t x=0; x<size.block_dim1; x++){
         int * buffer_start_pos = quant_buffer + buffer_dim0_offset + buffer_dim1_offset + 1;
         for(size_t y=0; y<size.block_dim2; y++){
@@ -554,8 +563,10 @@ double SZp_variance_3dLorenzo_prePredMean(
                         int * curr_buffer_pos = block_buffer_pos;
                         for(int k=0; k<size_z; k++){
                             int curr_quant = recover_lorenzo_3d_verb(curr_buffer_pos++, buffer_dim0_offset, buffer_dim1_offset);
-                            quant_sum += curr_quant;
-                            squared_quant_sum += curr_quant * curr_quant;
+                            int64_t d = static_cast<int64_t>(curr_quant);
+                            uint64_t d2 = d * d;
+                            quant_sum += d;
+                            squared_quant_sum += d2;
                         }
                         block_buffer_pos += buffer_dim1_offset;
                     }
@@ -570,7 +581,7 @@ double SZp_variance_3dLorenzo_prePredMean(
     free(quant_buffer);
     free(signPredError);
     free(signFlag);
-    double var = ((double)squared_quant_sum - (double)quant_sum * quant_sum / size.nbEle) / (size.nbEle - 1) * (2 * errorBound) * (2 * errorBound);
+    double var = (2 * errorBound) * (2 * errorBound) * ((double)squared_quant_sum - (double)quant_sum * quant_sum / size.nbEle) / (size.nbEle - 1);
     return var;
 }
 
@@ -672,6 +683,8 @@ inline void dxdydzProcessBlockPlanePostPred(
     bool isTopPlane, bool isBottomPlane
 ){
     int size_x = ((x+1)*size.Bsize < size.dim1) ? size.Bsize : size.dim1 - x*size.Bsize;
+    const int * nextBlockPlaneTop_pos = buffer_set->nextPlane_data_pos - buffer_set->buffer_dim1_offset - 1;
+    if(!isBottomPlane) memcpy(buffer_set->currPlane_data_pos+size.Bsize*buffer_set->buffer_dim0_offset-buffer_set->buffer_dim1_offset-1, nextBlockPlaneTop_pos, buffer_set->buffer_dim0_offset*sizeof(int));
     size_t dx_buffer_dim0_offset = size.dim3 + 1;
     size_t dy_buffer_dim0_offset = size.dim3 + 1;
     size_t dz_buffer_dim0_offset = size.dim2 + 1;
@@ -680,25 +693,25 @@ inline void dxdydzProcessBlockPlanePostPred(
         T * dx_pos = dx_start_pos + i * size.dim0_offset;
         T * dy_pos = dy_start_pos + i * size.dim0_offset;
         T * dz_pos = dz_start_pos + i * size.dim0_offset;
-        const int * dx_level_0_pos = isTopPlane && (i == 0) ? buffer_set->currPlane_data_pos + buffer_set->buffer_dim0_offset * (i + 1) : buffer_set->currPlane_data_pos + buffer_set->buffer_dim0_offset * i;
-        const int * dx_level_1_pos = i < size_x - 1 ? buffer_set->currPlane_data_pos + buffer_set->buffer_dim0_offset * (i + 1)
-                                    : isBottomPlane ? buffer_set->currPlane_data_pos + buffer_set->buffer_dim0_offset * i
-                                    : buffer_set->nextPlane_data_pos;
+        const int * dx_level_0_pos = buffer_set->currPlane_data_pos + buffer_set->buffer_dim0_offset * i;
+        const int * dx_level_1_pos = buffer_set->currPlane_data_pos + buffer_set->buffer_dim0_offset * (i + 1);
         const int * curr_x_plane = buffer_set->currPlane_data_pos + buffer_set->buffer_dim0_offset * i;
         for(size_t j=0; j<size.dim2; j++){
             int * dx_int_buffer_pos = deriv_buffer->dx_buffer + (j + 1) * dx_buffer_dim0_offset + 1; 
-            const int * dy_level_0_pos = j == 0 ? curr_x_plane + (j + 1) * buffer_set->buffer_dim1_offset : curr_x_plane + j * buffer_set->buffer_dim1_offset;
-            const int * dy_level_1_pos = j == size.dim2 - 1 ? curr_x_plane + j * buffer_set->buffer_dim1_offset : curr_x_plane + (j + 1) * buffer_set->buffer_dim1_offset;
+            const int * dy_level_0_pos = curr_x_plane + j * buffer_set->buffer_dim1_offset;
+            const int * dy_level_1_pos = curr_x_plane + (j + 1) * buffer_set->buffer_dim1_offset;
             int * dy_int_buffer_pos = deriv_buffer->dy_buffer[j] + dy_buffer_dim0_offset * (global_x_offset + 1) + 1;
             const int * curr_y_row = curr_x_plane + j * buffer_set->buffer_dim1_offset;
             for(size_t k=0; k<size.dim3; k++){
-                const int * dz_level_0_pos = k == 0 ? curr_y_row + k + 1 : curr_y_row + k;
-                const int * dz_level_1_pos = k == size.dim3 - 1 ? curr_y_row + k : curr_y_row + k + 1;
+                const int * dz_level_0_pos = curr_y_row + k;
+                const int * dz_level_1_pos = curr_y_row + k + 1;
                 int * dz_int_buffer_pos = deriv_buffer->dz_buffer[k] + dz_buffer_dim0_offset * (global_x_offset + 1) + j + 1;
                 deriv_lorenzo_2d(dx_level_0_pos++, dx_level_1_pos++, dx_int_buffer_pos++, dx_pos++, dx_buffer_dim0_offset, errorBound);
                 deriv_lorenzo_2d(dy_level_0_pos++, dy_level_1_pos++, dy_int_buffer_pos++, dy_pos++, dy_buffer_dim0_offset, errorBound);
                 deriv_lorenzo_2d(dz_level_0_pos, dz_level_1_pos, dz_int_buffer_pos, dz_pos++, dz_buffer_dim0_offset, errorBound);
             }
+            dx_level_0_pos += 2;
+            dx_level_1_pos += 2;
         }
     }
 }
@@ -732,12 +745,15 @@ inline void dxdydzProcessBlocksPostPred(
             }
         }
     }
+    printf("recover_time = %.6f\n", rec_time);
+    printf("process_time = %.6f\n", op_time);
 }
 
 inline void recoverBlockPlane2PrePred(
     size_t x, DSize_3d& size, unsigned char *& encode_pos, int *buffer_data_pos,
     SZpAppBufferSet_3d *buffer_set, SZpCmpBufferSet *cmpkit_set
 ){
+clock_gettime(CLOCK_REALTIME, &start2);
     int block_ind = x * size.block_dim2 * size.block_dim3;
     int size_x = ((x+1)*size.Bsize < size.dim1) ? size.Bsize : size.dim1 - x*size.Bsize;
     int * buffer_start_pos = buffer_data_pos;
@@ -747,7 +763,6 @@ inline void recoverBlockPlane2PrePred(
             int size_z = ((z+1)*size.Bsize < size.dim3) ? size.Bsize : size.dim3 - z*size.Bsize;
             int block_size = size_x * size_y * size_z;
             int * curr_buffer_pos = buffer_start_pos;
-            int * quant_pos = buffer_start_pos;
             int fixed_rate = (int)cmpkit_set->compressed[block_ind++];
             if(fixed_rate){
                 size_t cmp_block_sign_length = (block_size + 7) / 8;
@@ -757,26 +772,27 @@ inline void recoverBlockPlane2PrePred(
                 encode_pos += savedbitsbytelength;
                 convert2SignIntArray(cmpkit_set->signFlag, cmpkit_set->signPredError, block_size);
             }else{
-                memset(cmpkit_set->signPredError, 0, block_size*sizeof(int));
+                // memset(cmpkit_set->signPredError, 0, block_size*sizeof(int));
+                for(int i=0; i<block_size; i++) cmpkit_set->signPredError[i] = 0;
             }
             for(int i=0; i<size_x; i++){
                 for(int j=0; j<size_y; j++){
-                    memcpy(curr_buffer_pos, cmpkit_set->signPredError+i*size_y*size_z+j*size_z, size_z*sizeof(int));
+                    // memcpy(curr_buffer_pos, cmpkit_set->signPredError+i*size_y*size_z+j*size_z, size_z*sizeof(int));
                     for(int k=0; k<size_z; k++){
-                        int * quant_ptr = quant_pos + k;
-                        recover_lorenzo_3d(quant_ptr, buffer_set->buffer_dim0_offset, buffer_set->buffer_dim1_offset);
+                        curr_buffer_pos[0] = cmpkit_set->signPredError[i*size_y*size_z+j*size_z+k];
+                        recover_lorenzo_3d(curr_buffer_pos++, buffer_set->buffer_dim0_offset, buffer_set->buffer_dim1_offset);
                     }
-                    curr_buffer_pos += buffer_set->buffer_dim1_offset;
-                    quant_pos += buffer_set->buffer_dim1_offset;
+                    curr_buffer_pos += buffer_set->buffer_dim1_offset - size_z;
                 }
                 curr_buffer_pos += buffer_set->buffer_dim0_offset - size_y * buffer_set->buffer_dim1_offset;
-                quant_pos += buffer_set->buffer_dim0_offset - size_y * buffer_set->buffer_dim1_offset;
             }
             buffer_start_pos += size.Bsize;
         }
         buffer_start_pos += size.Bsize * buffer_set->buffer_dim1_offset - size.Bsize * size.block_dim3;
     }
     memcpy(buffer_set->decmp_buffer, buffer_data_pos+(size.Bsize-1)*buffer_set->buffer_dim0_offset-buffer_set->buffer_dim1_offset-1, buffer_set->buffer_dim0_offset*sizeof(int));
+clock_gettime(CLOCK_REALTIME, &end2);
+rec_time += get_elapsed_time(start2, end2);
 }
 
 template <class T>
@@ -785,6 +801,7 @@ inline void dxdydzProcessBlockPlanePrePred(
     T *dx_start_pos, T *dy_start_pos, T *dz_start_pos,
     double errorBound, bool isTopPlane, bool isBottomPlane
 ){
+clock_gettime(CLOCK_REALTIME, &start2);
     int size_x = ((x+1)*size.Bsize < size.dim1) ? size.Bsize : size.dim1 - x*size.Bsize;
     const int * prevBlockPlaneBottom_pos = buffer_set->prevPlane_data_pos + (size.Bsize - 1) * buffer_set->buffer_dim0_offset - buffer_set->buffer_dim1_offset - 1;
     const int * nextBlockPlaneTop_pos = buffer_set->nextPlane_data_pos - buffer_set->buffer_dim1_offset - 1;
@@ -805,51 +822,17 @@ inline void dxdydzProcessBlockPlanePrePred(
             const int * prev_row = curr_row - buffer_set->buffer_dim1_offset;
             const int * next_row = curr_row + buffer_set->buffer_dim1_offset;
             for(size_t k=0; k<size.dim3; k++){
-                size_t index_1d = k;
-                // size_t buffer_index_1d = k + 1;
                 size_t buffer_index_2d = (j + 1) * buffer_set->buffer_dim1_offset + k + 1;
-                y_dx_pos[index_1d] = (next_plane[buffer_index_2d] - prev_plane[buffer_index_2d]) * errorBound;
-                y_dy_pos[index_1d] = (next_row[index_1d] - prev_row[index_1d]) * errorBound;
-                y_dz_pos[index_1d] = (curr_row[index_1d + 1] - curr_row[index_1d - 1]) * errorBound;
+                y_dx_pos[k] = (next_plane[buffer_index_2d] - prev_plane[buffer_index_2d]) * errorBound;
+                y_dy_pos[k] = (next_row[k] - prev_row[k]) * errorBound;
+                y_dz_pos[k] = (curr_row[k + 1] - curr_row[k - 1]) * errorBound;
             }
             curr_row += buffer_set->buffer_dim1_offset;
         }
         curr_plane += buffer_set->buffer_dim0_offset;
     }
-    // // legacy
-    // size_t buffer_dim0_offset = (size.dim2 + 1) * (size.dim3 + 1);
-    // size_t buffer_dim1_offset = size.dim3 + 1;
-    // const int * prevBlockPlaneBottom_pos = buffer_set->prevPlane_data_pos + (size.Bsize - 1) * buffer_dim0_offset - buffer_dim1_offset - 1;
-    // const int * nextBlockPlaneTop_pos = buffer_set->nextPlane_data_pos - buffer_dim1_offset - 1;
-    // const int * curr_plane = buffer_set->currPlane_data_pos - buffer_dim1_offset - 1;
-    // for(int i=0; i<size_x; i++){
-    //     T * dx_pos = dx_start_pos + i * size.dim0_offset;
-    //     T * dy_pos = dy_start_pos + i * size.dim0_offset;
-    //     T * dz_pos = dz_start_pos + i * size.dim0_offset;
-    //     const int * prev_plane = i > 0 ? curr_plane - buffer_dim0_offset
-    //                            : isTopPlane ? curr_plane : prevBlockPlaneBottom_pos;
-    //     const int * next_plane = i < size_x - 1 ? curr_plane + buffer_dim0_offset
-    //                            : isBottomPlane ? curr_plane : nextBlockPlaneTop_pos;
-    //     const int * curr_row = curr_plane + buffer_dim1_offset + 1;
-    //     int coeff_dx = (isTopPlane && i == 0) || (isBottomPlane && i == size_x - 1) ? 2 : 1;
-    //     for(size_t j=0; j<size.dim2; j++){
-    //         const int * prev_row = j == 0 ? curr_row : curr_row - buffer_dim1_offset;
-    //         const int * next_row = j == size.dim2 - 1 ? curr_row : curr_row + buffer_dim1_offset;
-    //         int coeff_dy = (j == 0) || (j == size.dim2 - 1) ? 2 : 1;
-    //         for(size_t k=0; k<size.dim3; k++){
-    //             size_t buffer_index = (j + 1) * buffer_dim1_offset + k + 1;
-    //             size_t res_index = j * size.dim1_offset + k;
-    //             size_t prev_k = k == 0 ? k : k - 1;
-    //             size_t next_k = k == size.dim3 - 1 ? k : k + 1;
-    //             int coeff_dz = (k == 0) || (k == size.dim3 - 1) ? 2 : 1;
-    //             dx_pos[res_index] = (next_plane[buffer_index] - prev_plane[buffer_index]) * coeff_dx * errorBound;
-    //             dy_pos[res_index] = (next_row[k] - prev_row[k]) * coeff_dy * errorBound;
-    //             dz_pos[res_index] = (curr_row[next_k] - curr_row[prev_k]) * coeff_dz * errorBound;
-    //         }
-    //         curr_row += buffer_dim1_offset;
-    //     }
-    //     curr_plane += buffer_dim0_offset;
-    // }
+clock_gettime(CLOCK_REALTIME, &end2);
+op_time += get_elapsed_time(start2, end2);
 }
 
 template <class T>
@@ -882,6 +865,8 @@ inline void dxdydzProcessBlocksPrePred(
             }
         }
     }
+    printf("recover_time = %.6f\n", rec_time);
+    printf("process_time = %.6f\n", op_time);
 }
 
 template <class T>
@@ -932,8 +917,16 @@ void SZp_dxdydz_3dLorenzo(
             break;
         }
         case decmpState::full:{
+            clock_gettime(CLOCK_REALTIME, &start2);
             SZp_decompress_3dLorenzo(decData, cmpData, dim1, dim2, dim3, blockSideLength, errorBound);
+            clock_gettime(CLOCK_REALTIME, &end2);
+            rec_time += get_elapsed_time(start2, end2);
+            printf("recover_time = %.6f\n", rec_time);
+            clock_gettime(CLOCK_REALTIME, &start2);
             compute_dxdydz(dim1, dim2, dim3, decData, dx_pos, dy_pos, dz_pos);
+            clock_gettime(CLOCK_REALTIME, &end2);
+            op_time += get_elapsed_time(start2, end2);
+            printf("process_time = %.6f\n", op_time);
             break;
         }
     }
@@ -950,297 +943,121 @@ void SZp_dxdydz_3dLorenzo(
     free(decData);
 }
 
-/**
- * Use 2dlorenzo in 3d data
- */
 template <class T>
-void SZp_compress_2dLorenzo(
-    const T *oriData, unsigned char *cmpData,
-    size_t dim1, size_t dim2, size_t dim3, int blockSideLength,
-    double errorBound, size_t& cmpSize
+inline void laplacianProcessBlockPlanePrePred(
+    size_t x, DSize_3d& size, SZpAppBufferSet_3d *buffer_set,
+    T *result_start_pos, double errorBound,
+    bool isTopPlane, bool isBottomPlane
 ){
-    DSize_3d2d size(dim1, dim2, dim3, blockSideLength);
-    size_t buffer_dim0_offset = size.dim3 + 1;
-    int * quant_buffer = (int *)malloc((size.Bsize+1)*(size.dim3+1)*sizeof(int));
-    unsigned int * absPredError = (unsigned int *)malloc(size.max_num_block_elements*sizeof(unsigned int));
-    unsigned char * signFlag = (unsigned char *)malloc(size.max_num_block_elements*sizeof(unsigned char));
-    unsigned char * cmpData_pos = cmpData + FIXED_RATE_PER_BLOCK_BYTES * size.num_blocks;
-    int block_ind = 0;
-    const T * x_data_pos = oriData;
-    for(size_t x=0; x<size.block_dim1; x++){
-        const T * y_data_pos = x_data_pos;
-        memset(quant_buffer, 0, (size.Bsize+1)*(size.dim3+1)*sizeof(int));
-        for(size_t y=0; y<size.block_dim2; y++){
-            const T * z_data_pos = y_data_pos;
-            int * buffer_start_pos = quant_buffer + buffer_dim0_offset + 1;
-            for(size_t z=0; z<size.block_dim3; z++){
-                int size_y = ((y+1)*size.Bsize < size.dim2) ? size.Bsize : size.dim2 - y*size.Bsize;
-                int size_z = ((z+1)*size.Bsize < size.dim3) ? size.Bsize : size.dim3 - z*size.Bsize;
-                int block_size = size_y * size_z;
-                unsigned int * abs_err_pos = absPredError;
-                unsigned char * sign_pos = signFlag;
-                int max_err = 0;
-                int * block_buffer_pos = buffer_start_pos;
-                const T * curr_data_pos = z_data_pos;
-                for(int j=0; j<size_y; j++){
-                    int * curr_buffer_pos = block_buffer_pos;
-                    for(int k=0; k<size_z; k++){
-                        int err = predict_lorenzo_2d(curr_data_pos++, curr_buffer_pos++, buffer_dim0_offset, errorBound);
-                        (*sign_pos++) = (err < 0);
-                        unsigned int abs_err = abs(err);
-                        (*abs_err_pos++) = abs_err;
-                        max_err = max_err > abs_err ? max_err : abs_err;
-                    }
-                    block_buffer_pos += buffer_dim0_offset;
-                    curr_data_pos += size.dim1_offset - size_z;
-                }
-                int fixed_rate = max_err == 0 ? 0 : INT_BITS - __builtin_clz(max_err);
-                cmpData[block_ind++] = (unsigned char)fixed_rate;
-                if(fixed_rate){
-                    unsigned int signbyteLength = convertIntArray2ByteArray_fast_1b_args(signFlag, block_size, cmpData_pos);
-                    cmpData_pos += signbyteLength;
-                    unsigned int savedbitsbyteLength = Jiajun_save_fixed_length_bits(absPredError, block_size, cmpData_pos, fixed_rate);
-                    cmpData_pos += savedbitsbyteLength;
-                }
-                buffer_start_pos += size.Bsize;
-                z_data_pos += size.Bsize;
-            }
-            memcpy(quant_buffer, quant_buffer+size.Bsize*buffer_dim0_offset, buffer_dim0_offset*sizeof(int));
-            y_data_pos += size.Bsize * size.dim1_offset;
-        }
-        x_data_pos += size.dim0_offset;
-    }
-    cmpSize = cmpData_pos - cmpData;
-    free(quant_buffer);
-    free(absPredError);
-    free(signFlag);
-}
-
-template <class T>
-void SZp_decompress_2dLorenzo(
-    T *decData, unsigned char *cmpData,
-    size_t dim1, size_t dim2, size_t dim3, int blockSideLength,
-    double errorBound
-){
-    DSize_3d2d size(dim1, dim2, dim3, blockSideLength);
-    size_t buffer_dim0_offset = size.dim3 + 1;
-    int * err_buffer = (int *)malloc((size.Bsize+1)*(size.dim3+1)*sizeof(int));
-    int * signPredError = (int *)malloc(size.max_num_block_elements*sizeof(int));
-    unsigned char * signFlag = (unsigned char *)malloc(size.max_num_block_elements*sizeof(unsigned char));
-    unsigned char * cmpData_pos = cmpData + FIXED_RATE_PER_BLOCK_BYTES * size.num_blocks;
-    int block_ind = 0;
-    T * x_data_pos = decData;
-    for(size_t x=0; x<size.block_dim1; x++){
-        T * y_data_pos = x_data_pos;
-        memset(err_buffer, 0, (size.Bsize+1)*(size.dim3+1)*sizeof(int));
-        for(size_t y=0; y<size.block_dim2; y++){
-            T * z_data_pos = y_data_pos;
-            int * buffer_start_pos = err_buffer + buffer_dim0_offset + 1;
-            for(size_t z=0; z<size.block_dim3; z++){
-                int size_y = ((y+1)*size.Bsize < size.dim2) ? size.Bsize : size.dim2 - y*size.Bsize;
-                int size_z = ((z+1)*size.Bsize < size.dim3) ? size.Bsize : size.dim3 - z*size.Bsize;
-                int block_size = size_y * size_z;
-                int fixed_rate = (int)cmpData[block_ind++];
-                int * block_buffer_pos = buffer_start_pos;
-                T * curr_data_pos = z_data_pos;
-                if(fixed_rate){
-                    size_t cmp_block_sign_length = (block_size + 7) / 8;
-                    convertByteArray2IntArray_fast_1b_args(block_size, cmpData_pos, cmp_block_sign_length, signFlag);
-                    cmpData_pos += cmp_block_sign_length;
-                    unsigned int savedbitsbytelength = Jiajun_extract_fixed_length_bits(cmpData_pos, block_size, signPredError, fixed_rate);
-                    cmpData_pos += savedbitsbytelength;
-                    convert2SignIntArray(signFlag, signPredError, block_size);
-                }else{
-                    memset(signPredError, 0, size.max_num_block_elements*sizeof(int));
-                }
-                for(int j=0; j<size_y; j++){
-                    memcpy(block_buffer_pos, signPredError+j*size_z, size_z*sizeof(int));
-                    int * curr_buffer_pos = block_buffer_pos;
-                    for(int k=0; k<size_z; k++){
-                        recover_lorenzo_2d(curr_data_pos++, curr_buffer_pos++, buffer_dim0_offset, errorBound);
-                    }
-                    block_buffer_pos += buffer_dim0_offset;
-                    curr_data_pos += size.dim1_offset - size_z;
-                }
-                buffer_start_pos += size.Bsize;
-                z_data_pos += size.Bsize;
-            }
-            memcpy(err_buffer, err_buffer+size.Bsize*buffer_dim0_offset, buffer_dim0_offset*sizeof(int));
-            y_data_pos += size.Bsize * size.dim1_offset;
-        }
-        x_data_pos += size.dim0_offset;
-    }
-    free(err_buffer);
-    free(signPredError);
-    free(signFlag);
-}
-
-inline void recoverBlockPlane2PostPred(
-    size_t x, DSize_3d2d& size, unsigned char *& encode_pos, int *buffer_data_pos,
-    SZpAppBufferSet_3d *buffer_set, SZpCmpBufferSet *cmpkit_set, double errorBound
-){
-    int block_ind = x * size.Bwidth * size.block_dim2 * size.block_dim3;
-    int size_x = ((x+1) * size.Bwidth < size.dim1) ? size.Bwidth : size.dim1 - x*size.Bwidth;
-    for(int i=0; i<size_x; i++){
-        int * buffer_start_pos = buffer_data_pos + i * buffer_set->buffer_dim0_offset;
-        for(size_t y=0; y<size.block_dim2; y++){
-            for(size_t z=0; z<size.block_dim3; z++){
-                int size_y = ((y+1)*size.Bsize < size.dim2) ? size.Bsize : size.dim2 - y*size.Bsize;
-                int size_z = ((z+1)*size.Bsize < size.dim3) ? size.Bsize : size.dim3 - z*size.Bsize;
-                int block_size = size_y * size_z;
-                int * block_buffer_pos = buffer_start_pos;
-                int * err_pos = buffer_start_pos;
-                int fixed_rate = (int)cmpkit_set->compressed[block_ind++];
-                if(fixed_rate){
-                    size_t cmp_block_sign_length = (block_size + 7) / 8;
-                    convertByteArray2IntArray_fast_1b_args(block_size, encode_pos, cmp_block_sign_length, cmpkit_set->signFlag);
-                    encode_pos += cmp_block_sign_length;
-                    unsigned int savedbitsbytelength = Jiajun_extract_fixed_length_bits(encode_pos, block_size, cmpkit_set->signPredError, fixed_rate);
-                    encode_pos += savedbitsbytelength;
-                    convert2SignIntArray(cmpkit_set->signFlag, cmpkit_set->signPredError, block_size);
-                }else{
-                    memset(cmpkit_set->signPredError, 0, block_size*sizeof(int));
-                }
-                for(int j=0; j<size_y; j++){
-                    memcpy(block_buffer_pos, cmpkit_set->signPredError+j*size_z, size_z*sizeof(int));
-                    for(int k=0; k<size_z; k++){
-                        recover_lorenzo_2d(err_pos+k, buffer_set->buffer_dim1_offset);
-                    }
-                    block_buffer_pos += buffer_set->buffer_dim1_offset;
-                    err_pos += buffer_set->buffer_dim1_offset;
-                }
-                buffer_start_pos += size.Bsize;
-            }
-            buffer_start_pos += size.Bsize * buffer_set->buffer_dim1_offset - size.Bsize * size.block_dim3;
-        }
-    }
-}
-
-inline void recoverBlockPlane2PrePred(
-    size_t x, DSize_3d2d& size, unsigned char *& encode_pos, int *buffer_data_pos,
-    SZpAppBufferSet_3d *buffer_set, SZpCmpBufferSet *cmpkit_set, double errorBound
-){
-    int block_ind = x * size.Bwidth * size.block_dim2 * size.block_dim3;
-    int size_x = ((x+1) * size.Bwidth < size.dim1) ? size.Bwidth : size.dim1 - x*size.Bwidth;
-    for(int i=0; i<size_x; i++){
-        int * buffer_start_pos = buffer_data_pos + i * buffer_set->buffer_dim0_offset;
-        for(size_t y=0; y<size.block_dim2; y++){
-            for(size_t z=0; z<size.block_dim3; z++){
-                int size_y = ((y+1)*size.Bsize < size.dim2) ? size.Bsize : size.dim2 - y*size.Bsize;
-                int size_z = ((z+1)*size.Bsize < size.dim3) ? size.Bsize : size.dim3 - z*size.Bsize;
-                int block_size = size_y * size_z;
-                int * block_buffer_pos = buffer_start_pos;
-                int * err_pos = buffer_start_pos;
-                int fixed_rate = (int)cmpkit_set->compressed[block_ind++];
-                if(fixed_rate){
-                    size_t cmp_block_sign_length = (block_size + 7) / 8;
-                    convertByteArray2IntArray_fast_1b_args(block_size, encode_pos, cmp_block_sign_length, cmpkit_set->signFlag);
-                    encode_pos += cmp_block_sign_length;
-                    unsigned int savedbitsbytelength = Jiajun_extract_fixed_length_bits(encode_pos, block_size, cmpkit_set->signPredError, fixed_rate);
-                    encode_pos += savedbitsbytelength;
-                    convert2SignIntArray(cmpkit_set->signFlag, cmpkit_set->signPredError, block_size);
-                }else{
-                    memset(cmpkit_set->signPredError, 0, block_size*sizeof(int));
-                }
-                for(int j=0; j<size_y; j++){
-                    memcpy(block_buffer_pos, cmpkit_set->signPredError+j*size_z, size_z*sizeof(int));
-                    for(int k=0; k<size_z; k++){
-                        recover_lorenzo_2d(err_pos+k, buffer_set->buffer_dim1_offset);
-                    }
-                    block_buffer_pos += buffer_set->buffer_dim1_offset;
-                    err_pos += buffer_set->buffer_dim1_offset;
-                }
-                buffer_start_pos += size.Bsize;
-            }
-            buffer_start_pos += size.Bsize * buffer_set->buffer_dim1_offset - size.Bsize * size.block_dim3;
-        }
-    }
-}
-
-template <class T>
-inline void dxdydzProcessBlockPlanePrePred(
-    size_t x, DSize_3d2d& size, SZpAppBufferSet_3d *buffer_set,
-    T *dx_start_pos, T *dy_start_pos, T *dz_start_pos,
-    double errorBound, bool isTopPlane, bool isBottomPlane
-){
+clock_gettime(CLOCK_REALTIME, &start2);
     int size_x = ((x+1)*size.Bsize < size.dim1) ? size.Bsize : size.dim1 - x*size.Bsize;
     const int * prevBlockPlaneBottom_pos = buffer_set->prevPlane_data_pos + (size.Bsize - 1) * buffer_set->buffer_dim0_offset - buffer_set->buffer_dim1_offset - 1;
     const int * nextBlockPlaneTop_pos = buffer_set->nextPlane_data_pos - buffer_set->buffer_dim1_offset - 1;
+    if(!isTopPlane) memcpy(buffer_set->currPlane_data_pos-buffer_set->buffer_dim0_offset-buffer_set->buffer_dim1_offset-1, prevBlockPlaneBottom_pos, buffer_set->buffer_dim0_offset*sizeof(int));
+    if(!isBottomPlane) memcpy(buffer_set->currPlane_data_pos+size.Bsize*buffer_set->buffer_dim0_offset-buffer_set->buffer_dim1_offset-1, nextBlockPlaneTop_pos, buffer_set->buffer_dim0_offset*sizeof(int));
     const int * curr_plane = buffer_set->currPlane_data_pos - buffer_set->buffer_dim1_offset - 1;
     for(int i=0; i<size_x; i++){
-        T * dx_pos = dx_start_pos + i * size.dim0_offset;
-        T * dy_pos = dy_start_pos + i * size.dim0_offset;
-        T * dz_pos = dz_start_pos + i * size.dim0_offset;
-        const int * prev_plane = isTopPlane && i == 0 ? curr_plane
-                                 : i == 0 ? prevBlockPlaneBottom_pos
-                                 : curr_plane - buffer_set->buffer_dim0_offset;
-        const int * next_plane = isBottomPlane && i == size_x - 1 ? curr_plane
-                                 : i == size_x - 1 ? nextBlockPlaneTop_pos
-                                 : curr_plane + buffer_set->buffer_dim0_offset;
+        T * laplacian_pos = result_start_pos + i * size.dim0_offset;
+        const int * prev_plane = curr_plane - buffer_set->buffer_dim0_offset;
+        const int * next_plane = curr_plane + buffer_set->buffer_dim0_offset;
         const int * curr_row = curr_plane + buffer_set->buffer_dim1_offset + 1;
-        int coeff_dx = (isTopPlane && i == 0) || (isBottomPlane && i == size_x - 1) ? 2 : 1;
         for(size_t j=0; j<size.dim2; j++){
-            const int * prev_row = j == 0 ? curr_row : curr_row - buffer_set->buffer_dim1_offset;
-            const int * next_row = j == size.dim2 - 1 ? curr_row : curr_row + buffer_set->buffer_dim1_offset;
-            int coeff_dy = (j == 0) || (j == size.dim2 - 1) ? 2 : 1;
+            T * y_laplacian_pos = laplacian_pos + j * size.dim1_offset;
+            const int * prev_row = curr_row - buffer_set->buffer_dim1_offset;
+            const int * next_row = curr_row + buffer_set->buffer_dim1_offset;
             for(size_t k=0; k<size.dim3; k++){
-                size_t buffer_index = (j + 1) * buffer_set->buffer_dim1_offset + k + 1;
-                size_t res_index = j * size.dim1_offset + k;
-                size_t prev_k = k == 0 ? k : k - 1;
-                size_t next_k = k == size.dim3 - 1 ? k : k + 1;
-                int coeff_dz = (k == 0) || (k == size.dim3 - 1) ? 2 : 1;
-                dx_pos[res_index] = (next_plane[buffer_index] - prev_plane[buffer_index]) * coeff_dx * errorBound;
-                dy_pos[res_index] = (next_row[k] - prev_row[k]) * coeff_dy * errorBound;
-                dz_pos[res_index] = (curr_row[next_k] - curr_row[prev_k]) * coeff_dz * errorBound;
+                size_t index_1d = k;
+                size_t buffer_index_2d = (j + 1) * buffer_set->buffer_dim1_offset + k + 1;
+                y_laplacian_pos[index_1d] = (curr_row[k-1] + curr_row[k+1] +
+                                             prev_row[k] + next_row[k] +
+                                             prev_plane[buffer_index_2d] + next_plane[buffer_index_2d] -
+                                             6 * curr_row[k]) * errorBound * 2;
             }
             curr_row += buffer_set->buffer_dim1_offset;
         }
         curr_plane += buffer_set->buffer_dim0_offset;
     }
+clock_gettime(CLOCK_REALTIME, &end2);
+op_time += get_elapsed_time(start2, end2);
 }
 
 template <class T>
-inline void dxdydzProcessBlocksPrePred(
-    DSize_3d2d &size,
-    size_t numBlockPlane,
+inline void laplacianProcessBlocksPrePred(
+    DSize_3d &size,
     SZpCmpBufferSet *cmpkit_set, 
     SZpAppBufferSet_3d *buffer_set,
     unsigned char *&encode_pos,
-    T *dx_pos, T *dy_pos, T *dz_pos,
+    T *result_pos,
     double errorBound
 ){
     size_t BlockPlaneSize = size.Bsize * size.dim2 * size.dim3;
     buffer_set->reset();
     int * tempBlockPlane = nullptr;
-    for(size_t x=0; x<numBlockPlane; x++){
+    for(size_t x=0; x<size.block_dim1; x++){
         size_t offset = x * BlockPlaneSize;
         if(x == 0){
-            recoverBlockPlane2PrePred(x, size, encode_pos, buffer_set->currPlane_data_pos, buffer_set, cmpkit_set, errorBound);
-            recoverBlockPlane2PrePred(x+1, size, encode_pos, buffer_set->nextPlane_data_pos, buffer_set, cmpkit_set, errorBound);
-            dxdydzProcessBlockPlanePrePred(x, size, buffer_set, dx_pos+offset, dy_pos+offset, dz_pos+offset, errorBound, true, false);
+            recoverBlockPlane2PrePred(x, size, encode_pos, buffer_set->currPlane_data_pos, buffer_set, cmpkit_set);
+            memcpy(buffer_set->nextPlane_data_pos-buffer_set->buffer_dim0_offset-buffer_set->buffer_dim1_offset-1, buffer_set->decmp_buffer, buffer_set->buffer_dim0_offset*sizeof(int));
+            recoverBlockPlane2PrePred(x+1, size, encode_pos, buffer_set->nextPlane_data_pos, buffer_set, cmpkit_set);
+            laplacianProcessBlockPlanePrePred(x, size, buffer_set, result_pos+offset, errorBound, true, false);
         }else{
             rotate_buffer(buffer_set->currPlane_data_pos, buffer_set->prevPlane_data_pos, buffer_set->nextPlane_data_pos, tempBlockPlane);
-            if(x == numBlockPlane - 1){
-                dxdydzProcessBlockPlanePrePred(x, size, buffer_set, dx_pos+offset, dy_pos+offset, dz_pos+offset, errorBound, false, true);
+            if(x == size.block_dim1 - 1){
+                laplacianProcessBlockPlanePrePred(x, size, buffer_set, result_pos+offset, errorBound, false, true);
             }else{
-                recoverBlockPlane2PrePred(x+1, size, encode_pos, buffer_set->nextPlane_data_pos, buffer_set, cmpkit_set, errorBound);
-                dxdydzProcessBlockPlanePrePred(x, size, buffer_set, dx_pos+offset, dy_pos+offset, dz_pos+offset, errorBound, false, false);
+                memcpy(buffer_set->nextPlane_data_pos-buffer_set->buffer_dim0_offset-buffer_set->buffer_dim1_offset-1, buffer_set->decmp_buffer, buffer_set->buffer_dim0_offset*sizeof(int));
+                recoverBlockPlane2PrePred(x+1, size, encode_pos, buffer_set->nextPlane_data_pos, buffer_set, cmpkit_set);
+                laplacianProcessBlockPlanePrePred(x, size, buffer_set, result_pos+offset, errorBound, false, false);
             }
         }
     }
+    printf("recover_time = %.6f\n", rec_time);
+    printf("process_time = %.6f\n", op_time);
 }
 
 template <class T>
-void SZp_dxdydz_2dLorenzo(
+inline void laplacianProcessBlocksPostPred(
+    DSize_3d &size,
+    SZpCmpBufferSet *cmpkit_set, 
+    SZpAppBufferSet_3d *buffer_set,
+    laplaceBuffer_3d *laplace_buffer,
+    unsigned char *&encode_pos,
+    T *result_pos,
+    double errorBound
+){
+    size_t BlockPlaneSize = size.Bsize * size.dim2 * size.dim3;
+    buffer_set->reset();
+    int * tempBlockPlane = nullptr;
+    for(size_t x=0; x<size.block_dim1; x++){
+        size_t offset = x * BlockPlaneSize;
+        if(x == 0){
+            recoverBlockPlane2PostPred(x, size, encode_pos, buffer_set->currPlane_data_pos, buffer_set, cmpkit_set);
+            recoverBlockPlane2PostPred(x+1, size, encode_pos, buffer_set->nextPlane_data_pos, buffer_set, cmpkit_set);
+            // laplacianProcessBlockPlanePostPred(x, size, buffer_set, result_pos+offset, errorBound, true, false);
+        }else{
+            std::swap(buffer_set->currPlane_data_pos, buffer_set->nextPlane_data_pos);
+            if(x == size.block_dim1 - 1){
+                // laplacianProcessBlockPlanePostPred(x, size, buffer_set, result_pos+offset, errorBound, false, true);
+            }else{
+                recoverBlockPlane2PostPred(x+1, size, encode_pos, buffer_set->nextPlane_data_pos, buffer_set, cmpkit_set);
+                // laplacianProcessBlockPlanePostPred(x, size, buffer_set, result_pos+offset, errorBound, false, false);
+            }
+        }
+    }
+    printf("recover_time = %.6f\n", rec_time);
+    printf("process_time = %.6f\n", op_time);
+}
+
+template <class T>
+void SZp_laplacian_3dLorenzo(
     unsigned char *cmpData, size_t dim1, size_t dim2,
     size_t dim3, int blockSideLength, double errorBound,
-    T *dx_result, T *dy_result, T *dz_result, decmpState state
+    T *laplacian_result, decmpState state
 ){
-    DSize_3d2d size(dim1, dim2, dim3, blockSideLength);
-    size_t numBlockPlane = (size.dim1 - 1) / size.Bsize + 1;
-    size_t buffer_dim1 = size.Bsize + 1;
-    size_t buffer_dim2 = size.dim2 + 1;
-    size_t buffer_dim3 = size.dim3 + 1;
+    DSize_3d size(dim1, dim2, dim3, blockSideLength);
+    size_t buffer_dim1 = size.Bsize + 2;
+    size_t buffer_dim2 = size.dim2 + 2;
+    size_t buffer_dim3 = size.dim3 + 2;
     size_t buffer_size = buffer_dim1 * buffer_dim2 * buffer_dim3;
     int * Buffer_3d = (int *)malloc(buffer_size * 3 * sizeof(int));
     int * Buffer_2d = (int *)malloc(buffer_dim2 * buffer_dim3 * sizeof(int));
@@ -1250,26 +1067,36 @@ void SZp_dxdydz_2dLorenzo(
     SZpAppBufferSet_3d * buffer_set = new SZpAppBufferSet_3d(buffer_dim1, buffer_dim2, buffer_dim3, Buffer_3d, Buffer_2d, appType::CENTRALDIFF);
     SZpCmpBufferSet * cmpkit_set = new SZpCmpBufferSet(cmpData, signPredError, signFlag);
     unsigned char * encode_pos = cmpData + FIXED_RATE_PER_BLOCK_BYTES * size.num_blocks;
-    T * dx_pos = dx_result;
-    T * dy_pos = dy_result;
-    T * dz_pos = dz_result;
+    T * laplacian_pos = laplacian_result;
+
+    int * integer_buffer = (int *)malloc((size.dim1+2)*buffer_dim2*buffer_dim3*sizeof(int));
+    int * int_buffer_pos = integer_buffer + buffer_set->buffer_dim0_offset + buffer_set->buffer_dim1_offset + 1;
 
     struct timespec start, end;
     double elapsed_time;
     clock_gettime(CLOCK_REALTIME, &start);
     switch(state){
         case decmpState::postPred:{
-            elapsed_time = -1;
-            exit(0);
+            // printf("Not implemented\n");
+            printf("recover_time = %.6f\n", rec_time);
+            printf("process_time = %.6f\n", op_time);
             break;
         }
         case decmpState::prePred:{
-            dxdydzProcessBlocksPrePred(size, numBlockPlane, cmpkit_set, buffer_set, encode_pos, dx_pos, dy_pos, dz_pos, errorBound);
+            laplacianProcessBlocksPrePred(size, cmpkit_set, buffer_set, encode_pos, laplacian_pos, errorBound);
             break;
         }
         case decmpState::full:{
-            SZp_decompress_2dLorenzo(decData, cmpData, dim1, dim2, dim3, blockSideLength, errorBound);
-            compute_dxdydz(dim1, dim2, dim3, decData, dx_pos, dy_pos, dz_pos);
+            clock_gettime(CLOCK_REALTIME, &start2);
+            SZp_decompress_3dLorenzo(decData, cmpData, dim1, dim2, dim3, blockSideLength, errorBound);
+            clock_gettime(CLOCK_REALTIME, &end2);
+            rec_time += get_elapsed_time(start2, end2);
+            printf("recover_time = %.6f\n", rec_time);
+            clock_gettime(CLOCK_REALTIME, &start2);
+            compute_laplacian_3d(dim1, dim2, dim3, decData, laplacian_pos);
+            clock_gettime(CLOCK_REALTIME, &end2);
+            op_time += get_elapsed_time(start2, end2);
+            printf("process_time = %.6f\n", op_time);
             break;
         }
     }
