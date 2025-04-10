@@ -53,55 +53,6 @@ decmpState intToDecmpState(int value){
     }
 }
 
-struct DSize_2d_1d
-{
-	size_t dim1;
-	size_t dim2;
-	size_t nbEle;
-	int Bsize;
-	int Bwidth;
-	int max_num_block_elements;
-	int has_remainder_block;
-	size_t num_blocks;
-	size_t dim0_offset;
-	DSize_2d_1d(size_t r1, size_t r2, int bs){
-		dim1 = r1, dim2 = r2;
-		nbEle = r1 * r2;
-		Bsize = bs;
-		Bwidth = (int)std::sqrt(bs);
-		max_num_block_elements = bs;
-		num_blocks = (nbEle - 1) / bs + 1;
-		has_remainder_block = nbEle % bs ? 1 : 0;
-		dim0_offset = r2;
-	}
-};
-
-struct DSize_3d_1d
-{
-	size_t dim1;
-	size_t dim2;
-	size_t dim3;
-	size_t nbEle;
-	int Bsize;
-	int Bwidth;
-	int max_num_block_elements;
-	int has_remainder_block;
-	size_t num_blocks;
-	size_t dim0_offset;
-	size_t dim1_offset;
-	DSize_3d_1d(size_t r1, size_t r2, size_t r3, int bs){
-		dim1 = r1, dim2 = r2, dim3 = r3;
-		nbEle = r1 * r2 * r3;
-		Bsize = bs;
-		Bwidth = (int)std::sqrt(bs);
-		max_num_block_elements = bs;
-		num_blocks = (nbEle - 1) / bs + 1;
-		has_remainder_block = nbEle % bs ? 1 : 0;
-		dim0_offset = r2 * r3;
-		dim1_offset = r3;
-	}
-};
-
 struct DSize_2d1d
 {
 	size_t dim1;
