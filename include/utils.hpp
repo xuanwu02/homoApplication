@@ -3,6 +3,9 @@
 
 #include <cstdint>
 #include <iostream>
+#include <cstddef>
+#include <filesystem>
+#include <vector>
 #include <iomanip>
 #include <fstream>
 #include <cstring>
@@ -75,6 +78,19 @@ void write(T const var, unsigned char *&compressed_data_pos) {
     compressed_data_pos += sizeof(T);
 }
 
+std::vector<std::string> getFiles(const std::string& dirPath)
+{
+    std::vector<std::string> files;
+    for (const auto& entry : std::filesystem::directory_iterator(dirPath))
+    {
+        if (entry.is_regular_file())
+        {
+            files.push_back(entry.path().string());
+        }
+    }
+    return files;
+}
+
 template<class T>
 void set_relative_eb(const std::vector<T>& oriData_vec, double& errorBound){
     auto max_val = *std::max_element(oriData_vec.begin(), oriData_vec.end());
@@ -82,6 +98,23 @@ void set_relative_eb(const std::vector<T>& oriData_vec, double& errorBound){
     auto range = max_val - min_val;
     errorBound *= range;
     printf("Max = %.4e, min = %.4e, range = %.6e, abs_eb = %.6e\n", max_val, min_val, range, errorBound);
+}
+
+template <class T>
+void set_overall_eb(const T* vx, const T* vy, size_t n, double& eb){
+    std::vector<T> v2(2*n, 0);
+    memcpy(v2.data(), vx, n*sizeof(T));
+    memcpy(v2.data()+n, vy, n*sizeof(T));
+    set_relative_eb(v2, eb);
+}
+
+template <class T>
+void set_overall_eb(const T* vx, const T* vy, const T* vz, size_t n, double& eb){
+    std::vector<T> v3(3*n, 0);
+    memcpy(v3.data(), vx, n*sizeof(T));
+    memcpy(v3.data()+n, vy, n*sizeof(T));
+    memcpy(v3.data()+n*2, vz, n*sizeof(T));
+    set_relative_eb(v3, eb);
 }
 
 double get_elapsed_time(struct timespec &start, struct timespec &end){
@@ -270,6 +303,77 @@ void compute_dxdydz(
 }
 
 template <class T>
+void compute_divergence_2d(
+    size_t nx, size_t ny,
+    const T* vx, const T* vy, T* result
+){
+    auto idx = [&](size_t i, size_t j) {
+        return i * ny + j;
+    };
+    for (size_t i = 1; i < nx - 1; i++) {
+        for (size_t j = 1; j < ny - 1; j++) {
+            T dfx = vx[idx(i + 1, j)] - vx[idx(i - 1, j)];
+            T dfy = vy[idx(i, j + 1)] - vy[idx(i, j - 1)];
+            result[idx(i, j)] = (dfx + dfy) * 0.5;
+        }
+    }
+}
+
+template <typename T>
+void compute_divergence_3d(
+    size_t nx, size_t ny, size_t nz,
+    const T* vx, const T* vy, const T* vz, T* result
+){
+    auto idx = [&](size_t i, size_t j, size_t k) {
+        return i * ny * nz + j * nz + k;
+    };
+    for (size_t i = 1; i < nx - 1; ++i) {
+        for (size_t j = 1; j < ny - 1; ++j) {
+            for (size_t k = 1; k < nz - 1; ++k) {
+                T dfx = vx[idx(i + 1, j, k)] - vx[idx(i - 1, j, k)];
+                T dfy = vy[idx(i, j + 1, k)] - vy[idx(i, j - 1, k)];
+                T dfz = vz[idx(i, j, k + 1)] - vz[idx(i, j, k - 1)];
+                result[idx(i, j, k)] = (dfx + dfy + dfz) * 0.5;
+            }
+        }
+    }
+}
+
+template <typename T>
+void compute_curl_2d(
+    size_t nx, size_t ny, const T* vx, const T* vy, T* curl
+){
+    auto idx = [&](size_t i, size_t j) {
+        return i * ny + j;
+    };
+    for (size_t i = 1; i < nx - 1; i++) {
+        for (size_t j = 1; j < ny - 1; j++) {
+            curl[idx(i, j)] = ((vy[idx(i + 1, j)] - vy[idx(i - 1, j)]) - (vx[idx(i, j + 1)] - vx[idx(i, j - 1)])) * 0.5;
+        }
+    }
+}
+
+template <typename T>
+void compute_curl_3d(
+    size_t nx, size_t ny, size_t nz,
+    const T* vx, const T* vy, const T* vz,
+    T* curlx, T* curly, T* curlz
+){
+    auto idx = [&](size_t i, size_t j, size_t k) {
+        return i * ny * nz + j * nz + k;
+    };
+    for (size_t i = 1; i < nx - 1; ++i) {
+        for (size_t j = 1; j < ny - 1; ++j) {
+            for (size_t k = 1; k < nz - 1; ++k) {
+                curlx[idx(i, j, k)] = ((vz[idx(i, j + 1, k)] - vz[idx(i, j - 1, k)]) - (vy[idx(i, j, k + 1)] - vy[idx(i, j, k - 1)])) * 0.5;
+                curly[idx(i, j, k)] = ((vx[idx(i, j, k + 1)] - vx[idx(i, j, k - 1)]) - (vz[idx(i + 1, j, k)] - vz[idx(i - 1, j, k)])) * 0.5;
+                curlz[idx(i, j, k)] = ((vy[idx(i + 1, j, k)] - vy[idx(i - 1, j, k)]) - (vx[idx(i, j + 1, k)] - vx[idx(i, j - 1, k)])) * 0.5;
+            }
+        }
+    }
+}
+
+template <class T>
 void compute_laplacian_2d(
     size_t dim1, size_t dim2, T *data, T *result
 ){
@@ -320,414 +424,5 @@ void compute_laplacian_3d(
         }
     }
 }
-
-class HeatDis2D{
-public:
-	size_t dim1, dim2;
-	size_t dim1_padded, dim2_padded;
-	size_t nbEle_padded;
-	size_t c1, c2;
-	float source_temp;
-	float wall_temp;
-	float ratio;
-	HeatDis2D(float src, float wall, float r, size_t d1, size_t d2)
-		: source_temp(src), wall_temp(wall), ratio(r), dim1(d1), dim2(d2){
-        dim1_padded = dim1 + 2;
-        dim2_padded = dim2 + 2;
-		nbEle_padded = dim1_padded * dim2_padded;
-		c1 =  dim2 * (1.0 - ratio) * 0.5 + 1;
-		c2 =  dim2 * (1.0 + ratio) * 0.5 - 1;
-	}
-	template <class T>
-	void initData_noghost(T *h, T *h2, float init_temp){
-		for(int i=0; i<dim1; i++){
-			for(int j=0; j<dim2; j++){
-				h[i * dim2 + j] = init_temp;
-				h2[i * dim2 + j] = init_temp;
-			}
-		}
-	}
-    template <class T>
-	void initData(T *h, T *h2, float init_temp){
-		memset(h, 0, nbEle_padded * sizeof(T));
-		T * g = h + 1;
-		for(int j=0; j<dim2; j++){
-			g[j] = wall_temp;
-			if(j>=c1 && j<=c2) g[j] = source_temp;				
-		}
-		g = h + (dim1_padded - 1) * dim2_padded;
-		for(int j=0; j<dim2_padded; j++){
-			g[j] = wall_temp;
-		}
-		for(int i=0; i<dim1_padded; i++){
-			h[i * dim2_padded] = wall_temp, h[(i + 1) * dim2_padded - 1] = wall_temp;
-		}
-		for(int i=1; i<=dim1; i++) {
-			for (int j=1; j<=dim2; j++) {
-				h[i * dim2_padded + j] = init_temp;
-			}
-		}
-		memcpy(h2, h, dim1_padded * dim2_padded * sizeof(T));
-	}
-	template <class T>
-	void reset_source(T *h, T *h2){
-		T * g = h + 1, * g2 = h2 + 1;
-		for(int j=0; j<dim2; j++){
-			g[j] = wall_temp;
-			g2[j] = wall_temp;
-			if(j>=c1 && j<=c2){
-				g[j] = source_temp;				
-				g2[j] = source_temp;	
-			}			
-		}
-	}
-    template <class T>
-	void calc(const T *h, T *h2){
-		for(int i=1; i<=dim1; i++){
-			for(int j=1; j<=dim2; j++){
-				h2[i*dim2_padded+j] = 0.25 * (h[(i*dim2_padded)+j-1] + h[(i*dim2_padded)+j+1] + h[(i-1)*dim2_padded+j] + h[(i+1)*dim2_padded+j]);
-			}
-		}
-	}
-    template <class T>
-	void iterate(T*& h, T*& h2, T*& tmp){
-		calc(h, h2);
-		exchange_buffer(h, h2, tmp);
-	}
-    template <class T>
-	void doWork(T*& h, T*& h2, int num_iter){
-		T * tmp = nullptr;
-		for(int iter=1; iter<=num_iter; iter++){
-			iterate(h, h2, tmp);
-		}
-	}
-    template <class T>
-	void doWork(T*& h, T*& h2, double criteria, int num_iter, int plot_gap, int plot_offset=1){
-		T * tmp = nullptr;
-        int iter = 0;
-        while(iter < num_iter){
-            iter++;
-			if(iter >= plot_offset && iter % plot_gap == 0){
-				std::string h_name = heatdis2d_data_dir + "/h.ref." + std::to_string(iter-1);
-				writefile(h_name.c_str(), h, nbEle_padded);
-			}
-			iterate(h, h2, tmp);
-        }
-        {
-            std::string h_name = heatdis2d_data_dir + "/h.ref." + std::to_string(iter);
-            writefile(h_name.c_str(), h, nbEle_padded);
-        }
-	}
-    template <class T>
-	void trimData(T *padded, T *trimmed){
-		int buffer_dim0_offset = dim2 + 2;
-		T * raw = padded + buffer_dim0_offset + 1;
-		T * data = trimmed;
-		for(int i=0; i<dim1; i++){
-			memcpy(data, raw, dim2 * sizeof(T));
-			raw += buffer_dim0_offset;
-			data += dim2;
-		}
-	}
-};
-
-class GrayScott{
-public:
-    const double ub = 1.0;
-    const double vb = 0.0;
-	int UBorderVal;
-	int VBorderVal;
-	const int d = 6;
-    size_t L;
-    size_t L_padded;
-    size_t nbEle;
-	size_t nbEle_padded;
-    size_t dim0_offset;
-    size_t dim1_offset;
-    double Du, Dv, F, k, Fk, dt;
-    double Dudt, Dvdt, ebdt, Fdt_fl, Fkdt;
-    int64_t Fdt_int;
-    GrayScott(size_t l, double Du_, double Dv_, double dt_, double Feed, double kill, double eb)
-        : L(l), Du(Du_), Dv(Dv_), dt(dt_), F(Feed), k(kill){
-        L_padded = L + 2;
-		nbEle = L * L * L;
-		nbEle_padded = L_padded * L_padded * L_padded;
-        dim0_offset = L_padded * L_padded;
-        dim1_offset = L_padded;
-        UBorderVal = (int64_t)SZ_quantize(ub, eb);
-        VBorderVal = (int64_t)SZ_quantize(vb, eb);
-        Fdt_int = (int64_t)SZ_quantize(F * dt, eb);
-		Dudt = Du * dt / 6.0;
-        Dvdt = Dv * dt / 6.0;
-        ebdt = dt * 4 * eb * eb;
-        Fdt_fl = F * dt;
-		Fkdt = (F + k) * dt;
-        Fk = F + k;
-    }
-    inline int c2i_noghost(int i, int j, int k){
-        return i * L * L + j * L + k;
-    }
-    template <class T>
-	void initData_noghost(T *u, T *v, T *u2, T *v2){
-		for(int i=0; i<nbEle; i++){
-			u[i] = ub, u2[i] = ub;
-			v[i] = vb, v2[i] = vb;
-		}
-		const int le = L / 2 - d;
-		const int ue = L / 2 + d;
-		for(int i=le; i<ue; i++){
-			for(int j=le; j<ue; j++){
-				for(int k=le; k<ue; k++){
-					int index = c2i_noghost(i, j, k);
-					u[index] = 0.25;
-					v[index] = 0.33;
-				}
-			}
-		}
-	}
-    inline int c2i(int i, int j, int k){
-        return i * dim0_offset + j * dim1_offset + k;
-    }
-    template <class T>
-	void initData(T *u, T *v, T *u2, T *v2){
-		for(int i=0; i<nbEle_padded; i++){
-			u[i] = ub, u2[i] = ub;
-			v[i] = vb, v2[i] = vb;
-		}
-		const int le = L / 2 - d + 1;
-		const int ue = L / 2 + d + 1;
-		for(int i=le; i<ue; i++){
-			for(int j=le; j<ue; j++){
-				for(int k=le; k<ue; k++){
-					int index = c2i(i, j, k);
-					u[index] = 0.25;
-					v[index] = 0.33;
-				}
-			}
-		}
-	}
-    template <class T>
-    inline T calcU(T tu, T tv){
-        return -tu * tv * tv + F * (1.0 - tu);
-    }
-    template <class T>
-    inline T calcV(T tu, T tv){
-        return tu * tv * tv - Fk * tv;
-    }
-    template <class T>
-    inline T laplacian(int i, int j, int k, const T *s){
-        T ts = 0.0;
-        ts += s[c2i(i - 1, j, k)];
-        ts += s[c2i(i + 1, j, k)];
-        ts += s[c2i(i, j - 1, k)];
-        ts += s[c2i(i, j + 1, k)];
-        ts += s[c2i(i, j, k - 1)];
-        ts += s[c2i(i, j, k + 1)];
-        ts += -6.0 * s[c2i(i, j, k)];
-        return ts / 6.0;
-    }
-    template <class T>
-	void calc(const T *u, const T *v, T *u2, T *v2){
-		for(int i=1; i<=L; i++){
-			for(int j=1; j<=L; j++){
-				for(int k=1; k<=L; k++){
-					const int index = c2i(i, j, k);
-					T du = Du * laplacian(i, j, k, u) + calcU(u[index], v[index]);
-					T dv = Dv * laplacian(i, j, k, v) + calcV(u[index], v[index]);
-					u2[index] = u[index] + du * dt;
-					v2[index] = v[index] + dv * dt;
-				}
-			}
-		}
-	}
-    template <class T>
-	void iterate(T*& u, T*& v, T*& u2, T*& v2, T*& tmp){
-		calc(u, v, u2, v2);
-		exchange_buffer(u, u2, tmp);
-		exchange_buffer(v, v2, tmp);
-	}
-    template <class T>
-	void doWork(T*& u, T*& v, T*& u2, T*& v2, int num_iter){
-		T * tmp = nullptr;
-		for(int iter=1; iter<=num_iter; iter++){
-			iterate(u, v, u2, v2, tmp);
-		}
-	}
-    template <class T>
-	void doWork(T*& u, T*& v, T*& u2, T*& v2, double criteria, int num_iter, int plot_gap, int plot_offset=1){
-		T * tmp = nullptr;
-        int iter = 0;
-        while(iter < num_iter){
-            iter++;
-			if(iter >= plot_offset && iter % plot_gap == 0){
-				std::string u_name = grayscott_data_dir + "/u.ref." + std::to_string(iter-1);
-				std::string v_name = grayscott_data_dir + "/v.ref." + std::to_string(iter-1);
-				writefile(u_name.c_str(), u, nbEle_padded);
-				writefile(v_name.c_str(), v, nbEle_padded);
-			}
-			iterate(u, v, u2, v2, tmp);
-        }
-        {
-            std::string u_name = grayscott_data_dir + "/u.ref." + std::to_string(iter);
-            std::string v_name = grayscott_data_dir + "/v.ref." + std::to_string(iter);
-            writefile(u_name.c_str(), u, nbEle_padded);
-            writefile(v_name.c_str(), v, nbEle_padded);
-        }
-	}
-    template <class T>
-	void trimData(T *padded, T *trimmed){
-		int data_dim0_offset = L * L;
-		for(int i=0; i<L; i++){
-			T * raw = padded + (i + 1) * dim0_offset + dim1_offset + 1;
-			T * data = trimmed + i * data_dim0_offset;
-			for(int j=0; j<L; j++){
-				memcpy(data, raw, L * sizeof(T));
-				raw += dim1_offset;
-				data += L;
-			}
-		}
-	}
-};
-
-class HeatDis3D{
-public:
-	size_t dim1, dim2, dim3;
-    size_t dim0_offset, dim1_offset;
-	size_t dim1_padded, dim2_padded, dim3_padded;
-	size_t nbEle_padded;
-    size_t dim0_offset_padded, dim1_offset_padded;
-	float T_top, T_bott;
-	float T_wall;
-    float alpha;
-	HeatDis3D(float T_t, float T_b, float T_w, float al, size_t d1, size_t d2, size_t d3)
-		: T_top(T_t), T_bott(T_b), T_wall(T_w), alpha(al), dim1(d1), dim2(d2), dim3(d3){
-        assert(dim1 >= dim2);
-        assert(dim1 >= dim3);
-        dim0_offset = dim2 * dim3;
-        dim1_offset = dim3;
-        dim1_padded = dim1 + 2;
-        dim2_padded = dim2 + 2;
-        dim3_padded = dim3 + 2;
-        dim0_offset_padded = dim2_padded * dim3_padded;
-        dim1_offset_padded = dim3_padded;
-		nbEle_padded = dim1_padded * dim2_padded * dim3_padded;
-	}
-	template <class T>
-	void initData_noghost(T *h, T *h2, float T_init){
-		for(int i=0; i<dim1; i++){
-			for(int j=0; j<dim2; j++){
-                for(int k=0; k<dim3; k++){
-                    h[i * dim0_offset + j * dim1_offset + k] = T_init;
-                    h2[i * dim0_offset + j * dim1_offset + k] = T_init;
-                }
-			}
-		}
-	}
-    template <class T>
-	void initData(T *h, T *h2, float T_init){
-        int i, j, k;
-        for(i=0; i<nbEle_padded; i++){
-            h[i] = T_wall;
-        }
-        T * g1 = h + dim1_offset_padded + 1;
-        T * g2 = h + (dim1 + 1) * dim0_offset_padded + dim1_offset_padded + 1;
-        for(j=0; j<dim2; j++){
-            for(k=0; k<dim3; k++){
-                g1[k] = T_top;
-                g2[k] = T_bott;
-            }
-            g1 += dim1_offset_padded;
-            g2 += dim1_offset_padded;
-        }
-		for(i=1; i<=dim1; i++){
-			for(j=1; j<=dim2; j++){
-                for(k=1; k<=dim3; k++){
-                    h[i * dim0_offset_padded + j * dim1_offset_padded + k] = T_init;
-                }
-			}
-		}
-		memcpy(h2, h, nbEle_padded * sizeof(T));
-	}
-	template <class T>
-	void reset_source(T *h){
-        T * g1 = h + dim1_offset_padded + 1;
-        T * g2 = h + (dim1 + 1) * dim0_offset_padded + dim1_offset_padded + 1;
-        for(int j=0; j<dim2; j++){
-            for(int k=0; k<dim3; k++){
-                g1[k] = T_top;
-                g2[k] = T_bott;
-            }
-            g1 += dim1_offset_padded;
-            g2 += dim1_offset_padded;
-        }
-	}
-    inline int c2i(int i, int j, int k){
-        return i * dim0_offset_padded + j * dim1_offset_padded + k;
-    }
-    template <class T>
-    inline T laplacian(int i, int j, int k, const T *s){
-        T ts = 0.0;
-        ts += s[c2i(i - 1, j, k)];
-        ts += s[c2i(i + 1, j, k)];
-        ts += s[c2i(i, j - 1, k)];
-        ts += s[c2i(i, j + 1, k)];
-        ts += s[c2i(i, j, k - 1)];
-        ts += s[c2i(i, j, k + 1)];
-        ts += -6.0 * s[c2i(i, j, k)];
-        return ts;
-    }
-    template <class T>
-	void calc(const T *h, T *h2){
-		for(int i=1; i<=dim1; i++){
-			for(int j=1; j<=dim2; j++){
-                for(int k=1; k<=dim3; k++){
-                    int index = c2i(i, j, k);
-                    h2[index] = h[index] + alpha * laplacian(i, j, k, h);
-                }
-			}
-		}
-	}
-    template <class T>
-	void iterate(T*& h, T*& h2, T*& tmp){
-		calc(h, h2);
-		exchange_buffer(h, h2, tmp);
-	}
-    template <class T>
-	void doWork(T*& h, T*& h2, int num_iter){
-		T * tmp = nullptr;
-		for(int iter=1; iter<=num_iter; iter++){
-			iterate(h, h2, tmp);
-		}
-	}
-    template <class T>
-	void doWork(T*& h, T*& h2, double criteria, int num_iter, int plot_gap, int plot_offset=1){
-		T * tmp = nullptr;
-        int iter = 0;
-        while(iter < num_iter){
-            iter++;
-			if(iter >= plot_offset && iter % plot_gap == 0){
-				std::string h_name = heatdis3d_data_dir + "/h.ref." + std::to_string(iter-1);
-				writefile(h_name.c_str(), h, nbEle_padded);
-			}
-			iterate(h, h2, tmp);
-        }
-        {
-            std::string h_name = heatdis3d_data_dir + "/h.ref." + std::to_string(iter);
-            writefile(h_name.c_str(), h, nbEle_padded);
-        }
-	}
-    template <class T>
-	void trimData(T *padded, T *trimmed){
-		for(int i=0; i<dim1; i++){
-			T * raw = padded + (i + 1) * dim0_offset_padded + dim1_offset_padded + 1;
-			T * data = trimmed + i * dim0_offset;
-			for(int j=0; j<dim2; j++){
-				memcpy(data, raw, dim3 * sizeof(T));
-				raw += dim1_offset_padded;
-				data += dim3;
-			}
-		}
-	}
-};
 
 #endif

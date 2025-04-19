@@ -5,9 +5,8 @@
 #include <cmath>
 #include <ctime>
 #include <cassert>
-#include "SZx_MeanPredictor2D.hpp"
+#include "SZx_2D.hpp"
 #include "utils.hpp"
-#include "settings.hpp"
 
 int main(int argc, char **argv)
 {
@@ -20,7 +19,6 @@ int main(int argc, char **argv)
     int blockSideLength = atoi(argv[argv_id++]);
     double eb = atof(argv[argv_id++]);
     int stateType = atoi(argv[argv_id++]);
-    int bufferType = atoi(argv[argv_id++]);
     if(dim == 2) dim3 = 1;
 
     using T = float;
@@ -39,28 +37,17 @@ int main(int argc, char **argv)
     T * ref_dy_result = (T *)malloc(nbEle * sizeof(T));
 
     size_t cmpSize = 0;
-    SZx_compress_2dMeanbased(oriData, cmpData, dim1, dim2, blockSideLength, eb, cmpSize);
+    SZx_compress(oriData, cmpData, dim1, dim2, blockSideLength, eb, cmpSize);
     printf("cr = %.2f\n", 1.0 * nbEle * sizeof(T) / cmpSize);
 
-    switch(bufferType){
-        case 0:{
-            SZx_dxdy_2dMeanbased_IntBuffer(cmpData, dim1, dim2, blockSideLength, eb, dx_result, dy_result, intToDecmpState(stateType));
-            break;
-        }
-        case 1:{
-            SZx_dxdy_2dMeanbased_FltBuffer(cmpData, dim1, dim2, blockSideLength, eb, dx_result, dy_result, intToDecmpState(stateType));
-            break;
-        }
-        default:
-            break;
-    }
+    SZx_dxdy(cmpData, dim1, dim2, blockSideLength, eb, dx_result, dy_result, intToDecmpState(stateType));
 
-    SZx_decompress_2dMeanbased(decData, cmpData, dim1, dim2, blockSideLength, eb);
+    SZx_decompress(decData, cmpData, dim1, dim2, blockSideLength, eb);
     compute_dxdy(dim1, dim2, decData, ref_dx_result, ref_dy_result);
     double ex = 0, ey = 0, ez = 0;
     ex = verify_dxdy(ref_dx_result, dx_result, dim1, dim2);
     ey = verify_dxdy(ref_dy_result, dy_result, dim1, dim2);
-    printf("max error = (%.6e, %.6e, %.6e)\n", ex, ey, ez);
+    printf("max error = (%.6e, %.6e, %.6e)\n", ex/eb, ey/eb, ez/eb);
 
     free(decData);
     free(cmpData);

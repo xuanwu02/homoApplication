@@ -5,9 +5,8 @@
 #include <cmath>
 #include <ctime>
 #include <cassert>
-#include "SZx_MeanPredictor3D.hpp"
+#include "SZx_3D.hpp"
 #include "utils.hpp"
-#include "settings.hpp"
 
 int main(int argc, char **argv)
 {
@@ -20,8 +19,6 @@ int main(int argc, char **argv)
     int blockSideLength = atoi(argv[argv_id++]);
     double eb = atof(argv[argv_id++]);
     int stateType = atoi(argv[argv_id++]);
-    int bufferType = atoi(argv[argv_id++]);
-    if(dim == 2) dim3 = 1;
 
     using T = float;
 
@@ -35,10 +32,10 @@ int main(int argc, char **argv)
     T * decData = (T *)malloc(nbEle * sizeof(T));
 
     size_t cmpSize = 0;
-    SZx_compress_3dMeanbased(oriData, cmpData, dim1, dim2, dim3, blockSideLength, eb, cmpSize);
+    SZx_compress(oriData, cmpData, dim1, dim2, dim3, blockSideLength, eb, cmpSize);
     printf("cr = %.2f\n", 1.0 * nbEle * sizeof(T) / cmpSize);
 
-    double var = SZx_variance_3d(cmpData, dim1, dim2, dim3, decData, blockSideLength, eb, intToDecmpState(stateType));
+    double var = SZx_variance(cmpData, dim1, dim2, dim3, decData, blockSideLength, eb, intToDecmpState(stateType));
     printf("variance = %.6f\n", var);
 
     // double act_mean = 0;
@@ -49,14 +46,14 @@ int main(int argc, char **argv)
     // act_var /= (nbEle - 1);
     // printf("error = %.6f\n", fabs(act_var - var));
 
-    SZx_decompress_3dMeanbased(decData, cmpData, dim1, dim2, dim3, blockSideLength, eb);
+    SZx_decompress(decData, cmpData, dim1, dim2, dim3, blockSideLength, eb);
     double doc_mean = 0;
     for(size_t i=0; i<nbEle; i++) doc_mean += decData[i];
     doc_mean /= nbEle;
     double doc_var = 0;
     for(size_t i=0; i<nbEle; i++) doc_var += (decData[i] - doc_mean) * (decData[i] - doc_mean);
     doc_var /= (nbEle - 1);
-    printf("rel error = %.6e\n", fabs((doc_var - var) / doc_var));
+    printf("rel error = %.6e\n", fabs((doc_var - var) / eb));
 
     free(decData);
     free(cmpData);

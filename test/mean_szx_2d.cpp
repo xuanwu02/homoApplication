@@ -5,9 +5,8 @@
 #include <cmath>
 #include <ctime>
 #include <cassert>
-#include "SZx_MeanPredictor2D.hpp"
+#include "SZx_2D.hpp"
 #include "utils.hpp"
-#include "settings.hpp"
 
 int main(int argc, char **argv)
 {
@@ -20,7 +19,6 @@ int main(int argc, char **argv)
     int blockSideLength = atoi(argv[argv_id++]);
     double eb = atof(argv[argv_id++]);
     int stateType = atoi(argv[argv_id++]);
-    int bufferType = atoi(argv[argv_id++]);
     if(dim == 2) dim3 = 1;
 
     using T = float;
@@ -35,22 +33,17 @@ int main(int argc, char **argv)
     T * decData = (T *)malloc(nbEle * sizeof(T));
 
     size_t cmpSize = 0;
-    SZx_compress_2dMeanbased(oriData, cmpData, dim1, dim2, blockSideLength, eb, cmpSize);
+    SZx_compress(oriData, cmpData, dim1, dim2, blockSideLength, eb, cmpSize);
     printf("cr = %.2f\n", 1.0 * nbEle * sizeof(T) / cmpSize);
 
-    double mean = SZx_mean_2d(cmpData, dim1, dim2, decData, blockSideLength, eb, intToDecmpState(stateType));
+    double mean = SZx_mean(cmpData, dim1, dim2, decData, blockSideLength, eb, intToDecmpState(stateType));
     printf("mean = %.6f\n", mean);
 
-    // double act_mean = 0;
-    // for(size_t i=0; i<nbEle; i++) act_mean += oriData[i];
-    // act_mean /= nbEle;
-    // printf("error = %.6f\n", fabs(act_mean - mean));
-
-    SZx_decompress_2dMeanbased(decData, cmpData, dim1, dim2, blockSideLength, eb);
+    SZx_decompress(decData, cmpData, dim1, dim2, blockSideLength, eb);
     double doc_mean = 0;
     for(size_t i=0; i<nbEle; i++) doc_mean += decData[i];
     doc_mean /= nbEle;
-    printf("rel error = %.6e\n", fabs((doc_mean - mean) / doc_mean));
+    printf("rel error = %.6e\n", fabs((doc_mean - mean) / eb));
 
     free(decData);
     free(cmpData);

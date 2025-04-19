@@ -5,9 +5,8 @@
 #include <cmath>
 #include <ctime>
 #include <cassert>
-#include "SZp_LorenzoPredictor2D.hpp"
+#include "SZp_2D.hpp"
 #include "utils.hpp"
-#include "settings.hpp"
 
 int main(int argc, char **argv)
 {
@@ -20,7 +19,6 @@ int main(int argc, char **argv)
     int blockSideLength = atoi(argv[argv_id++]);
     double eb = atof(argv[argv_id++]);
     int stateType = atoi(argv[argv_id++]);
-    int bufferType = atoi(argv[argv_id++]);
     if(dim == 2) dim3 = 1;
 
     using T = float;
@@ -37,27 +35,16 @@ int main(int argc, char **argv)
     T * ref_laplacian_result = (T *)malloc(nbEle * sizeof(T));
 
     size_t cmpSize = 0;
-    SZp_compress_2dLorenzo(oriData, cmpData, dim1, dim2, blockSideLength, eb, cmpSize);
+    SZp_compress(oriData, cmpData, dim1, dim2, blockSideLength, eb, cmpSize);
     printf("cr = %.2f\n", 1.0 * nbEle * sizeof(T) / cmpSize);
 
-    switch(bufferType){
-        case 0:{
-            SZp_laplacian_2dLorenzo_IntBuffer(cmpData, dim1, dim2, blockSideLength, eb, laplacian_result, intToDecmpState(stateType));
-            break;
-        }
-        case 1:{
-            SZp_laplacian_2dLorenzo_FltBuffer(cmpData, dim1, dim2, blockSideLength, eb, laplacian_result, intToDecmpState(stateType));
-            break;
-        }
-        default:
-            break;
-    }
+    SZp_laplacian(cmpData, dim1, dim2, blockSideLength, eb, laplacian_result, intToDecmpState(stateType));
 
-    SZp_decompress_2dLorenzo(decData, cmpData, dim1, dim2, blockSideLength, eb);
+    SZp_decompress(decData, cmpData, dim1, dim2, blockSideLength, eb);
     compute_laplacian_2d(dim1, dim2, decData, ref_laplacian_result);
     double err;
     err = verify_dxdy(ref_laplacian_result, laplacian_result, dim1, dim2);
-    printf("max error = (%.6e, 0, 0)\n", err);
+    printf("max error = (%.6e, 0, 0)\n", err/eb);
 
     free(decData);
     free(cmpData);

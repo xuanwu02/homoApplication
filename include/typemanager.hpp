@@ -1720,397 +1720,397 @@ inline int getLeftMovingSteps(size_t k, unsigned char resiBitLength)
 	return 8 - k % 8 - resiBitLength;
 }
 
-// 11/01/2024
-inline void Jiajun_convertByte2Int_fast_1b_args(size_t intArrayLength, unsigned char *byteArray, size_t byteArrayLength, int *intArray)
-{
-	size_t n = 0, i;
-	unsigned int tmp;
-	for (i = 0; i < byteArrayLength - 1; i++)
-	{
-		tmp = byteArray[i];
-		intArray[n++] = (tmp & 0x80) >> 7;
-		intArray[n++] = (tmp & 0x40) >> 6;
-		intArray[n++] = (tmp & 0x20) >> 5;
-		intArray[n++] = (tmp & 0x10) >> 4;
-		intArray[n++] = (tmp & 0x08) >> 3;
-		intArray[n++] = (tmp & 0x04) >> 2;
-		intArray[n++] = (tmp & 0x02) >> 1;
-		intArray[n++] = (tmp & 0x01) >> 0;
-	}
+// // 11/01/2024
+// inline void Jiajun_convertByte2Int_fast_1b_args(size_t intArrayLength, unsigned char *byteArray, size_t byteArrayLength, int *intArray)
+// {
+// 	size_t n = 0, i;
+// 	unsigned int tmp;
+// 	for (i = 0; i < byteArrayLength - 1; i++)
+// 	{
+// 		tmp = byteArray[i];
+// 		intArray[n++] = (tmp & 0x80) >> 7;
+// 		intArray[n++] = (tmp & 0x40) >> 6;
+// 		intArray[n++] = (tmp & 0x20) >> 5;
+// 		intArray[n++] = (tmp & 0x10) >> 4;
+// 		intArray[n++] = (tmp & 0x08) >> 3;
+// 		intArray[n++] = (tmp & 0x04) >> 2;
+// 		intArray[n++] = (tmp & 0x02) >> 1;
+// 		intArray[n++] = (tmp & 0x01) >> 0;
+// 	}
 
-	tmp = byteArray[i];
-	if (n == intArrayLength)
-		return;
-	intArray[n++] = (tmp & 0x80) >> 7;
-	if (n == intArrayLength)
-		return;
-	intArray[n++] = (tmp & 0x40) >> 6;
-	if (n == intArrayLength)
-		return;
-	intArray[n++] = (tmp & 0x20) >> 5;
-	if (n == intArrayLength)
-		return;
-	intArray[n++] = (tmp & 0x10) >> 4;
-	if (n == intArrayLength)
-		return;
-	intArray[n++] = (tmp & 0x08) >> 3;
-	if (n == intArrayLength)
-		return;
-	intArray[n++] = (tmp & 0x04) >> 2;
-	if (n == intArrayLength)
-		return;
-	intArray[n++] = (tmp & 0x02) >> 1;
-	if (n == intArrayLength)
-		return;
-	intArray[n++] = (tmp & 0x01) >> 0;
-}
+// 	tmp = byteArray[i];
+// 	if (n == intArrayLength)
+// 		return;
+// 	intArray[n++] = (tmp & 0x80) >> 7;
+// 	if (n == intArrayLength)
+// 		return;
+// 	intArray[n++] = (tmp & 0x40) >> 6;
+// 	if (n == intArrayLength)
+// 		return;
+// 	intArray[n++] = (tmp & 0x20) >> 5;
+// 	if (n == intArrayLength)
+// 		return;
+// 	intArray[n++] = (tmp & 0x10) >> 4;
+// 	if (n == intArrayLength)
+// 		return;
+// 	intArray[n++] = (tmp & 0x08) >> 3;
+// 	if (n == intArrayLength)
+// 		return;
+// 	intArray[n++] = (tmp & 0x04) >> 2;
+// 	if (n == intArrayLength)
+// 		return;
+// 	intArray[n++] = (tmp & 0x02) >> 1;
+// 	if (n == intArrayLength)
+// 		return;
+// 	intArray[n++] = (tmp & 0x01) >> 0;
+// }
 
-inline void Jiajun_convertByte2Int_fast_2b_args(size_t stepLength, unsigned char *byteArray, size_t byteArrayLength, int *intArray)
-{
+// inline void Jiajun_convertByte2Int_fast_2b_args(size_t stepLength, unsigned char *byteArray, size_t byteArrayLength, int *intArray)
+// {
 
-	size_t i, n = 0;
+// 	size_t i, n = 0;
 
-	int mod4 = stepLength % 4;
-	if (mod4 == 0)
-	{
-		for (i = 0; i < byteArrayLength; i++)
-		{
-			unsigned char tmp = byteArray[i];
-			intArray[n++] = (tmp & 0xC0) >> 6;
-			intArray[n++] = (tmp & 0x30) >> 4;
-			intArray[n++] = (tmp & 0x0C) >> 2;
-			intArray[n++] = tmp & 0x03;
-		}
-	}
-	else
-	{
-		size_t t = byteArrayLength - 1;
-		for (i = 0; i < t; i++)
-		{
-			unsigned char tmp = byteArray[i];
-			intArray[n++] = (tmp & 0xC0) >> 6;
-			intArray[n++] = (tmp & 0x30) >> 4;
-			intArray[n++] = (tmp & 0x0C) >> 2;
-			intArray[n++] = tmp & 0x03;
-		}
-		unsigned char tmp = byteArray[i];
-		switch (mod4)
-		{
-		case 1:
-			intArray[n++] = (tmp & 0xC0) >> 6;
-			break;
-		case 2:
-			intArray[n++] = (tmp & 0xC0) >> 6;
-			intArray[n++] = (tmp & 0x30) >> 4;
-			break;
-		case 3:
-			intArray[n++] = (tmp & 0xC0) >> 6;
-			intArray[n++] = (tmp & 0x30) >> 4;
-			intArray[n++] = (tmp & 0x0C) >> 2;
-			break;
-		}
-	}
-}
+// 	int mod4 = stepLength % 4;
+// 	if (mod4 == 0)
+// 	{
+// 		for (i = 0; i < byteArrayLength; i++)
+// 		{
+// 			unsigned char tmp = byteArray[i];
+// 			intArray[n++] = (tmp & 0xC0) >> 6;
+// 			intArray[n++] = (tmp & 0x30) >> 4;
+// 			intArray[n++] = (tmp & 0x0C) >> 2;
+// 			intArray[n++] = tmp & 0x03;
+// 		}
+// 	}
+// 	else
+// 	{
+// 		size_t t = byteArrayLength - 1;
+// 		for (i = 0; i < t; i++)
+// 		{
+// 			unsigned char tmp = byteArray[i];
+// 			intArray[n++] = (tmp & 0xC0) >> 6;
+// 			intArray[n++] = (tmp & 0x30) >> 4;
+// 			intArray[n++] = (tmp & 0x0C) >> 2;
+// 			intArray[n++] = tmp & 0x03;
+// 		}
+// 		unsigned char tmp = byteArray[i];
+// 		switch (mod4)
+// 		{
+// 		case 1:
+// 			intArray[n++] = (tmp & 0xC0) >> 6;
+// 			break;
+// 		case 2:
+// 			intArray[n++] = (tmp & 0xC0) >> 6;
+// 			intArray[n++] = (tmp & 0x30) >> 4;
+// 			break;
+// 		case 3:
+// 			intArray[n++] = (tmp & 0xC0) >> 6;
+// 			intArray[n++] = (tmp & 0x30) >> 4;
+// 			intArray[n++] = (tmp & 0x0C) >> 2;
+// 			break;
+// 		}
+// 	}
+// }
 
-inline void Jiajun_convertByte2Int_fast_3b_args(size_t stepLength, unsigned char *byteArray, size_t byteArrayLength, int *intArray)
-{
-	size_t i = 0, ii = 0, n = 0;
-	unsigned char tmp = byteArray[i];
-	for (n = 0; n < stepLength;)
-	{
-		switch (n % 8)
-		{
-		case 0:
-			intArray[n++] = (tmp & 0xE0) >> 5;
-			break;
-		case 1:
-			intArray[n++] = (tmp & 0x1C) >> 2;
-			break;
-		case 2:
-			ii = (tmp & 0x03) << 1;
-			i++;
-			tmp = byteArray[i];
-			ii |= (tmp & 0x80) >> 7;
-			intArray[n++] = ii;
-			break;
-		case 3:
-			intArray[n++] = (tmp & 0x70) >> 4;
-			break;
-		case 4:
-			intArray[n++] = (tmp & 0x0E) >> 1;
-			break;
-		case 5:
-			ii = (tmp & 0x01) << 2;
-			i++;
-			tmp = byteArray[i];
-			ii |= (tmp & 0xC0) >> 6;
-			intArray[n++] = ii;
-			break;
-		case 6:
-			intArray[n++] = (tmp & 0x38) >> 3;
-			break;
-		case 7:
-			intArray[n++] = (tmp & 0x07);
-			i++;
-			tmp = byteArray[i];
-			break;
-		}
-	}
-}
+// inline void Jiajun_convertByte2Int_fast_3b_args(size_t stepLength, unsigned char *byteArray, size_t byteArrayLength, int *intArray)
+// {
+// 	size_t i = 0, ii = 0, n = 0;
+// 	unsigned char tmp = byteArray[i];
+// 	for (n = 0; n < stepLength;)
+// 	{
+// 		switch (n % 8)
+// 		{
+// 		case 0:
+// 			intArray[n++] = (tmp & 0xE0) >> 5;
+// 			break;
+// 		case 1:
+// 			intArray[n++] = (tmp & 0x1C) >> 2;
+// 			break;
+// 		case 2:
+// 			ii = (tmp & 0x03) << 1;
+// 			i++;
+// 			tmp = byteArray[i];
+// 			ii |= (tmp & 0x80) >> 7;
+// 			intArray[n++] = ii;
+// 			break;
+// 		case 3:
+// 			intArray[n++] = (tmp & 0x70) >> 4;
+// 			break;
+// 		case 4:
+// 			intArray[n++] = (tmp & 0x0E) >> 1;
+// 			break;
+// 		case 5:
+// 			ii = (tmp & 0x01) << 2;
+// 			i++;
+// 			tmp = byteArray[i];
+// 			ii |= (tmp & 0xC0) >> 6;
+// 			intArray[n++] = ii;
+// 			break;
+// 		case 6:
+// 			intArray[n++] = (tmp & 0x38) >> 3;
+// 			break;
+// 		case 7:
+// 			intArray[n++] = (tmp & 0x07);
+// 			i++;
+// 			tmp = byteArray[i];
+// 			break;
+// 		}
+// 	}
+// }
 
-inline void Jiajun_convertByte2Int_fast_4b_args(size_t stepLength, unsigned char *byteArray, size_t byteArrayLength, int *intArray)
-{
-	size_t i = 0, n = 0;
-	unsigned char tmp;
-	for (i = 0; i < byteArrayLength; i++)
-	{
-		tmp = byteArray[i];
-		intArray[n++] = (tmp & 0xF0) >> 4;
-		if (n == stepLength)
-			break;
-		intArray[n++] = tmp & 0x0F;
-	}
-}
+// inline void Jiajun_convertByte2Int_fast_4b_args(size_t stepLength, unsigned char *byteArray, size_t byteArrayLength, int *intArray)
+// {
+// 	size_t i = 0, n = 0;
+// 	unsigned char tmp;
+// 	for (i = 0; i < byteArrayLength; i++)
+// 	{
+// 		tmp = byteArray[i];
+// 		intArray[n++] = (tmp & 0xF0) >> 4;
+// 		if (n == stepLength)
+// 			break;
+// 		intArray[n++] = tmp & 0x0F;
+// 	}
+// }
 
-inline void Jiajun_convertByte2Int_fast_5b_args(size_t stepLength, unsigned char *byteArray, size_t byteArrayLength, int *intArray)
-{
-	size_t i = 0, ii = 0, n = 0;
-	unsigned char tmp = byteArray[i];
-	for (n = 0; n < stepLength;)
-	{
-		switch (n % 8)
-		{
-		case 0:
-			intArray[n++] = (tmp & 0xF8) >> 3;
-			break;
-		case 1:
-			ii = (tmp & 0x07) << 2;
-			i++;
-			tmp = byteArray[i];
-			ii |= (tmp & 0xC0) >> 6;
-			intArray[n++] = ii;
-			break;
-		case 2:
-			intArray[n++] = (tmp & 0x3E) >> 1;
-			break;
-		case 3:
-			ii = (tmp & 0x01) << 4;
-			i++;
-			tmp = byteArray[i];
-			ii |= (tmp & 0xF0) >> 4;
-			intArray[n++] = ii;
-			break;
-		case 4:
-			ii = (tmp & 0x0F) << 1;
-			i++;
-			tmp = byteArray[i];
-			ii |= (tmp & 0x80) >> 7;
-			intArray[n++] = ii;
-			break;
-		case 5:
-			intArray[n++] = (tmp & 0x7C) >> 2;
-			break;
-		case 6:
-			ii = (tmp & 0x03) << 3;
-			i++;
-			tmp = byteArray[i];
-			ii |= (tmp & 0xE0) >> 5;
-			intArray[n++] = ii;
-			break;
-		case 7:
-			intArray[n++] = (tmp & 0x1F);
-			i++;
-			tmp = byteArray[i];
-			break;
-		}
-	}
-}
+// inline void Jiajun_convertByte2Int_fast_5b_args(size_t stepLength, unsigned char *byteArray, size_t byteArrayLength, int *intArray)
+// {
+// 	size_t i = 0, ii = 0, n = 0;
+// 	unsigned char tmp = byteArray[i];
+// 	for (n = 0; n < stepLength;)
+// 	{
+// 		switch (n % 8)
+// 		{
+// 		case 0:
+// 			intArray[n++] = (tmp & 0xF8) >> 3;
+// 			break;
+// 		case 1:
+// 			ii = (tmp & 0x07) << 2;
+// 			i++;
+// 			tmp = byteArray[i];
+// 			ii |= (tmp & 0xC0) >> 6;
+// 			intArray[n++] = ii;
+// 			break;
+// 		case 2:
+// 			intArray[n++] = (tmp & 0x3E) >> 1;
+// 			break;
+// 		case 3:
+// 			ii = (tmp & 0x01) << 4;
+// 			i++;
+// 			tmp = byteArray[i];
+// 			ii |= (tmp & 0xF0) >> 4;
+// 			intArray[n++] = ii;
+// 			break;
+// 		case 4:
+// 			ii = (tmp & 0x0F) << 1;
+// 			i++;
+// 			tmp = byteArray[i];
+// 			ii |= (tmp & 0x80) >> 7;
+// 			intArray[n++] = ii;
+// 			break;
+// 		case 5:
+// 			intArray[n++] = (tmp & 0x7C) >> 2;
+// 			break;
+// 		case 6:
+// 			ii = (tmp & 0x03) << 3;
+// 			i++;
+// 			tmp = byteArray[i];
+// 			ii |= (tmp & 0xE0) >> 5;
+// 			intArray[n++] = ii;
+// 			break;
+// 		case 7:
+// 			intArray[n++] = (tmp & 0x1F);
+// 			i++;
+// 			tmp = byteArray[i];
+// 			break;
+// 		}
+// 	}
+// }
 
-inline void Jiajun_convertByte2Int_fast_6b_args(size_t stepLength, unsigned char *byteArray, size_t byteArrayLength, int *intArray)
-{
-	size_t i = 0, ii = 0, n = 0;
-	unsigned char tmp = byteArray[i];
-	for (n = 0; n < stepLength;)
-	{
-		switch (n % 4)
-		{
-		case 0:
-			intArray[n++] = (tmp & 0xFC) >> 2;
-			break;
-		case 1:
-			ii = (tmp & 0x03) << 4;
-			i++;
-			tmp = byteArray[i];
-			ii |= (tmp & 0xF0) >> 4;
-			intArray[n++] = ii;
-			break;
-		case 2:
-			ii = (tmp & 0x0F) << 2;
-			i++;
-			tmp = byteArray[i];
-			ii |= (tmp & 0xC0) >> 6;
-			intArray[n++] = ii;
-			break;
-		case 3:
-			intArray[n++] = (tmp & 0x3F);
-			i++;
-			tmp = byteArray[i];
-			break;
-		}
-	}
-}
+// inline void Jiajun_convertByte2Int_fast_6b_args(size_t stepLength, unsigned char *byteArray, size_t byteArrayLength, int *intArray)
+// {
+// 	size_t i = 0, ii = 0, n = 0;
+// 	unsigned char tmp = byteArray[i];
+// 	for (n = 0; n < stepLength;)
+// 	{
+// 		switch (n % 4)
+// 		{
+// 		case 0:
+// 			intArray[n++] = (tmp & 0xFC) >> 2;
+// 			break;
+// 		case 1:
+// 			ii = (tmp & 0x03) << 4;
+// 			i++;
+// 			tmp = byteArray[i];
+// 			ii |= (tmp & 0xF0) >> 4;
+// 			intArray[n++] = ii;
+// 			break;
+// 		case 2:
+// 			ii = (tmp & 0x0F) << 2;
+// 			i++;
+// 			tmp = byteArray[i];
+// 			ii |= (tmp & 0xC0) >> 6;
+// 			intArray[n++] = ii;
+// 			break;
+// 		case 3:
+// 			intArray[n++] = (tmp & 0x3F);
+// 			i++;
+// 			tmp = byteArray[i];
+// 			break;
+// 		}
+// 	}
+// }
 
-inline void Jiajun_convertByte2Int_fast_7b_args(size_t stepLength, unsigned char *byteArray, size_t byteArrayLength, int *intArray)
-{
-	size_t i = 0, ii = 0, n = 0;
-	unsigned char tmp = byteArray[i];
-	for (n = 0; n < stepLength;)
-	{
-		switch (n % 8)
-		{
-		case 0:
-			intArray[n++] = (tmp & 0xFE) >> 1;
-			break;
-		case 1:
-			ii = (tmp & 0x01) << 6;
-			i++;
-			tmp = byteArray[i];
-			ii |= (tmp & 0xFC) >> 2;
-			intArray[n++] = ii;
-			break;
-		case 2:
-			ii = (tmp & 0x03) << 5;
-			i++;
-			tmp = byteArray[i];
-			ii |= (tmp & 0xF8) >> 3;
-			intArray[n++] = ii;
-			break;
-		case 3:
-			ii = (tmp & 0x07) << 4;
-			i++;
-			tmp = byteArray[i];
-			ii |= (tmp & 0xF0) >> 4;
-			intArray[n++] = ii;
-			break;
-		case 4:
-			ii = (tmp & 0x0F) << 3;
-			i++;
-			tmp = byteArray[i];
-			ii |= (tmp & 0xE0) >> 5;
-			intArray[n++] = ii;
-			break;
-		case 5:
-			ii = (tmp & 0x1F) << 2;
-			i++;
-			tmp = byteArray[i];
-			ii |= (tmp & 0xC0) >> 6;
-			intArray[n++] = ii;
-			break;
-		case 6:
-			ii = (tmp & 0x3F) << 1;
-			i++;
-			tmp = byteArray[i];
-			ii |= (tmp & 0x80) >> 7;
-			intArray[n++] = ii;
-			break;
-		case 7:
-			intArray[n++] = (tmp & 0x7F);
-			i++;
-			tmp = byteArray[i];
-			break;
-		}
-	}
-}
+// inline void Jiajun_convertByte2Int_fast_7b_args(size_t stepLength, unsigned char *byteArray, size_t byteArrayLength, int *intArray)
+// {
+// 	size_t i = 0, ii = 0, n = 0;
+// 	unsigned char tmp = byteArray[i];
+// 	for (n = 0; n < stepLength;)
+// 	{
+// 		switch (n % 8)
+// 		{
+// 		case 0:
+// 			intArray[n++] = (tmp & 0xFE) >> 1;
+// 			break;
+// 		case 1:
+// 			ii = (tmp & 0x01) << 6;
+// 			i++;
+// 			tmp = byteArray[i];
+// 			ii |= (tmp & 0xFC) >> 2;
+// 			intArray[n++] = ii;
+// 			break;
+// 		case 2:
+// 			ii = (tmp & 0x03) << 5;
+// 			i++;
+// 			tmp = byteArray[i];
+// 			ii |= (tmp & 0xF8) >> 3;
+// 			intArray[n++] = ii;
+// 			break;
+// 		case 3:
+// 			ii = (tmp & 0x07) << 4;
+// 			i++;
+// 			tmp = byteArray[i];
+// 			ii |= (tmp & 0xF0) >> 4;
+// 			intArray[n++] = ii;
+// 			break;
+// 		case 4:
+// 			ii = (tmp & 0x0F) << 3;
+// 			i++;
+// 			tmp = byteArray[i];
+// 			ii |= (tmp & 0xE0) >> 5;
+// 			intArray[n++] = ii;
+// 			break;
+// 		case 5:
+// 			ii = (tmp & 0x1F) << 2;
+// 			i++;
+// 			tmp = byteArray[i];
+// 			ii |= (tmp & 0xC0) >> 6;
+// 			intArray[n++] = ii;
+// 			break;
+// 		case 6:
+// 			ii = (tmp & 0x3F) << 1;
+// 			i++;
+// 			tmp = byteArray[i];
+// 			ii |= (tmp & 0x80) >> 7;
+// 			intArray[n++] = ii;
+// 			break;
+// 		case 7:
+// 			intArray[n++] = (tmp & 0x7F);
+// 			i++;
+// 			tmp = byteArray[i];
+// 			break;
+// 		}
+// 	}
+// }
 
-inline size_t Jiajun_extract_fixed_length_bits(unsigned char *result, size_t intArrayLength, int *signintArray, unsigned int bit_count)
-{
-	unsigned int byte_count = 0;
-	unsigned int remainder_bit = 0;
-	size_t i, j;
-	byte_count = bit_count / 8;
-	remainder_bit = bit_count % 8;
-	size_t byteLength = byte_count * intArrayLength + (remainder_bit * intArrayLength - 1) / 8 + 1;
-	size_t n = 0;
-	unsigned int tmp1, tmp2, type;
-	i = 0;
-	size_t byte_offset = byte_count * intArrayLength;
-	if (remainder_bit == 0)
-	{
-		byteLength = byte_offset;
-	}
-	if (remainder_bit > 0)
-	{
-		switch (remainder_bit)
-		{
-		case 1:
-			Jiajun_convertByte2Int_fast_1b_args(intArrayLength, result + byte_offset, (intArrayLength - 1) / 8 + 1, signintArray);
-			break;
-		case 2:
-			Jiajun_convertByte2Int_fast_2b_args(intArrayLength, result + byte_offset, (intArrayLength * 2 - 1) / 8 + 1, signintArray);
-			break;
-		case 3:
-			Jiajun_convertByte2Int_fast_3b_args(intArrayLength, result + byte_offset, (intArrayLength * 3 - 1) / 8 + 1, signintArray);
-			break;
-		case 4:
-			Jiajun_convertByte2Int_fast_4b_args(intArrayLength, result + byte_offset, (intArrayLength * 4 - 1) / 8 + 1, signintArray);
-			break;
-		case 5:
-			Jiajun_convertByte2Int_fast_5b_args(intArrayLength, result + byte_offset, (intArrayLength * 5 - 1) / 8 + 1, signintArray);
-			break;
-		case 6:
-			Jiajun_convertByte2Int_fast_6b_args(intArrayLength, result + byte_offset, (intArrayLength * 6 - 1) / 8 + 1, signintArray);
-			break;
-		case 7:
-			Jiajun_convertByte2Int_fast_7b_args(intArrayLength, result + byte_offset, (intArrayLength * 7 - 1) / 8 + 1, signintArray);
-			break;
-		default:
-			printf("Error: try to extract %d bits\n", remainder_bit);
-		}
-	}
-	if (byte_count > 0)
-	{
-		if(remainder_bit == 0)
-		{
-			memset(signintArray, 0 , intArrayLength * sizeof(int));
-		}
-		while (i < intArrayLength)
-		{
-			j = 0;
-			tmp1 = 0;
-			tmp2 = 0;
-			while (j < byte_count && n < byteLength)
-			{
-				tmp1 = result[n];
-				tmp1 <<= (8 * j);
-				tmp2 = (tmp2 | tmp1);
-				n++;
-				j++;
-			}
-			tmp2 <<= remainder_bit; // leave bitwise space for remainder_bits
-			signintArray[i] = (signintArray[i] | tmp2);
-			i++;
-		}
-	}
+// inline size_t Jiajun_extract_fixed_length_bits(unsigned char *result, size_t intArrayLength, int *signintArray, unsigned int bit_count)
+// {
+// 	unsigned int byte_count = 0;
+// 	unsigned int remainder_bit = 0;
+// 	size_t i, j;
+// 	byte_count = bit_count / 8;
+// 	remainder_bit = bit_count % 8;
+// 	size_t byteLength = byte_count * intArrayLength + (remainder_bit * intArrayLength - 1) / 8 + 1;
+// 	size_t n = 0;
+// 	unsigned int tmp1, tmp2, type;
+// 	i = 0;
+// 	size_t byte_offset = byte_count * intArrayLength;
+// 	if (remainder_bit == 0)
+// 	{
+// 		byteLength = byte_offset;
+// 	}
+// 	if (remainder_bit > 0)
+// 	{
+// 		switch (remainder_bit)
+// 		{
+// 		case 1:
+// 			Jiajun_convertByte2Int_fast_1b_args(intArrayLength, result + byte_offset, (intArrayLength - 1) / 8 + 1, signintArray);
+// 			break;
+// 		case 2:
+// 			Jiajun_convertByte2Int_fast_2b_args(intArrayLength, result + byte_offset, (intArrayLength * 2 - 1) / 8 + 1, signintArray);
+// 			break;
+// 		case 3:
+// 			Jiajun_convertByte2Int_fast_3b_args(intArrayLength, result + byte_offset, (intArrayLength * 3 - 1) / 8 + 1, signintArray);
+// 			break;
+// 		case 4:
+// 			Jiajun_convertByte2Int_fast_4b_args(intArrayLength, result + byte_offset, (intArrayLength * 4 - 1) / 8 + 1, signintArray);
+// 			break;
+// 		case 5:
+// 			Jiajun_convertByte2Int_fast_5b_args(intArrayLength, result + byte_offset, (intArrayLength * 5 - 1) / 8 + 1, signintArray);
+// 			break;
+// 		case 6:
+// 			Jiajun_convertByte2Int_fast_6b_args(intArrayLength, result + byte_offset, (intArrayLength * 6 - 1) / 8 + 1, signintArray);
+// 			break;
+// 		case 7:
+// 			Jiajun_convertByte2Int_fast_7b_args(intArrayLength, result + byte_offset, (intArrayLength * 7 - 1) / 8 + 1, signintArray);
+// 			break;
+// 		default:
+// 			printf("Error: try to extract %d bits\n", remainder_bit);
+// 		}
+// 	}
+// 	if (byte_count > 0)
+// 	{
+// 		if(remainder_bit == 0)
+// 		{
+// 			memset(signintArray, 0 , intArrayLength * sizeof(int));
+// 		}
+// 		while (i < intArrayLength)
+// 		{
+// 			j = 0;
+// 			tmp1 = 0;
+// 			tmp2 = 0;
+// 			while (j < byte_count && n < byteLength)
+// 			{
+// 				tmp1 = result[n];
+// 				tmp1 <<= (8 * j);
+// 				tmp2 = (tmp2 | tmp1);
+// 				n++;
+// 				j++;
+// 			}
+// 			tmp2 <<= remainder_bit; // leave bitwise space for remainder_bits
+// 			signintArray[i] = (signintArray[i] | tmp2);
+// 			i++;
+// 		}
+// 	}
 
-	return byteLength;
-}
+// 	return byteLength;
+// }
 
-inline void convert2SignIntArray(
-    const unsigned char *signFlag,
-    int *signPrediction, int n
-){
-    for(int i=0; i<n; i++){
-        if(signFlag[i]) signPrediction[i] *= -1;
-    }
-}
+// inline void convert2SignIntArray(
+//     const unsigned char *signFlag,
+//     int *signPrediction, int n
+// ){
+//     for(int i=0; i<n; i++){
+//         if(signFlag[i]) signPrediction[i] *= -1;
+//     }
+// }
 
-inline size_t compute_encoding_byteLength(size_t intArrayLength, int bit_count)
-{
-    unsigned int byte_count = bit_count / 8;
-    unsigned int remainder_bit = bit_count % 8;
-    size_t byteLength = byte_count * intArrayLength + (remainder_bit * intArrayLength - 1) / 8 + 1;
-    if(!bit_count) byteLength = 0;
-    return byteLength;
-}
+// inline size_t compute_encoding_byteLength(size_t intArrayLength, int bit_count)
+// {
+//     unsigned int byte_count = bit_count / 8;
+//     unsigned int remainder_bit = bit_count % 8;
+//     size_t byteLength = byte_count * intArrayLength + (remainder_bit * intArrayLength - 1) / 8 + 1;
+//     if(!bit_count) byteLength = 0;
+//     return byteLength;
+// }
 
 #endif
