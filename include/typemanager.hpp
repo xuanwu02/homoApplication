@@ -2104,13 +2104,15 @@ inline int getLeftMovingSteps(size_t k, unsigned char resiBitLength)
 //     }
 // }
 
-// inline size_t compute_encoding_byteLength(size_t intArrayLength, int bit_count)
-// {
-//     unsigned int byte_count = bit_count / 8;
-//     unsigned int remainder_bit = bit_count % 8;
-//     size_t byteLength = byte_count * intArrayLength + (remainder_bit * intArrayLength - 1) / 8 + 1;
-//     if(!bit_count) byteLength = 0;
-//     return byteLength;
-// }
+inline size_t getByteLength(size_t intArrayLength, int bit_count)
+{
+    unsigned int byte_count = bit_count / 8;
+    unsigned int remainder_bit = bit_count % 8;
+    size_t byteLength;
+    if(remainder_bit) byteLength = byte_count * intArrayLength + (remainder_bit * intArrayLength - 1) / 8 + 1;
+	else byteLength = byte_count * intArrayLength;
+    if(!bit_count) byteLength = 0;
+    return byteLength;
+}
 
 #endif

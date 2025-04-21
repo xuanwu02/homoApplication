@@ -425,4 +425,79 @@ void compute_laplacian_3d(
     }
 }
 
+template <class T>
+double compute_region_mean(
+    size_t dim1, size_t dim2, int blockSideLength, double ratio, T *data
+){
+    DSize_2d size(dim1, dim2, blockSideLength);
+    size_t n1 = ceil(size.block_dim1 * ratio);
+    size_t n2 = ceil(size.block_dim2 * ratio);
+    size_t n1_1 = ceil(n1 * 0.5);
+    size_t n2_1 = ceil(n2 * 0.5);
+    size_t d1_1 = ceil(size.block_dim1 * 0.5);
+    size_t d2_1 = ceil(size.block_dim2 * 0.5);
+    size_t lo1 = d1_1 - n1_1 + 1;
+    size_t hi1 = d1_1 + (n1 - n1_1) + 1;
+    size_t lo2 = d2_1 - n2_1 + 1;
+    size_t hi2 = d2_1 + (n2 - n2_1) + 1;
+    size_t region_size = (hi1 - lo1) * (hi2 - lo2) * size.Bsize * size.Bsize;
+    size_t dlo1 = lo1 * blockSideLength;
+    size_t dhi1 = hi1 * blockSideLength;
+    size_t dlo2 = lo2 * blockSideLength;
+    size_t dhi2 = hi2 * blockSideLength;
+    double sum = 0;
+    T * x_data_pos = data + dlo1 * size.offset_0;
+    for(size_t i=dlo1; i<dhi1; i++){
+        T * y_data_pos = x_data_pos;
+        for(size_t j=dlo2; j<dhi2; j++){
+            sum += y_data_pos[j];
+        }
+        x_data_pos += size.offset_0;
+    }
+    return sum / (double)region_size;
+}
+
+template <class T>
+double compute_region_mean(
+    size_t dim1, size_t dim2, size_t dim3, int blockSideLength, double ratio, T *data
+){
+    DSize_3d size(dim1, dim2, dim3, blockSideLength);
+    size_t n1 = ceil(size.block_dim1 * ratio);
+    size_t n2 = ceil(size.block_dim2 * ratio);
+    size_t n3 = ceil(size.block_dim3 * ratio);
+    size_t n1_1 = ceil(n1 * 0.5);
+    size_t n2_1 = ceil(n2 * 0.5);
+    size_t n3_1 = ceil(n3 * 0.5);
+    size_t d1_1 = ceil(size.block_dim1 * 0.5);
+    size_t d2_1 = ceil(size.block_dim2 * 0.5);
+    size_t d3_1 = ceil(size.block_dim3 * 0.5);
+    size_t lo1 = d1_1 - n1_1 + 1;
+    size_t hi1 = d1_1 + (n1 - n1_1) + 1;
+    size_t lo2 = d2_1 - n2_1 + 1;
+    size_t hi2 = d2_1 + (n2 - n2_1) + 1;
+    size_t lo3 = d3_1 - n3_1 + 1;
+    size_t hi3 = d3_1 + (n3 - n3_1) + 1;
+    size_t region_size = (hi1 - lo1) * (hi2 - lo2) * (hi3 - lo3) * size.Bsize * size.Bsize * size.Bsize;
+    size_t dlo1 = lo1 * blockSideLength;
+    size_t dhi1 = hi1 * blockSideLength;
+    size_t dlo2 = lo2 * blockSideLength;
+    size_t dhi2 = hi2 * blockSideLength;
+    size_t dlo3 = lo3 * blockSideLength;
+    size_t dhi3 = hi3 * blockSideLength;
+    double sum = 0;
+    T * x_data_pos = data + dlo1 * size.offset_0;
+    for(size_t i=dlo1; i<dhi1; i++){
+        T * y_data_pos = x_data_pos + dlo2 * size.offset_1;
+        for(size_t j=dlo2; j<dhi2; j++){
+            T * z_data_pos = y_data_pos;
+            for(size_t k=dlo3; k<dhi3; k++){
+                sum += z_data_pos[j];
+            }
+            y_data_pos += size.offset_1;
+        }
+        x_data_pos += size.offset_0;
+    }
+    return sum / (double)region_size;
+}
+
 #endif

@@ -369,10 +369,14 @@ double SZx_mean_meta(
     unsigned char * outlier_pos = cmpData + FIXED_RATE_PER_BLOCK_BYTES * num_blocks;
     int mean_quant;
     int64_t sum = 0;
-    for(size_t i=0; i<num_blocks; i++){
+    for(size_t i=0; i<num_full_block; i++){
         memcpy(&mean_quant, outlier_pos, sizeof(int));
         outlier_pos += INT_BYTES;
         sum += mean_quant * block_size;
+    }
+    if(num_remiander > 0){
+        memcpy(&mean_quant, outlier_pos, sizeof(int));
+        sum += mean_quant * num_remiander;
     }
     double mean = 2 * errorBound * sum / (double)nbEle;
     return mean;
@@ -490,7 +494,9 @@ double SZx_mean_prePred(
             memcpy(&mean_quant, outlier_pos, sizeof(int));
             outlier_pos += INT_BYTES;
             fixed_rate = (int)cmpData[block_ind++];
-            if(fixed_rate){
+            if(fixed_rate == 0){
+                sum += mean_quant * block_size;
+            }else{
                 size_t cmp_block_sign_length = (block_size + 7) / 8;
                 convertByteArray2IntArray_fast_1b_args(block_size, encode_pos, cmp_block_sign_length, signFlag);
                 encode_pos += cmp_block_sign_length;
@@ -500,7 +506,7 @@ double SZx_mean_prePred(
                     if(signFlag[j] == 1) err = 0 - absPredError[j];
                     else err = absPredError[j];
                     curr = mean_quant + err;
-                    sum += err;
+                    sum += curr;
                 }
             }
         }
@@ -575,20 +581,25 @@ double SZx_variance_postPred(
     int mean_quant, mean_err, err;
     int fixed_rate;
     size_t i, j;
-    size_t block_ind = 0;
-    int64_t global_mean;
     int64_t d;
     uint64_t d2;
+    size_t block_ind = 0;
+    int64_t global_mean = 0;
     uint64_t squared_sum = 0;
     if(num_blocks > 0){
-        for(i=0; i<num_blocks; i++){
+        for(i=0; i<num_full_block; i++){
             memcpy(&mean_quant, outlier_pos, sizeof(int));
             outlier_pos += INT_BYTES;
             blocks_mean_quant[i] = mean_quant;
-            global_mean += mean_quant;
+            global_mean += mean_quant * block_size;
         }
-        global_mean /= static_cast<int64_t>(nbEle);
     }
+    if(num_remiander > 0){
+        memcpy(&mean_quant, outlier_pos, sizeof(int));
+        blocks_mean_quant[i] = mean_quant;
+        global_mean += mean_quant * num_remiander;
+    }
+    global_mean /= (int64_t)nbEle;
     if(num_full_block > 0){
         for(i=0; i<nbEle-num_remiander; i+=blockSideLength){
             mean_err = blocks_mean_quant[block_ind] - global_mean;
@@ -662,24 +673,25 @@ double SZx_variance_prePred(
     int mean_quant, curr, err;
     int fixed_rate;
     size_t i, j;
-    size_t block_ind = 0;
-    int64_t global_mean;
     int64_t d;
-    int64_t sum = 0;
     uint64_t d2;
+    size_t block_ind = 0;
+    int64_t sum;
     uint64_t squared_sum = 0;
     if(num_blocks > 0){
-        for(i=0; i<num_blocks; i++){
+        for(i=0; i<num_full_block; i++){
             memcpy(&mean_quant, outlier_pos, sizeof(int));
             outlier_pos += INT_BYTES;
             blocks_mean_quant[i] = mean_quant;
-            global_mean += mean_quant;
         }
-        global_mean /= static_cast<int64_t>(nbEle);
+    }
+    if(num_remiander > 0){
+        memcpy(&mean_quant, outlier_pos, sizeof(int));
+        blocks_mean_quant[i] = mean_quant;
     }
     if(num_full_block > 0){
         for(i=0; i<nbEle-num_remiander; i+=blockSideLength){
-            memcpy(&mean_quant, outlier_pos, sizeof(int));
+            mean_quant = blocks_mean_quant[block_ind];
             fixed_rate = (int)cmpData[block_ind++];
             if(fixed_rate == 0){
                 d = static_cast<int64_t>(mean_quant);
@@ -706,7 +718,7 @@ double SZx_variance_prePred(
     if(num_remiander > 0){
         block_size = num_remiander;
         for(i=nbEle-num_remiander; i<nbEle; i+=blockSideLength){
-            memcpy(&mean_quant, outlier_pos, sizeof(int));
+            mean_quant = blocks_mean_quant[block_ind];
             fixed_rate = (int)cmpData[block_ind++];
             if(fixed_rate == 0){
                 d = static_cast<int64_t>(mean_quant);

@@ -177,7 +177,7 @@ void SZp_decompress_postPred(
             for(int i=0; i<size_x; i++){
                 int * curr_buffer_pos = block_buffer_pos;
                 for(int j=0; j<size_y; j++){
-                    if(signFlag[index]) curr_buffer_pos[0] = 0 - absPredError[index];
+                    if(signFlag[index]) curr_buffer_pos[j] = 0 - absPredError[index];
                     else curr_buffer_pos[j] = absPredError[index];
                     index++;
                 }
@@ -440,10 +440,9 @@ double SZp_variance_postPred(
                 for(int i=0; i<size_x; i++){
                     int * curr_buffer_pos = block_buffer_pos;
                     for(int j=0; j<size_y; j++){
-                        if(signFlag[index]) curr = 0 - absPredError[index];
-                        else curr = absPredError[index];
+                        if(signFlag[index]) curr_buffer_pos[j] = 0 - absPredError[index];
+                        else curr_buffer_pos[j] = absPredError[index];
                         index++;
-                        curr_buffer_pos[j] = curr;
                     }
                     block_buffer_pos += offset_0;
                 }
@@ -465,7 +464,7 @@ double SZp_variance_postPred(
                 rowPrefix += static_cast<int64_t>(curr_pos[j]);
                 colPrefix[j] += rowPrefix;
                 quant_sum += colPrefix[j];
-                squared_quant_sum +=  colPrefix[j] *  colPrefix[j];
+                squared_quant_sum += static_cast<uint64_t>(colPrefix[j] *  colPrefix[j]);
             }
             curr_pos += offset_0;
         }

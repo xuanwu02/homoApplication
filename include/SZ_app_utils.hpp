@@ -422,11 +422,8 @@ inline void extract_block_mean(
 ){
     unsigned char * qmean_pos = cmpData_pos;
     for(size_t k=0; k<num_blocks; k++){
+        // memcpy(&blocks_mean_quant[k], qmean_pos, sizeof(int));
         memcpy(blocks_mean_quant+k, qmean_pos, sizeof(int));
-        // blocks_mean_quant[k] = (0xff000000 & (*qmean_pos << 24)) |
-        //                         (0x00ff0000 & (*(qmean_pos+1) << 16)) |
-        //                         (0x0000ff00 & (*(qmean_pos+2) << 8)) |
-        //                         (0x000000ff & *(qmean_pos+3));
         qmean_pos += 4;
     }
 }
@@ -445,10 +442,6 @@ inline T compute_integer_mean_2d(
             int size_y = ((y+1)*size.Bsize < size.dim2) ? size.Bsize : size.dim2 - y*size.Bsize;
             int block_size = size_x * size_y;
             memcpy(&mean, qmean_pos, sizeof(int));
-            // int mean = (0xff000000 & (*qmean_pos << 24)) |
-            //             (0x00ff0000 & (*(qmean_pos+1) << 16)) |
-            //             (0x0000ff00 & (*(qmean_pos+2) << 8)) |
-            //             (0x000000ff & *(qmean_pos+3));
             blocks_mean_quant[block_ind++] = mean;
             qmean_pos += 4;
             sum += mean * block_size;
@@ -474,10 +467,6 @@ inline T compute_integer_mean_3d(
                 int size_z = ((z+1)*size.Bsize < size.dim3) ? size.Bsize : size.dim3 - z*size.Bsize;
                 int block_size = size_x * size_y * size_z;
                 memcpy(&mean, qmean_pos, sizeof(int));
-                // int mean = (0xff000000 & (*qmean_pos << 24)) |
-                //             (0x00ff0000 & (*(qmean_pos+1) << 16)) |
-                //             (0x0000ff00 & (*(qmean_pos+2) << 8)) |
-                //             (0x000000ff & *(qmean_pos+3));
                 blocks_mean_quant[block_ind++] = mean;
                 qmean_pos += 4;
                 sum += mean * block_size;

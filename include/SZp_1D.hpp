@@ -1510,7 +1510,7 @@ op_time += get_elapsed_time(start2, end2);
 }
 
 template <class T>
-inline void laplacianProcessBlocksPrePred(
+inline void laplacian3DProcessBlocksPrePred(
     DSize3D_1d &size,
     CmpBufferSet *cmpkit_set, 
     AppBufferSet3D_1d *buffer_set,
@@ -1573,7 +1573,7 @@ void SZp_laplacian3D(
             break;
         }
         case decmpState::prePred:{
-            laplacianProcessBlocksPrePred(size, cmpkit_set, buffer_set, encode_pos, outlier_pos, result_pos, errorBound);
+            laplacian3DProcessBlocksPrePred(size, cmpkit_set, buffer_set, encode_pos, outlier_pos, result_pos, errorBound);
             break;
         }
         case decmpState::full:{

@@ -333,7 +333,8 @@ double SZx_mean_prePred(
                     for(int i=0; i<block_size; i++){
                         if(signFlag[i]) curr = 0 - absPredError[i];
                         else curr = absPredError[i];
-                        quant_sum += curr + mean_quant;
+                        curr += mean_quant;
+                        quant_sum += curr;
                     }
                 }else{
                     quant_sum += mean_quant * block_size;
@@ -400,6 +401,7 @@ double SZx_mean_meta(
     DSize_3d size(dim1, dim2, dim3, blockSideLength);
     unsigned char * qmean_pos = cmpData + FIXED_RATE_PER_BLOCK_BYTES * size.num_blocks;
     int64_t sum = 0;
+    int mean_quant;
     for(size_t x=0; x<size.block_dim1; x++){
         int size_x = ((x+1) * size.Bsize < size.dim1) ? size.Bsize : size.dim1 - x*size.Bsize;
         for(size_t y=0; y<size.block_dim2; y++){
@@ -407,16 +409,13 @@ double SZx_mean_meta(
             for(size_t z=0; z<size.block_dim3; z++){
                 int size_z = ((z+1)*size.Bsize < size.dim3) ? size.Bsize : size.dim3 - z*size.Bsize;
                 int block_size = size_x * size_y * size_z;
-                int mean = (0xff000000 & (*qmean_pos << 24)) |
-                            (0x00ff0000 & (*(qmean_pos+1) << 16)) |
-                            (0x0000ff00 & (*(qmean_pos+2) << 8)) |
-                            (0x000000ff & *(qmean_pos+3));
-                qmean_pos += 4;
-                sum += mean * block_size;
+                memcpy(&mean_quant, qmean_pos, sizeof(int));
+                qmean_pos += INT_BYTES;
+                sum += mean_quant * block_size;
             }
         }
     }
-    double mean = sum * 2 * errorBound / size.nbEle;
+    double mean = 2 * errorBound * sum / size.nbEle;
     return mean;
 }
 
@@ -468,6 +467,93 @@ double SZx_mean(
     return mean;
 }
 
+double SZx_region_mean_meta(
+    unsigned char *cmpData, size_t dim1, size_t dim2, size_t dim3,
+    double ratio, int blockSideLength, double errorBound
+){
+    const DSize_3d size(dim1, dim2, dim3, blockSideLength);
+    size_t n1 = ceil(size.block_dim1 * ratio);
+    size_t n2 = ceil(size.block_dim2 * ratio);
+    size_t n3 = ceil(size.block_dim3 * ratio);
+    size_t n1_1 = ceil(n1 * 0.5);
+    size_t n2_1 = ceil(n2 * 0.5);
+    size_t n3_1 = ceil(n3 * 0.5);
+    size_t d1_1 = ceil(size.block_dim1 * 0.5);
+    size_t d2_1 = ceil(size.block_dim2 * 0.5);
+    size_t d3_1 = ceil(size.block_dim3 * 0.5);
+    size_t lo1 = d1_1 - n1_1 + 1;
+    size_t hi1 = d1_1 + (n1 - n1_1) + 1;
+    size_t lo2 = d2_1 - n2_1 + 1;
+    size_t hi2 = d2_1 + (n2 - n2_1) + 1;
+    size_t lo3 = d3_1 - n3_1 + 1;
+    size_t hi3 = d3_1 + (n3 - n3_1) + 1;
+    size_t region_size = (hi1 - lo1) * (hi2 - lo2) * (hi3 - lo3) * size.Bsize * size.Bsize * size.Bsize;
+    unsigned int * absPredError = (unsigned int *)malloc(size.max_num_block_elements*sizeof(unsigned int));
+    unsigned char * signFlag = (unsigned char *)malloc(size.max_num_block_elements*sizeof(unsigned char));
+    int * blocks_mean_quant = (int *)malloc(size.num_blocks * sizeof(int));
+    extract_block_mean(cmpData+FIXED_RATE_PER_BLOCK_BYTES*size.num_blocks, blocks_mean_quant, size.num_blocks);
+    int64_t quant_sum = 0;
+    size_t x, y, z;
+    size_t byteLengthPrefix = 0;
+    int block_ind = 0;
+    int size_x, size_y, size_z, block_size;
+    int mean_quant, curr;
+    for(x=lo1; x<hi1; x++){
+        size_x = ((x+1)*size.Bsize < size.dim1) ? size.Bsize : size.dim1 - x*size.Bsize;
+        for(y=lo2; y<hi2; y++){
+            size_y = ((y+1)*size.Bsize < size.dim2) ? size.Bsize : size.dim2 - y*size.Bsize;
+            block_ind = x * size.block_dim2 * size.block_dim3 + y * size.block_dim3 + lo3;
+            for(z=lo3; z<hi3; z++){
+                size_z = ((z+1)*size.Bsize < size.dim3) ? size.Bsize : size.dim3 - z*size.Bsize;
+                block_size = size_x * size_y * size_z;
+                mean_quant = blocks_mean_quant[block_ind++];
+                quant_sum += mean_quant * block_size;
+            }
+        }
+    }
+    free(absPredError);
+    free(signFlag);
+    free(blocks_mean_quant);
+    double mean = quant_sum * 2 * errorBound / region_size;
+    return mean;
+}
+
+template <class T>
+double SZx_region_mean(
+    unsigned char *cmpData, size_t dim1, size_t dim2, size_t dim3, T *decData,
+    double ratio, int blockSideLength, double errorBound, decmpState state
+){
+    double mean;
+
+    struct timespec start, end;
+    double elapsed_time;
+    clock_gettime(CLOCK_REALTIME, &start);
+    switch(state){
+        case decmpState::full:{
+            SZx_decompress(decData, cmpData, dim1, dim2, dim3, blockSideLength, errorBound);
+            mean = compute_region_mean(dim1, dim2, dim3, blockSideLength, ratio, decData);
+            break;
+        }
+        case decmpState::prePred:{
+            // mean = SZx_region_mean_prePred(cmpData, dim1, dim2, dim3, ratio, blockSideLength, errorBound);            
+            break;
+        }
+        case decmpState::postPred:{
+            // mean = SZx_region_mean_postPred(cmpData, dim1, dim2, dim3, ratio, blockSideLength, errorBound);            
+            break;
+        }
+        case decmpState::meta:{
+            mean = SZx_region_mean_meta(cmpData, dim1, dim2, dim3, ratio, blockSideLength, errorBound);            
+            break;
+        }
+    }
+    clock_gettime(CLOCK_REALTIME, &end);
+    elapsed_time = get_elapsed_time(start, end);
+    printf("elapsed_time = %.6f\n", elapsed_time);
+
+    return mean;
+}
+
 double SZx_variance_postPred(
     unsigned char *cmpData, size_t dim1, size_t dim2, size_t dim3,
     int blockSideLength, double errorBound
@@ -482,7 +568,7 @@ double SZx_variance_postPred(
     int block_ind = 0;
     uint64_t squared_sum = 0;
     for(size_t x=0; x<size.block_dim1; x++){
-        int size_x = ((x+1) * size.Bsize < size.dim1) ? size.Bsize : size.dim1 - x * size.Bsize;
+        int size_x = ((x+1) * size.Bsize < size.dim1) ? size.Bsize : size.dim1 - x*size.Bsize;
         for(size_t y=0; y<size.block_dim2; y++){
             int size_y = ((y+1)*size.Bsize < size.dim2) ? size.Bsize : size.dim2 - y*size.Bsize;
             for(size_t z=0; z<size.block_dim3; z++){
