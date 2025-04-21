@@ -472,32 +472,25 @@ double SZx_region_mean_meta(
     double ratio, int blockSideLength, double errorBound
 ){
     const DSize_3d size(dim1, dim2, dim3, blockSideLength);
-    size_t n1 = ceil(size.block_dim1 * ratio);
-    size_t n2 = ceil(size.block_dim2 * ratio);
-    size_t n3 = ceil(size.block_dim3 * ratio);
-    size_t n1_1 = ceil(n1 * 0.5);
-    size_t n2_1 = ceil(n2 * 0.5);
-    size_t n3_1 = ceil(n3 * 0.5);
-    size_t d1_1 = ceil(size.block_dim1 * 0.5);
-    size_t d2_1 = ceil(size.block_dim2 * 0.5);
-    size_t d3_1 = ceil(size.block_dim3 * 0.5);
-    size_t lo1 = d1_1 - n1_1 + 1;
-    size_t hi1 = d1_1 + (n1 - n1_1) + 1;
-    size_t lo2 = d2_1 - n2_1 + 1;
-    size_t hi2 = d2_1 + (n2 - n2_1) + 1;
-    size_t lo3 = d3_1 - n3_1 + 1;
-    size_t hi3 = d3_1 + (n3 - n3_1) + 1;
+    size_t dlo1 = floor(dim1 * (1.0 - ratio) * 0.5);
+    size_t dhi1 = floor(dim1 * (1.0 + ratio) * 0.5);
+    size_t dlo2 = floor(dim2 * (1.0 - ratio) * 0.5);
+    size_t dhi2 = floor(dim2 * (1.0 + ratio) * 0.5);
+    size_t dlo3 = floor(dim3 * (1.0 - ratio) * 0.5);
+    size_t dhi3 = floor(dim3 * (1.0 + ratio) * 0.5);
+    size_t lo1 = dlo1 / size.Bsize;
+    size_t hi1 = dhi1 / size.Bsize + 1;
+    size_t lo2 = dlo2 / size.Bsize;
+    size_t hi2 = dhi2 / size.Bsize + 1;
+    size_t lo3 = dlo3 / size.Bsize;
+    size_t hi3 = dhi3 / size.Bsize + 1;
     size_t region_size = (hi1 - lo1) * (hi2 - lo2) * (hi3 - lo3) * size.Bsize * size.Bsize * size.Bsize;
-    unsigned int * absPredError = (unsigned int *)malloc(size.max_num_block_elements*sizeof(unsigned int));
-    unsigned char * signFlag = (unsigned char *)malloc(size.max_num_block_elements*sizeof(unsigned char));
     int * blocks_mean_quant = (int *)malloc(size.num_blocks * sizeof(int));
     extract_block_mean(cmpData+FIXED_RATE_PER_BLOCK_BYTES*size.num_blocks, blocks_mean_quant, size.num_blocks);
     int64_t quant_sum = 0;
-    size_t x, y, z;
-    size_t byteLengthPrefix = 0;
-    int block_ind = 0;
+    int block_ind, mean_quant;
     int size_x, size_y, size_z, block_size;
-    int mean_quant, curr;
+    size_t x, y, z;
     for(x=lo1; x<hi1; x++){
         size_x = ((x+1)*size.Bsize < size.dim1) ? size.Bsize : size.dim1 - x*size.Bsize;
         for(y=lo2; y<hi2; y++){
@@ -511,8 +504,6 @@ double SZx_region_mean_meta(
             }
         }
     }
-    free(absPredError);
-    free(signFlag);
     free(blocks_mean_quant);
     double mean = quant_sum * 2 * errorBound / region_size;
     return mean;

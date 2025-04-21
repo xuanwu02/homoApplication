@@ -238,24 +238,6 @@ struct derivIntBuffer_3d
     }
 };
 
-// template<class T>
-// __int128 sum_q_squared_linear(const std::vector<std::vector<T>>& r)
-// {
-//     size_t n = r.size();
-//     std::vector<__int128> colPrefix(n + 1, 0);   // 累加到当前 i 行的列前缀
-//     __int128 total = 0;
-
-//     for (size_t i = 0; i < n; ++i) {
-//         __int128 rowPrefix = 0;             // Σ_{t≤j} r_{i+1,t}
-//         for (size_t j = 0; j < n; ++j) {
-//             rowPrefix   += r[i][j];
-//             colPrefix[j] += rowPrefix;      // 现在 colPrefix[j] = q_{i+1, j+1}
-//             total += colPrefix[j] * colPrefix[j];
-//         }
-//     }
-//     return total;
-// }
-
 template <class T>
 inline int predict_lorenzo_2d(
     const T *data_pos, int *buffer_pos,
@@ -265,12 +247,6 @@ inline int predict_lorenzo_2d(
     buffer_pos[0] = curr_quant;
     return curr_quant - buffer_pos[-1] - buffer_pos[-offset_0] + buffer_pos[-offset_0-1];
 }
-
-// inline int predict_lorenzo_2d(
-//     const int *buffer_pos, size_t offset_0
-// ){
-//     return buffer_pos[0] - buffer_pos[-1] - buffer_pos[-offset_0] + buffer_pos[-offset_0-1];
-// }
 
 inline void recover_lorenzo_2d(
     int *buffer_pos, size_t offset_0

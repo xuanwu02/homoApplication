@@ -11,11 +11,6 @@
 #define INT_BYTES 4
 #define FIXED_RATE_PER_BLOCK_BYTES 1
 
-enum class appType
-{
-    STAT,
-    DIFF
-};
 
 enum class decmpState
 {

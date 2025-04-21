@@ -462,7 +462,6 @@ double SZp_mean(
     return mean;
 }
 
-// TODO
 double SZp_variance_postPred(
     unsigned char *cmpData, size_t dim1, size_t dim2, size_t dim3,
     int blockSideLength, double errorBound
