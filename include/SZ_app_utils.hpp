@@ -3,6 +3,7 @@
 
 #include <cstdlib>
 #include <iostream>
+#include <cmath>
 #include "SZ_def.hpp"
 #include "utils.hpp"
 
@@ -338,8 +339,8 @@ inline int compute_block_mean_quant(
         *block_buffer_pos++ = curr_quant;
         sum += curr_quant;
     }
-    int mean_quant = sum / block_size;
-    mean_quant -= (mean_quant < 0) ? 1 : 0;
+    int mean_quant = std::round((double)sum / (double)block_size);
+    // mean_quant -= (mean_quant < 0) ? 1 : 0;
     return mean_quant;
 }
 
@@ -360,8 +361,9 @@ inline int compute_block_mean_quant(
         }
         curr_data_pos += dim0_offset - size_y;
     }
-    int mean_quant = sum / (size_x * size_y);
-    mean_quant -= (mean_quant < 0) ? 1 : 0;
+    int mean_quant = std::round((double)sum / (double)(size_x * size_y));
+    // int mean_quant = sum / (size_x * size_y);
+    // mean_quant -= (mean_quant < 0) ? 1 : 0;
     return mean_quant;
 }
 
@@ -387,18 +389,19 @@ inline int compute_block_mean_quant(
         }
         x_data_pos += dim0_offset;
     }
-    int mean_quant = sum / (size_x * size_y * size_z);
-    mean_quant -= (mean_quant < 0) ? 1 : 0;
+    int mean_quant = std::round((double)sum / (double)(size_x * size_y * size_z));
+    // int mean_quant = sum / (size_x * size_y * size_z);
+    // mean_quant -= (mean_quant < 0) ? 1 : 0;
     return mean_quant;
 }
 
 // decompress
+
 inline void extract_block_mean(
     unsigned char *cmpData_pos, int *blocks_mean_quant, size_t num_blocks
 ){
     unsigned char * qmean_pos = cmpData_pos;
     for(size_t k=0; k<num_blocks; k++){
-        // memcpy(&blocks_mean_quant[k], qmean_pos, sizeof(int));
         memcpy(blocks_mean_quant+k, qmean_pos, sizeof(int));
         qmean_pos += 4;
     }
