@@ -474,7 +474,8 @@ double SZp_variance_postPred(
     free(absPredError);
     free(signFlag);
     free(colPrefix);
-    double var = (2 * errorBound) * (2 * errorBound) * ((double)squared_quant_sum - (double)quant_sum * quant_sum / size.nbEle) / (size.nbEle - 1);
+    // double var = (2 * errorBound) * (2 * errorBound) * ((double)squared_quant_sum - (double)quant_sum * quant_sum / size.nbEle) / (size.nbEle - 1);
+    double var = (2 * errorBound) * sqrt(((double)squared_quant_sum - (double)quant_sum * quant_sum / size.nbEle) / (size.nbEle - 1));
     return var;
 }
 
@@ -532,7 +533,8 @@ double SZp_variance_prePred(
     free(quant_buffer);
     free(absPredError);
     free(signFlag);
-    double var = (2 * errorBound) * (2 * errorBound) * ((double)squared_quant_sum - (double)quant_sum * quant_sum / size.nbEle) / (size.nbEle - 1);
+    // double var = (2 * errorBound) * (2 * errorBound) * ((double)squared_quant_sum - (double)quant_sum * quant_sum / size.nbEle) / (size.nbEle - 1);
+    double var = (2 * errorBound) * sqrt(((double)squared_quant_sum - (double)quant_sum * quant_sum / size.nbEle) / (size.nbEle - 1));
     return var;
 }
 
@@ -549,7 +551,8 @@ double SZp_variance_decOp(
     double var = 0;
     for(size_t i=0; i<nbEle; i++) var += (decData[i] - mean) * (decData[i] - mean);
     var /= (nbEle - 1);
-    return var;
+    // return var;
+    return sqrt(var);
 }
 
 template <class T>
@@ -628,18 +631,17 @@ rec_time += get_elapsed_time(start2, end2);
 }
 
 inline void recoverBlockSlice2PrePred(
-    size_t x, DSize_2d& size, unsigned char *cmpData,
-    CmpBufferSet *cmpkit_set, unsigned char *& encode_pos,
-    int *buffer_data_pos, size_t offset_0, int *decmp_buffer
+    size_t x, DSize_2d& size, unsigned char *& encode_pos, int *buffer_data_pos,
+    AppBufferSet_2d *buffer_set, CmpBufferSet *cmpkit_set
 ){
 clock_gettime(CLOCK_REALTIME, &start2);
     int block_ind = x * size.block_dim2;
-    int size_x = ((x+1)*size.Bsize < size.dim1) ? size.Bsize : size.dim1 - x*size.Bsize;
     int * buffer_start_pos = buffer_data_pos;
     for(size_t y=0; y<size.block_dim2; y++){
+        int size_x = ((x+1)*size.Bsize < size.dim1) ? size.Bsize : size.dim1 - x*size.Bsize;
         int size_y = ((y+1)*size.Bsize < size.dim2) ? size.Bsize : size.dim2 - y*size.Bsize;
         int block_size = size_x * size_y;
-        int fixed_rate = (int)cmpData[block_ind++];
+        int fixed_rate = (int)cmpkit_set->compressed[block_ind++];
         if(fixed_rate){
             size_t cmp_block_sign_length = (block_size + 7) / 8;
             convertByteArray2IntArray_fast_1b_args(block_size, encode_pos, cmp_block_sign_length, cmpkit_set->signFlag);
@@ -652,20 +654,22 @@ clock_gettime(CLOCK_REALTIME, &start2);
                 cmpkit_set->absPredError[i] = 0;
             }
         }
-        int * curr_buffer_pos = buffer_start_pos;
+        int * block_buffer_pos = buffer_start_pos;
         int index = 0;
         for(int i=0; i<size_x; i++){
+            int * curr_buffer_pos = block_buffer_pos;
             for(int j=0; j<size_y; j++){
                 if(cmpkit_set->signFlag[index]) curr_buffer_pos[0] = 0 - cmpkit_set->absPredError[index];
                 else curr_buffer_pos[0] = cmpkit_set->absPredError[index];
                 index++;
-                recover_lorenzo_2d(curr_buffer_pos++, offset_0);
+                recover_lorenzo_2d(curr_buffer_pos, buffer_set->offset_0);
+                curr_buffer_pos++;
             }
-            curr_buffer_pos += offset_0 - size_y;
+            block_buffer_pos += buffer_set->offset_0;
         }
         buffer_start_pos += size.Bsize;
     }
-    memcpy(decmp_buffer, buffer_data_pos+(size.Bsize-1)*offset_0-1, offset_0*sizeof(int));
+    memcpy(buffer_set->decmp_buffer, buffer_data_pos+(size.Bsize-1)*buffer_set->offset_0-1, buffer_set->offset_0*sizeof(int));
 clock_gettime(CLOCK_REALTIME, &end2);
 rec_time += get_elapsed_time(start2, end2);
 }
@@ -772,9 +776,9 @@ inline void dxdyProcessBlocksPrePred(
     for(size_t x=0; x<size.block_dim1; x++){
         size_t offset = x * BlockSliceSize;
         if(x == 0){
-            recoverBlockSlice2PrePred(x, size, cmpkit_set->compressed, cmpkit_set, encode_pos, buffer_set->currSlice_data_pos, buffer_set->offset_0, buffer_set->decmp_buffer);
+            recoverBlockSlice2PrePred(x, size, encode_pos, buffer_set->currSlice_data_pos, buffer_set, cmpkit_set);
             memcpy(buffer_set->nextSlice_data_pos - buffer_set->offset_0 - 1, buffer_set->decmp_buffer, buffer_set->offset_0 * sizeof(int));
-            recoverBlockSlice2PrePred(x+1, size, cmpkit_set->compressed, cmpkit_set, encode_pos, buffer_set->nextSlice_data_pos, buffer_set->offset_0, buffer_set->decmp_buffer);
+            recoverBlockSlice2PrePred(x+1, size, encode_pos, buffer_set->nextSlice_data_pos, buffer_set, cmpkit_set);
             dxdyProcessBlockSlicePrePred(x, size, buffer_set, dx_pos+offset, dy_pos+offset, errorBound, true, false);
         }
         else{
@@ -784,7 +788,7 @@ inline void dxdyProcessBlocksPrePred(
             }
             else{
                 memcpy(buffer_set->nextSlice_data_pos - buffer_set->offset_0 - 1, buffer_set->decmp_buffer, buffer_set->offset_0 * sizeof(int));
-                recoverBlockSlice2PrePred(x+1, size, cmpkit_set->compressed, cmpkit_set, encode_pos, buffer_set->nextSlice_data_pos, buffer_set->offset_0, buffer_set->decmp_buffer);
+                recoverBlockSlice2PrePred(x+1, size, encode_pos, buffer_set->nextSlice_data_pos, buffer_set, cmpkit_set);
                 dxdyProcessBlockSlicePrePred(x, size, buffer_set, dx_pos+offset, dy_pos+offset, errorBound, false, false);
             }
         }
@@ -924,9 +928,9 @@ inline void laplacianProcessBlocksPrePred(
     for(size_t x=0; x<size.block_dim1; x++){
         size_t offset = x * BlockSliceSize;
         if(x == 0){
-            recoverBlockSlice2PrePred(x, size, cmpkit_set->compressed, cmpkit_set, encode_pos, buffer_set->currSlice_data_pos, buffer_set->offset_0, buffer_set->decmp_buffer);
+            recoverBlockSlice2PrePred(x, size, encode_pos, buffer_set->currSlice_data_pos, buffer_set, cmpkit_set);
             memcpy(buffer_set->nextSlice_data_pos - buffer_set->offset_0 - 1, buffer_set->decmp_buffer, buffer_set->offset_0 * sizeof(int));
-            recoverBlockSlice2PrePred(x+1, size, cmpkit_set->compressed, cmpkit_set, encode_pos, buffer_set->nextSlice_data_pos, buffer_set->offset_0, buffer_set->decmp_buffer);
+            recoverBlockSlice2PrePred(x+1, size, encode_pos, buffer_set->nextSlice_data_pos, buffer_set, cmpkit_set);
             laplacianProcessBlockSlicePrePred(x, size, buffer_set, result_pos+offset, errorBound, true, false);
         }
         else{
@@ -936,7 +940,7 @@ inline void laplacianProcessBlocksPrePred(
             }
             else{
                 memcpy(buffer_set->nextSlice_data_pos - buffer_set->offset_0 - 1, buffer_set->decmp_buffer, buffer_set->offset_0 * sizeof(int));
-                recoverBlockSlice2PrePred(x+1, size, cmpkit_set->compressed, cmpkit_set, encode_pos, buffer_set->nextSlice_data_pos, buffer_set->offset_0, buffer_set->decmp_buffer);
+                recoverBlockSlice2PrePred(x+1, size, encode_pos, buffer_set->nextSlice_data_pos, buffer_set, cmpkit_set);
                 laplacianProcessBlockSlicePrePred(x, size, buffer_set, result_pos+offset, errorBound, false, false);
             }
         }
@@ -1114,9 +1118,9 @@ inline void divergenceProcessBlocksPrePred(
         size_t offset = x * BlockSliceSize;
         if(x == 0){
             for(i=0; i<2; i++){
-                recoverBlockSlice2PrePred(x, size, cmpkit_set[i]->compressed, cmpkit_set[i], encode_pos[i], buffer_set[i]->currSlice_data_pos, off_0, buffer_set[i]->decmp_buffer);
+                recoverBlockSlice2PrePred(x, size, encode_pos[i], buffer_set[i]->currSlice_data_pos, buffer_set[i], cmpkit_set[i]);
                 memcpy(buffer_set[i]->nextSlice_data_pos-off_0-1, buffer_set[i]->decmp_buffer, off_0*sizeof(int));
-                recoverBlockSlice2PrePred(x+1, size, cmpkit_set[i]->compressed, cmpkit_set[i], encode_pos[i], buffer_set[i]->nextSlice_data_pos, off_0, buffer_set[i]->decmp_buffer);
+                recoverBlockSlice2PrePred(x+1, size, encode_pos[i], buffer_set[i]->nextSlice_data_pos, buffer_set[i], cmpkit_set[i]);
             }
             divergenceProcessBlockSlicePrePred(x, size, off_0, buffer_set, result_pos+offset, errorBound, true, false);
         }
@@ -1130,7 +1134,7 @@ inline void divergenceProcessBlocksPrePred(
             else{
                 for(i=0; i<2; i++){
                     memcpy(buffer_set[i]->nextSlice_data_pos-off_0-1, buffer_set[i]->decmp_buffer, off_0*sizeof(int));
-                    recoverBlockSlice2PrePred(x+1, size, cmpkit_set[i]->compressed, cmpkit_set[i], encode_pos[i], buffer_set[i]->nextSlice_data_pos, off_0, buffer_set[i]->decmp_buffer);
+                    recoverBlockSlice2PrePred(x+1, size, encode_pos[i], buffer_set[i]->nextSlice_data_pos, buffer_set[i], cmpkit_set[i]);
                 }
                 divergenceProcessBlockSlicePrePred(x, size, off_0, buffer_set, result_pos+offset, errorBound, false, false);
             }
@@ -1329,9 +1333,9 @@ inline void curlProcessBlocksPrePred(
         size_t offset = x * BlockSliceSize;
         if(x == 0){
             for(i=0; i<2; i++){
-                recoverBlockSlice2PrePred(x, size, cmpkit_set[i]->compressed, cmpkit_set[i], encode_pos[i], buffer_set[i]->currSlice_data_pos, off_0, buffer_set[i]->decmp_buffer);
+                recoverBlockSlice2PrePred(x, size, encode_pos[i], buffer_set[i]->currSlice_data_pos, buffer_set[i], cmpkit_set[i]);
                 memcpy(buffer_set[i]->nextSlice_data_pos-off_0-1, buffer_set[i]->decmp_buffer, off_0*sizeof(int));
-                recoverBlockSlice2PrePred(x+1, size, cmpkit_set[i]->compressed, cmpkit_set[i], encode_pos[i], buffer_set[i]->nextSlice_data_pos, off_0, buffer_set[i]->decmp_buffer);
+                recoverBlockSlice2PrePred(x+1, size, encode_pos[i], buffer_set[i]->nextSlice_data_pos, buffer_set[i], cmpkit_set[i]);
             }
             curlProcessBlockSlicePrePred(x, size, off_0, buffer_set, result_pos+offset, errorBound, true, false);
         }
@@ -1345,7 +1349,7 @@ inline void curlProcessBlocksPrePred(
             else{
                 for(i=0; i<2; i++){
                     memcpy(buffer_set[i]->nextSlice_data_pos-off_0-1, buffer_set[i]->decmp_buffer, off_0*sizeof(int));
-                    recoverBlockSlice2PrePred(x+1, size, cmpkit_set[i]->compressed, cmpkit_set[i], encode_pos[i], buffer_set[i]->nextSlice_data_pos, off_0, buffer_set[i]->decmp_buffer);
+                    recoverBlockSlice2PrePred(x+1, size, encode_pos[i], buffer_set[i]->nextSlice_data_pos, buffer_set[i], cmpkit_set[i]);
                 }
                 curlProcessBlockSlicePrePred(x, size, off_0, buffer_set, result_pos+offset, errorBound, false, false);
             }

@@ -855,7 +855,8 @@ double SZx_variance_postPred(
     free(absPredError);
     free(signFlag);
     free(blocks_mean_quant);
-    double var = (2 * errorBound) * (2 * errorBound) * (double)squared_sum / (size.nbEle - 1);
+    // double var = (2 * errorBound) * (2 * errorBound) * (double)squared_sum / (size.nbEle - 1);
+    double var = (2 * errorBound) * sqrt((double)squared_sum / (size.nbEle - 1));
     return var;
 }
 
@@ -903,8 +904,10 @@ double SZx_variance_prePred(
                         squared_quant_sum += d2;
                     }
                 }else{
-                    quant_sum += block_mean * block_size;
-                    squared_quant_sum += block_mean * block_mean * block_size;
+                    d = static_cast<int64_t>(block_mean);
+                    d2 = d * d;
+                    quant_sum += d * block_size;
+                    squared_quant_sum += d2 * block_size;
                 }
             }
         }
@@ -912,7 +915,8 @@ double SZx_variance_prePred(
     free(absPredError);
     free(signFlag);
     free(blocks_mean_quant);
-    double var = ((double)squared_quant_sum - (double)quant_sum * quant_sum / size.nbEle) / (size.nbEle - 1) * (2 * errorBound) * (2 * errorBound);
+    // double var = ((double)squared_quant_sum - (double)quant_sum * quant_sum / size.nbEle) / (size.nbEle - 1) * (2 * errorBound) * (2 * errorBound);
+    double var = (2 * errorBound) * sqrt(((double)squared_quant_sum - (double)quant_sum * quant_sum / size.nbEle) / (size.nbEle - 1));
     return var;
 }
 
@@ -929,7 +933,8 @@ double SZx_variance_decOp(
     double var = 0;
     for(size_t i=0; i<nbEle; i++) var += (decData[i] - mean) * (decData[i] - mean);
     var /= (nbEle - 1);
-    return var;
+    // return var;
+    return sqrt(var);
 }
 
 template <class T>

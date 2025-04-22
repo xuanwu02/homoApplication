@@ -585,21 +585,23 @@ double SZx_variance_postPred(
     uint64_t d2;
     size_t block_ind = 0;
     int64_t global_mean = 0;
+    int64_t global_sum = 0;
     uint64_t squared_sum = 0;
     if(num_blocks > 0){
         for(i=0; i<num_full_block; i++){
             memcpy(&mean_quant, outlier_pos, sizeof(int));
             outlier_pos += INT_BYTES;
             blocks_mean_quant[i] = mean_quant;
-            global_mean += mean_quant * block_size;
+            global_sum += mean_quant * block_size;
         }
     }
     if(num_remiander > 0){
         memcpy(&mean_quant, outlier_pos, sizeof(int));
         blocks_mean_quant[i] = mean_quant;
-        global_mean += mean_quant * num_remiander;
+        global_sum += mean_quant * num_remiander;
     }
-    global_mean /= (int64_t)nbEle;
+    global_mean = std::round((double)global_sum / (double)nbEle);
+    // global_sum /= (int64_t)nbEle;
     if(num_full_block > 0){
         for(i=0; i<nbEle-num_remiander; i+=blockSideLength){
             mean_err = blocks_mean_quant[block_ind] - global_mean;
@@ -652,7 +654,8 @@ double SZx_variance_postPred(
     free(blocks_mean_quant);
     free(absPredError);
     free(signFlag);
-    double var = (2 * errorBound) * (2 * errorBound) * (double)squared_sum / (nbEle - 1);
+    // double var = (2 * errorBound) * (2 * errorBound) * (double)squared_sum / (nbEle - 1);
+    double var = (2 * errorBound) * sqrt((double)squared_sum / (nbEle - 1));
     return var;
 }
 
@@ -745,7 +748,8 @@ double SZx_variance_prePred(
     free(blocks_mean_quant);
     free(absPredError);
     free(signFlag);
-    double var = (2 * errorBound) * (2 * errorBound)* ((double)squared_sum - (double)sum * sum / nbEle) / (nbEle - 1);
+    // double var = (2 * errorBound) * (2 * errorBound) * ((double)squared_sum - (double)sum * sum / nbEle) / (nbEle - 1);
+    double var = (2 * errorBound) * sqrt(((double)squared_sum - (double)sum * sum / nbEle) / (nbEle - 1));
     return var;
 }
 
@@ -762,7 +766,8 @@ double SZx_variance_decOp(
     double var = 0;
     for(size_t i=0; i<nbEle; i++) var += (decData[i] - mean) * (decData[i] - mean);
     var /= (nbEle - 1);
-    return var;
+    // return var;
+    return sqrt(var);
 }
 
 template <class T>

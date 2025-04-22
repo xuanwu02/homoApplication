@@ -54,6 +54,7 @@ int main(int argc, char **argv)
     double doc_var = 0;
     for(size_t i=0; i<nbEle; i++) doc_var += (decData[i] - doc_mean) * (decData[i] - doc_mean);
     doc_var /= (nbEle - 1);
+    doc_var = sqrt(doc_var);
     printf("rel error = %.6e\n", fabs((doc_var - var) / eb));
 
     free(decData);

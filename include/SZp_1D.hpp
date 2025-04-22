@@ -607,7 +607,8 @@ double SZp_variance_postPred(
     }
     free(absPredError);
     free(signFlag);
-    double var = (2 * errorBound) * (2 * errorBound)* ((double)squared_quant_sum - (double)quant_sum * quant_sum / nbEle) / (nbEle - 1);
+    // double var = (2 * errorBound) * (2 * errorBound) * ((double)squared_quant_sum - (double)quant_sum * quant_sum / nbEle) / (nbEle - 1);
+    double var = (2 * errorBound) * sqrt(((double)squared_quant_sum - (double)quant_sum * quant_sum / nbEle) / (nbEle - 1));
     return var;
 }
 
@@ -699,7 +700,8 @@ double SZp_variance_prePred(
     }
     free(absPredError);
     free(signFlag);
-    double var = (2 * errorBound) * (2 * errorBound)* ((double)squared_quant_sum - (double)quant_sum * quant_sum / nbEle) / (nbEle - 1);
+    // double var = (2 * errorBound) * (2 * errorBound)* ((double)squared_quant_sum - (double)quant_sum * quant_sum / nbEle) / (nbEle - 1);
+    double var = (2 * errorBound) * sqrt(((double)squared_quant_sum - (double)quant_sum * quant_sum / nbEle) / (nbEle - 1));
     return var;
 }
 
@@ -716,7 +718,8 @@ double SZp_variance_decOp(
     double var = 0;
     for(size_t i=0; i<nbEle; i++) var += (decData[i] - mean) * (decData[i] - mean);
     var /= (nbEle - 1);
-    return var;
+    // return var;
+    return sqrt(var);
 }
 
 template <class T>

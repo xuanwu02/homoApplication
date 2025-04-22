@@ -462,6 +462,7 @@ double SZp_mean(
     return mean;
 }
 
+// TODO
 double SZp_variance_postPred(
     unsigned char *cmpData, size_t dim1, size_t dim2, size_t dim3,
     int blockSideLength, double errorBound
@@ -553,7 +554,8 @@ double SZp_variance_postPred(
     free(signFlag);
     free(colSum);
     free(prefix);
-    double var = (2 * errorBound) * (2 * errorBound) * ((double)squared_quant_sum - (double)quant_sum * quant_sum / size.nbEle) / (size.nbEle - 1);
+    // double var = (2 * errorBound) * (2 * errorBound) * ((double)squared_quant_sum - (double)quant_sum * quant_sum / size.nbEle) / (size.nbEle - 1);
+    double var = (2 * errorBound) * sqrt(((double)squared_quant_sum - (double)quant_sum * quant_sum / size.nbEle) / (size.nbEle - 1));
     return var;
 }
 
@@ -619,7 +621,8 @@ double SZp_variance_prePred(
     free(quant_buffer);
     free(absPredError);
     free(signFlag);
-    double var = (2 * errorBound) * (2 * errorBound) * ((double)squared_quant_sum - (double)quant_sum * quant_sum / size.nbEle) / (size.nbEle - 1);
+    // double var = (2 * errorBound) * (2 * errorBound) * ((double)squared_quant_sum - (double)quant_sum * quant_sum / size.nbEle) / (size.nbEle - 1);
+    double var = (2 * errorBound) * sqrt(((double)squared_quant_sum - (double)quant_sum * quant_sum / size.nbEle) / (size.nbEle - 1));
     return var;
 }
 
@@ -636,7 +639,8 @@ double SZp_variance_decOp(
     double var = 0;
     for(size_t i=0; i<nbEle; i++) var += (decData[i] - mean) * (decData[i] - mean);
     var /= (nbEle - 1);
-    return var;
+    // return var;
+    return sqrt(var);
 }
 
 template <class T>
