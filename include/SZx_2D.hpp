@@ -30,6 +30,7 @@ void SZx_compress(
     unsigned char * encode_pos = cmpData + (FIXED_RATE_PER_BLOCK_BYTES + INT_BYTES) * size.num_blocks;
     const T * x_data_pos = oriData;
     int block_ind = 0;
+    size_t prefix = 0;
     for(size_t x=0; x<size.block_dim1; x++){
         const T * y_data_pos = x_data_pos;
         for(size_t y=0; y<size.block_dim2; y++){
@@ -55,8 +56,10 @@ void SZx_compress(
             if(fixed_rate){
                 unsigned int signbyteLength = convertIntArray2ByteArray_fast_1b_args(signFlag, block_size, encode_pos);
                 encode_pos += signbyteLength;
+                prefix += signbyteLength;
                 unsigned int savedbitsbyteLength = Jiajun_save_fixed_length_bits(absPredError, block_size, encode_pos, fixed_rate);
                 encode_pos += savedbitsbyteLength;
+                prefix += savedbitsbyteLength;
             }
             y_data_pos += size.Bsize;
         }
@@ -472,8 +475,8 @@ double SZx_region_mean_postPred(
     int * blocks_mean_quant = (int *)malloc(size.num_blocks * sizeof(int));
     const unsigned char * rate_start_pos = cmpData;
     unsigned char * encode_start_pos = cmpData + (FIXED_RATE_PER_BLOCK_BYTES + INT_BYTES) * size.num_blocks;
+    std::vector<size_t> prefix(hi1 - lo1, 0);
     extract_block_mean(cmpData+FIXED_RATE_PER_BLOCK_BYTES*size.num_blocks, blocks_mean_quant, size.num_blocks);
-    std::vector<unsigned char *> encode_offset(hi1 - lo1, nullptr);
     int64_t quant_sum = 0;
     size_t x, y, i;
     size_t byteLengthPrefix = 0;
@@ -486,7 +489,9 @@ double SZx_region_mean_postPred(
             size_y = ((y+1)*size.Bsize < size.dim2) ? size.Bsize : size.dim2 - y*size.Bsize;
             block_size = size_x * size_y;
             fixed_rate = (int)rate_start_pos[block_ind++];
-            byteLengthPrefix += getByteLength(block_size, fixed_rate);
+            if(fixed_rate){
+                byteLengthPrefix += (block_size + 7) / 8 + getByteLength(block_size, fixed_rate);
+            }
         }
     }
     i = 0;
@@ -496,20 +501,24 @@ double SZx_region_mean_postPred(
             size_y = ((y+1)*size.Bsize < size.dim2) ? size.Bsize : size.dim2 - y*size.Bsize;
             block_size = size_x * size_y;
             fixed_rate = (int)rate_start_pos[block_ind++];
-            byteLengthPrefix += getByteLength(block_size, fixed_rate);
+            if(fixed_rate){
+                byteLengthPrefix += (block_size + 7) / 8 + getByteLength(block_size, fixed_rate);
+            }
         }
-        encode_offset[i++] = encode_start_pos + byteLengthPrefix;
+        prefix[i++] = byteLengthPrefix;
         for(y=lo2; y<size.block_dim2; y++){
             size_y = ((y+1)*size.Bsize < size.dim2) ? size.Bsize : size.dim2 - y*size.Bsize;
             block_size = size_x * size_y;
             fixed_rate = (int)rate_start_pos[block_ind++];
-            byteLengthPrefix += getByteLength(block_size, fixed_rate);
+            if(fixed_rate){
+                byteLengthPrefix += (block_size + 7) / 8 + getByteLength(block_size, fixed_rate);
+            }
         }
     }
     for(x=lo1; x<hi1; x++){
         size_x = ((x+1)*size.Bsize < size.dim1) ? size.Bsize : size.dim1 - x*size.Bsize;
         block_ind = x * size.block_dim2 + lo2;
-        unsigned char * encode_pos = encode_offset[x - lo1];
+        unsigned char * encode_pos = encode_start_pos + prefix[x - lo1];
         for(y=lo2; y<hi2; y++){
             size_y = ((y+1)*size.Bsize < size.dim2) ? size.Bsize : size.dim2 - y*size.Bsize;
             block_size = size_x * size_y;
@@ -537,6 +546,98 @@ double SZx_region_mean_postPred(
     return mean;
 }
 
+double SZx_region_mean_prePred(
+    unsigned char *cmpData, size_t dim1, size_t dim2,
+    double ratio, int blockSideLength, double errorBound
+){
+    const DSize_2d size(dim1, dim2, blockSideLength);
+    size_t dlo1 = floor(dim1 * (1.0 - ratio) * 0.5);
+    size_t dhi1 = floor(dim1 * (1.0 + ratio) * 0.5);
+    size_t dlo2 = floor(dim2 * (1.0 - ratio) * 0.5);
+    size_t dhi2 = floor(dim2 * (1.0 + ratio) * 0.5);
+    size_t lo1 = dlo1 / size.Bsize;
+    size_t hi1 = dhi1 / size.Bsize + 1;
+    size_t lo2 = dlo2 / size.Bsize;
+    size_t hi2 = dhi2 / size.Bsize + 1;
+    size_t region_size = (hi1 - lo1) * (hi2 - lo2) * size.Bsize * size.Bsize;
+    unsigned int * absPredError = (unsigned int *)malloc(size.max_num_block_elements*sizeof(unsigned int));
+    unsigned char * signFlag = (unsigned char *)malloc(size.max_num_block_elements*sizeof(unsigned char));
+    int * blocks_mean_quant = (int *)malloc(size.num_blocks * sizeof(int));
+    const unsigned char * rate_start_pos = cmpData;
+    unsigned char * encode_start_pos = cmpData + (FIXED_RATE_PER_BLOCK_BYTES + INT_BYTES) * size.num_blocks;
+    std::vector<size_t> prefix(hi1 - lo1, 0);
+    extract_block_mean(cmpData+FIXED_RATE_PER_BLOCK_BYTES*size.num_blocks, blocks_mean_quant, size.num_blocks);
+    int64_t quant_sum = 0;
+    size_t x, y, i;
+    size_t byteLengthPrefix = 0;
+    int block_ind = 0;
+    int size_x, size_y, block_size, fixed_rate;
+    int mean_quant, curr;
+    for(x=0; x<lo1; x++){
+        for(y=0; y<size.block_dim2; y++){
+            size_x = ((x+1)*size.Bsize < size.dim1) ? size.Bsize : size.dim1 - x*size.Bsize;
+            size_y = ((y+1)*size.Bsize < size.dim2) ? size.Bsize : size.dim2 - y*size.Bsize;
+            block_size = size_x * size_y;
+            fixed_rate = (int)rate_start_pos[block_ind++];
+            if(fixed_rate){
+                byteLengthPrefix += (block_size + 7) / 8 + getByteLength(block_size, fixed_rate);
+            }
+        }
+    }
+    i = 0;
+    for(x=lo1; x<hi1; x++){
+        size_x = ((x+1)*size.Bsize < size.dim1) ? size.Bsize : size.dim1 - x*size.Bsize;
+        for(y=0; y<lo2; y++){
+            size_y = ((y+1)*size.Bsize < size.dim2) ? size.Bsize : size.dim2 - y*size.Bsize;
+            block_size = size_x * size_y;
+            fixed_rate = (int)rate_start_pos[block_ind++];
+            if(fixed_rate){
+                byteLengthPrefix += (block_size + 7) / 8 + getByteLength(block_size, fixed_rate);
+            }
+        }
+        prefix[i++] = byteLengthPrefix;
+        for(y=lo2; y<size.block_dim2; y++){
+            size_y = ((y+1)*size.Bsize < size.dim2) ? size.Bsize : size.dim2 - y*size.Bsize;
+            block_size = size_x * size_y;
+            fixed_rate = (int)rate_start_pos[block_ind++];
+            if(fixed_rate){
+                byteLengthPrefix += (block_size + 7) / 8 + getByteLength(block_size, fixed_rate);
+            }
+        }
+    }
+    for(x=lo1; x<hi1; x++){
+        size_x = ((x+1)*size.Bsize < size.dim1) ? size.Bsize : size.dim1 - x*size.Bsize;
+        block_ind = x * size.block_dim2 + lo2;
+        unsigned char * encode_pos = encode_start_pos + prefix[x - lo1];
+        for(y=lo2; y<hi2; y++){
+            size_y = ((y+1)*size.Bsize < size.dim2) ? size.Bsize : size.dim2 - y*size.Bsize;
+            block_size = size_x * size_y;
+            mean_quant = blocks_mean_quant[block_ind];
+            fixed_rate = (int)rate_start_pos[block_ind++];
+            if(fixed_rate){
+                size_t cmp_block_sign_length = (block_size + 7) / 8;
+                convertByteArray2IntArray_fast_1b_args(block_size, encode_pos, cmp_block_sign_length, signFlag);
+                encode_pos += cmp_block_sign_length;
+                unsigned int savedbitsbytelength = Jiajun_extract_fixed_length_bits(encode_pos, block_size, absPredError, fixed_rate);
+                encode_pos += savedbitsbytelength;
+                for(i=0; i<block_size; i++){
+                    if(signFlag[i]) curr = 0 - absPredError[i];
+                    else curr = absPredError[i];
+                    curr += mean_quant;
+                    quant_sum += curr;
+                }
+            }else{
+                quant_sum += mean_quant * block_size;
+            }
+        }
+    }
+    free(absPredError);
+    free(signFlag);
+    free(blocks_mean_quant);
+    double mean = quant_sum * 2 * errorBound / region_size;
+    return mean;
+}
+
 template <class T>
 double SZx_region_mean(
     unsigned char *cmpData, size_t dim1, size_t dim2, T *decData,
@@ -554,7 +655,7 @@ double SZx_region_mean(
             break;
         }
         case decmpState::prePred:{
-            // mean = SZx_region_mean_prePred(cmpData, dim1, dim2, ratio, blockSideLength, errorBound);            
+            mean = SZx_region_mean_prePred(cmpData, dim1, dim2, ratio, blockSideLength, errorBound);            
             break;
         }
         case decmpState::postPred:{

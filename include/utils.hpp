@@ -485,7 +485,7 @@ double compute_region_mean(
         T * y_data_pos = x_data_pos + dlo2 * size.offset_1;
         for(size_t j=dlo2; j<dhi2; j++){
             for(size_t k=dlo3; k<dhi3; k++){
-                sum += y_data_pos[j];
+                sum += y_data_pos[k];
             }
             y_data_pos += size.offset_1;
         }
