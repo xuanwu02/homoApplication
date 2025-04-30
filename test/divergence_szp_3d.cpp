@@ -7,7 +7,7 @@
 #include <cmath>
 #include <ctime>
 #include <cassert>
-#include "SZx_3D.hpp"
+#include "SZp_3D.hpp"
 #include "utils.hpp"
 
 int main(int argc, char **argv)
@@ -50,7 +50,7 @@ int main(int argc, char **argv)
 
     size_t cmpSize = 0, compressed_size = 0;
     for(i=0; i<dim; i++){
-        SZx_compress(oriData[i], cmpData[i], dim1, dim2, dim3, blockSideLength, eb, compressed_size);
+        SZp_compress(oriData[i], cmpData[i], dim1, dim2, dim3, blockSideLength, eb, compressed_size);
         cmpSize += compressed_size;
     }
     printf("cr = %.2f\n", 1.0 * dim * nbEle * sizeof(T) / cmpSize);
@@ -58,9 +58,9 @@ int main(int argc, char **argv)
         std::vector<T>().swap(oriData_vec[i]);
     }
 
-    SZx_divergence(cmpData, dim1, dim2, dim3, blockSideLength, eb, divergence_result, intToDecmpState(stateType));
+    SZp_divergence(cmpData, dim1, dim2, dim3, blockSideLength, eb, divergence_result, intToDecmpState(stateType));
     for(i=0; i<dim; i++){
-        SZx_decompress(decData[i], cmpData[i], dim1, dim2, dim3, blockSideLength, eb);
+        SZp_decompress(decData[i], cmpData[i], dim1, dim2, dim3, blockSideLength, eb);
     }
     compute_divergence_3d(dim1, dim2, dim3, decData[0], decData[1], decData[2], ref_divergence_result);
     double err = verify_dxdydz(ref_divergence_result, divergence_result, dim1, dim2, dim3);

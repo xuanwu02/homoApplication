@@ -131,8 +131,10 @@ void SZp_decompress(
                     for(int j=0; j<size_y; j++){
                         int * curr_buffer_pos = block_buffer_pos;
                         for(int k=0; k<size_z; k++){
-                            if(signFlag[index]) curr_buffer_pos[0] = 0 - absPredError[index];
-                            else curr_buffer_pos[0] = absPredError[index];
+                            // if(signFlag[index]) curr_buffer_pos[0] = 0 - absPredError[index];
+                            // else curr_buffer_pos[0] = absPredError[index];
+                            int s = -(int)signFlag[index];
+                            curr_buffer_pos[0] = (absPredError[index] ^ s) - s;
                             index++;
                             recover_lorenzo_3d(curr_buffer_pos, offset_0, offset_1);
                             curr_data_pos[0] = curr_buffer_pos[0] * twice_eb;
@@ -204,8 +206,10 @@ void SZp_decompress_postPred(
                     for(int j=0; j<size_y; j++){
                         int * curr_buffer_pos = block_buffer_pos;
                         for(int k=0; k<size_z; k++){
-                            if(signFlag[index]) curr_buffer_pos[k] = 0 - absPredError[index];
-                            else curr_buffer_pos[k] = absPredError[index];
+                            // if(signFlag[index]) curr_buffer_pos[k] = 0 - absPredError[index];
+                            // else curr_buffer_pos[k] = absPredError[index];
+                            int s = -(int)signFlag[index];
+                            curr_buffer_pos[k] = (absPredError[index] ^ s) - s;
                             index++;
                         }
                         block_buffer_pos += offset_1;
@@ -273,8 +277,10 @@ void SZp_decompress_prePred(
                     for(int j=0; j<size_y; j++){
                         int * curr_buffer_pos = block_buffer_pos;
                         for(int k=0; k<size_z; k++){
-                            if(signFlag[index]) curr_buffer_pos[0] = 0 - absPredError[index];
-                            else curr_buffer_pos[0] = absPredError[index];
+                            // if(signFlag[index]) curr_buffer_pos[0] = 0 - absPredError[index];
+                            // else curr_buffer_pos[0] = absPredError[index];
+                            int s = -(int)signFlag[index];
+                            curr_buffer_pos[0] = (absPredError[index] ^ s) - s;
                             index++;
                             recover_lorenzo_3d(curr_buffer_pos, offset_0, offset_1);
                             curr_data_pos[0] = curr_buffer_pos[0];
@@ -337,8 +343,10 @@ double SZp_mean_postPred(
                     for(int i=0; i<size_x; i++){
                         for(int j=0; j<size_y; j++){
                             for(int k=0; k<size_z; k++){
-                                if(signFlag[index]) curr = 0 - absPredError[index];
-                                else curr = absPredError[index];
+                                // if(signFlag[index]) curr = 0 - absPredError[index];
+                                // else curr = absPredError[index];
+                                int s = -(int)signFlag[index];
+                                curr = (absPredError[index] ^ s) - s;
                                 index++;
                                 quant_sum += (size.dim1 - (index_x + i)) * (size.dim2 - (index_y + j)) * (size.dim3 - (index_z + k)) * curr;
                             }
@@ -395,8 +403,10 @@ double SZp_mean_prePred(
                     for(int j=0; j<size_y; j++){
                         int * curr_buffer_pos = block_buffer_pos;
                         for(int k=0; k<size_z; k++){
-                            if(signFlag[index]) curr_buffer_pos[0] = 0 - absPredError[index];
-                            else curr_buffer_pos[0] = absPredError[index];
+                            // if(signFlag[index]) curr_buffer_pos[0] = 0 - absPredError[index];
+                            // else curr_buffer_pos[0] = absPredError[index];
+                            int s = -(int)signFlag[index];
+                            curr_buffer_pos[0] = (absPredError[index] ^ s) - s;
                             index++;
                             recover_lorenzo_3d(curr_buffer_pos, offset_0, offset_1);
                             quant_sum += curr_buffer_pos[0];
@@ -503,8 +513,10 @@ double SZp_variance_postPred(
                         for(int j=0; j<size_y; j++){
                             int * curr_buffer_pos = block_buffer_pos;
                             for(int k=0; k<size_z; k++){
-                                if(signFlag[index]) curr_buffer_pos[k] = 0 - absPredError[index];
-                                else curr_buffer_pos[k] = absPredError[index];
+                                // if(signFlag[index]) curr_buffer_pos[k] = 0 - absPredError[index];
+                                // else curr_buffer_pos[k] = absPredError[index];
+                                int s = -(int)signFlag[index];
+                                curr_buffer_pos[k] = (absPredError[index] ^ s) - s;
                                 index++;
                             }
                             block_buffer_pos += offset_1;
@@ -598,8 +610,10 @@ double SZp_variance_prePred(
                     for(int j=0; j<size_y; j++){
                         int * curr_buffer_pos = block_buffer_pos;
                         for(int k=0; k<size_z; k++){
-                            if(signFlag[index]) curr_buffer_pos[0] = 0 - absPredError[index];
-                            else curr_buffer_pos[0] = absPredError[index];
+                            // if(signFlag[index]) curr_buffer_pos[0] = 0 - absPredError[index];
+                            // else curr_buffer_pos[0] = absPredError[index];
+                            int s = -(int)signFlag[index];
+                            curr_buffer_pos[0] = (absPredError[index] ^ s) - s;
                             index++;
                             recover_lorenzo_3d(curr_buffer_pos, offset_0, offset_1);
                             int64_t d = static_cast<int64_t>(curr_buffer_pos[0]);
@@ -700,8 +714,10 @@ clock_gettime(CLOCK_REALTIME, &start2);
                     for(int j=0; j<size_y; j++){
                         int * curr_buffer_pos = block_buffer_pos;
                         for(int k=0; k<size_z; k++){
-                            if(cmpkit_set->signFlag[index]) curr_buffer_pos[k] = 0 - cmpkit_set->absPredError[index];
-                            else curr_buffer_pos[k] = cmpkit_set->absPredError[index];
+                            // if(cmpkit_set->signFlag[index]) curr_buffer_pos[k] = 0 - cmpkit_set->absPredError[index];
+                            // else curr_buffer_pos[k] = cmpkit_set->absPredError[index];
+                            int s = -(int)cmpkit_set->signFlag[index];
+                            curr_buffer_pos[k] = (cmpkit_set->absPredError[index] ^ s) - s;
                             index++;
                         }
                         block_buffer_pos += buffer_set->offset_1;
@@ -756,8 +772,10 @@ clock_gettime(CLOCK_REALTIME, &start2);
             for(int i=0; i<size_x; i++){
                 for(int j=0; j<size_y; j++){
                     for(int k=0; k<size_z; k++){
-                        if(cmpkit_set->signFlag[index]) curr_buffer_pos[0] = 0 - cmpkit_set->absPredError[index];
-                        else curr_buffer_pos[0] = cmpkit_set->absPredError[index];
+                        // if(cmpkit_set->signFlag[index]) curr_buffer_pos[0] = 0 - cmpkit_set->absPredError[index];
+                        // else curr_buffer_pos[0] = cmpkit_set->absPredError[index];
+                        int s = -(int)cmpkit_set->signFlag[index];
+                        curr_buffer_pos[0] = (cmpkit_set->absPredError[index] ^ s) - s;
                         index++;
                         recover_lorenzo_3d(curr_buffer_pos++, buffer_set->offset_0, buffer_set->offset_1);
                     }
@@ -777,77 +795,54 @@ rec_time += get_elapsed_time(start2, end2);
 template <class T>
 inline void dxdydzProcessBlockSlicePostPred(
     size_t x, DSize_3d size, derivIntBuffer_3d *deriv_buffer,
-    AppBufferSet_3d *buffer_set, double errorBound,
+    AppBufferSet_3d *buffer_set, double errorBound, int *dz_pref,
     T *dx_start_pos, T *dy_start_pos, T *dz_start_pos,
     bool isTopSlice, bool isBottomSlice
 ){
 clock_gettime(CLOCK_REALTIME, &start2);
     int size_x = ((x+1)*size.Bsize < size.dim1) ? size.Bsize : size.dim1 - x*size.Bsize;
     buffer_set->setGhostEle(size, isTopSlice, isBottomSlice);
-    size_t dx_offset_0 = size.dim3 + 1;
-    size_t dy_offset_0 = size.dim3 + 1;
-    size_t dz_offset_0 = size.dim2 + 1;
+    T * dx_pos = dx_start_pos;
+    T * dy_pos = dy_start_pos;
+    T * dz_pos = dz_start_pos;
+    int index = 0;
     for(int i=0; i<size_x; i++){
-        size_t global_x_offset = x * size.Bsize + i;
-        T * dx_pos = dx_start_pos + i * size.offset_0;
-        T * dy_pos = dy_start_pos + i * size.offset_0;
-        T * dz_pos = dz_start_pos + i * size.offset_0;
+        // dx
+        memset(deriv_buffer->dx_buffer, 0, size.dim3*sizeof(int));
         const int * dx_level_0_pos = buffer_set->currSlice_data_pos + buffer_set->offset_0 * i;
         const int * dx_level_1_pos = buffer_set->currSlice_data_pos + buffer_set->offset_0 * (i + 1);
-        const int * curr_x_plane = buffer_set->currSlice_data_pos + buffer_set->offset_0 * i;
+        // dy
+        const int * dy_level_0_pos = buffer_set->currSlice_data_pos + buffer_set->offset_0 * i;
+        // dz
+        memset(dz_pref, 0, size.dim2*sizeof(int));
         for(size_t j=0; j<size.dim2; j++){
-            int * dx_int_buffer_pos = deriv_buffer->dx_buffer + (j + 1) * dx_offset_0 + 1; 
-            const int * dy_level_0_pos = curr_x_plane + j * buffer_set->offset_1;
-            const int * dy_level_1_pos = curr_x_plane + (j + 1) * buffer_set->offset_1;
-            int * dy_int_buffer_pos = deriv_buffer->dy_buffer[j] + dy_offset_0 * (global_x_offset + 1) + 1;
-            const int * curr_y_row = curr_x_plane + j * buffer_set->offset_1;
+            // dx
+            int dx_pref = 0;
+            const int * dx_level_0_row = dx_level_0_pos + j * buffer_set->offset_1;
+            const int * dx_level_1_row = dx_level_1_pos + j * buffer_set->offset_1;
+            // dy
+            int dy_pref = 0;
+            const int * dy_level_0_row = dy_level_0_pos + j * buffer_set->offset_1;
+            const int * dy_level_1_row = dy_level_0_pos + (j + 1) * buffer_set->offset_1;
             for(size_t k=0; k<size.dim3; k++){
-                const int * dz_level_0_pos = curr_y_row + k;
-                const int * dz_level_1_pos = curr_y_row + k + 1;
-                int * dz_int_buffer_pos = deriv_buffer->dz_buffer[k] + dz_offset_0 * (global_x_offset + 1) + j + 1;
-                deriv_lorenzo_2d(dx_level_0_pos++, dx_level_1_pos++, dx_int_buffer_pos++, dx_pos++, dx_offset_0, errorBound);
-                deriv_lorenzo_2d(dy_level_0_pos++, dy_level_1_pos++, dy_int_buffer_pos++, dy_pos++, dy_offset_0, errorBound);
-                deriv_lorenzo_2d(dz_level_0_pos, dz_level_1_pos, dz_int_buffer_pos, dz_pos++, dz_offset_0, errorBound);
+                // dx
+                dx_pref += dx_level_0_row[k] + dx_level_1_row[k];
+                deriv_buffer->dx_buffer[k] += dx_pref;
+                dx_pos[index] = deriv_buffer->dx_buffer[k] * errorBound;
+                // dy
+                dy_pref += dy_level_0_row[k] + dy_level_1_row[k];
+                deriv_buffer->dy_buffer[j][k] += dy_pref;
+                dy_pos[index] = deriv_buffer->dy_buffer[j][k] * errorBound;
+                // dz
+                dz_pref[k] += dx_level_0_row[k] + dx_level_0_row[k+1];
+                deriv_buffer->dz_buffer[k][j] += dz_pref[k];
+                dz_pos[index] = deriv_buffer->dz_buffer[k][j] * errorBound;
+                index++;
             }
-            dx_level_0_pos += 2;
-            dx_level_1_pos += 2;
         }
     }
 clock_gettime(CLOCK_REALTIME, &end2);
 op_time += get_elapsed_time(start2, end2);
-}
-
-template <class T>
-inline void dxdydzProcessBlocksPostPred(
-    DSize_3d &size,
-    CmpBufferSet *cmpkit_set, 
-    AppBufferSet_3d *buffer_set,
-    derivIntBuffer_3d *deriv_buffer,
-    unsigned char *&encode_pos,
-    T *dx_pos, T *dy_pos, T *dz_pos,
-    double errorBound
-){
-    size_t BlockSliceSize = size.Bsize * size.dim2 * size.dim3;
-    buffer_set->reset();
-    int * tempBlockSlice = nullptr;
-    for(size_t x=0; x<size.block_dim1; x++){
-        size_t offset = x * BlockSliceSize;
-        if(x == 0){
-            recoverBlockSlice2PostPred(x, size, encode_pos, buffer_set->currSlice_data_pos, buffer_set, cmpkit_set);
-            recoverBlockSlice2PostPred(x+1, size, encode_pos, buffer_set->nextSlice_data_pos, buffer_set, cmpkit_set);
-            dxdydzProcessBlockSlicePostPred(x, size, deriv_buffer, buffer_set, errorBound, dx_pos+offset, dy_pos+offset, dz_pos+offset, true, false);
-        }else{
-            std::swap(buffer_set->currSlice_data_pos, buffer_set->nextSlice_data_pos);
-            if(x == size.block_dim1 - 1){
-                dxdydzProcessBlockSlicePostPred(x, size, deriv_buffer, buffer_set, errorBound, dx_pos+offset, dy_pos+offset, dz_pos+offset, false, true);
-            }else{
-                recoverBlockSlice2PostPred(x+1, size, encode_pos, buffer_set->nextSlice_data_pos, buffer_set, cmpkit_set);
-                dxdydzProcessBlockSlicePostPred(x, size, deriv_buffer, buffer_set, errorBound, dx_pos+offset, dy_pos+offset, dz_pos+offset, false, false);
-            }
-        }
-    }
-    printf("recover_time = %.6f\n", rec_time);
-    printf("process_time = %.6f\n", op_time);
 }
 
 template <class T>
@@ -885,6 +880,39 @@ clock_gettime(CLOCK_REALTIME, &start2);
     }
 clock_gettime(CLOCK_REALTIME, &end2);
 op_time += get_elapsed_time(start2, end2);
+}
+
+template <class T>
+inline void dxdydzProcessBlocksPostPred(
+    DSize_3d &size,
+    CmpBufferSet *cmpkit_set, 
+    AppBufferSet_3d *buffer_set,
+    derivIntBuffer_3d *deriv_buffer,
+    unsigned char *&encode_pos,
+    T *dx_pos, T *dy_pos, T *dz_pos,
+    int *dz_pref, double errorBound
+){
+    size_t BlockSliceSize = size.Bsize * size.dim2 * size.dim3;
+    buffer_set->reset();
+    int * tempBlockSlice = nullptr;
+    for(size_t x=0; x<size.block_dim1; x++){
+        size_t offset = x * BlockSliceSize;
+        if(x == 0){
+            recoverBlockSlice2PostPred(x, size, encode_pos, buffer_set->currSlice_data_pos, buffer_set, cmpkit_set);
+            recoverBlockSlice2PostPred(x+1, size, encode_pos, buffer_set->nextSlice_data_pos, buffer_set, cmpkit_set);
+            dxdydzProcessBlockSlicePostPred(x, size, deriv_buffer, buffer_set, errorBound, dz_pref, dx_pos+offset, dy_pos+offset, dz_pos+offset, true, false);
+        }else{
+            std::swap(buffer_set->currSlice_data_pos, buffer_set->nextSlice_data_pos);
+            if(x == size.block_dim1 - 1){
+                dxdydzProcessBlockSlicePostPred(x, size, deriv_buffer, buffer_set, errorBound, dz_pref, dx_pos+offset, dy_pos+offset, dz_pos+offset, false, true);
+            }else{
+                recoverBlockSlice2PostPred(x+1, size, encode_pos, buffer_set->nextSlice_data_pos, buffer_set, cmpkit_set);
+                dxdydzProcessBlockSlicePostPred(x, size, deriv_buffer, buffer_set, errorBound, dz_pref, dx_pos+offset, dy_pos+offset, dz_pos+offset, false, false);
+            }
+        }
+    }
+    printf("recover_time = %.6f\n", rec_time);
+    printf("process_time = %.6f\n", op_time);
 }
 
 template <class T>
@@ -932,6 +960,7 @@ void SZp_dxdydz(
     size_t buffer_dim2 = size.dim2 + 2;
     size_t buffer_dim3 = size.dim3 + 2;
     size_t buffer_size = buffer_dim1 * buffer_dim2 * buffer_dim3;
+    int * dz_pref = (int *)malloc(size.dim2*sizeof(int));
     int * Buffer_3d = (int *)malloc(buffer_size * 4 * sizeof(int));
     unsigned int * absPredError = (unsigned int *)malloc(size.max_num_block_elements*sizeof(unsigned int));
     unsigned char * signFlag = (unsigned char *)malloc(size.max_num_block_elements*sizeof(unsigned char));
@@ -943,24 +972,17 @@ void SZp_dxdydz(
     T * dy_pos = dy_result;
     T * dz_pos = dz_result;
 
+    int * dx_buffer = allocateAndZero1D(size.dim3);
+    int** dy_buffer = allocateAndZero2D(size.dim2, size.dim3);
+    int** dz_buffer = allocateAndZero2D(size.dim3, size.dim2);
+    derivIntBuffer_3d * deriv_buffer = new derivIntBuffer_3d(dx_buffer, dy_buffer, dz_buffer);
+
     struct timespec start, end;
     double elapsed_time;
     clock_gettime(CLOCK_REALTIME, &start);
     switch(state){
         case decmpState::postPred:{
-            int * dx_buffer = allocateAndZero1D((size.dim2+1) * (size.dim3+1));
-            int** dy_buffer = allocateAndZero2D(size.dim2, (size.dim1+1) * (size.dim3+1));
-            int** dz_buffer = allocateAndZero2D(size.dim3, (size.dim1+1) * (size.dim2+1));
-            derivIntBuffer_3d * deriv_buffer = new derivIntBuffer_3d(dx_buffer, dy_buffer, dz_buffer);
-            dxdydzProcessBlocksPostPred(size, cmpkit_set, buffer_set, deriv_buffer, encode_pos, dx_pos, dy_pos, dz_pos, errorBound);
-            for(size_t i=0; i<std::max(size.dim2, size.dim3); i++) {
-                if(i<size.dim2) delete[] dy_buffer[i];
-                if(i<size.dim3) delete[] dz_buffer[i];
-            }
-            delete[] dy_buffer;
-            delete[] dz_buffer;
-            delete[] dx_buffer;
-            delete deriv_buffer;
+            dxdydzProcessBlocksPostPred(size, cmpkit_set, buffer_set, deriv_buffer, encode_pos, dx_pos, dy_pos, dz_pos, dz_pref, errorBound);
             break;
         }
         case decmpState::prePred:{
@@ -985,12 +1007,81 @@ void SZp_dxdydz(
     elapsed_time = get_elapsed_time(start, end);
     printf("elapsed_time = %.6f\n", elapsed_time);
 
+    for(size_t i=0; i<std::max(size.dim2, size.dim3); i++) {
+        if(i<size.dim2) delete[] dy_buffer[i];
+        if(i<size.dim3) delete[] dz_buffer[i];
+    }
+    delete[] dy_buffer;
+    delete[] dz_buffer;
+    delete[] dx_buffer;
+    delete deriv_buffer;
+
     delete buffer_set;
     delete cmpkit_set;
+    free(dz_pref);
     free(Buffer_3d);
     free(absPredError);
     free(signFlag);
     free(decData);
+}
+
+template <class T>
+inline void laplacianProcessBlockSlicePostPred(
+    size_t x, DSize_3d size, laplaceIntBuffer_3d *lapla_buffer,
+    AppBufferSet_3d *buffer_set, double twicw_eb, int *dz_pref_0, int *dz_pref_1,
+    T *result_start_pos, bool isTopSlice, bool isBottomSlice
+){
+clock_gettime(CLOCK_REALTIME, &start2);
+    int size_x = ((x+1)*size.Bsize < size.dim1) ? size.Bsize : size.dim1 - x*size.Bsize;
+    buffer_set->setGhostEle(size, isTopSlice, isBottomSlice);
+    T * result_pos = result_start_pos;
+    size_t index = 0;
+    for(int i=0; i<size_x; i++){
+        // dx
+        memset(lapla_buffer->dx_0, 0, size.dim3*sizeof(int));
+        memset(lapla_buffer->dx_1, 0, size.dim3*sizeof(int));
+        const int * dx_level_0_pos = buffer_set->currSlice_data_pos + buffer_set->offset_0 * i;
+        const int * dx_level_1_pos = buffer_set->currSlice_data_pos + buffer_set->offset_0 * (i + 1);
+        // dy
+        const int * dy_level_0_pos = buffer_set->currSlice_data_pos + buffer_set->offset_0 * i;
+        // dz
+        memset(dz_pref_0, 0, size.dim2*sizeof(int));
+        memset(dz_pref_1, 0, size.dim2*sizeof(int));
+        for(size_t j=0; j<size.dim2; j++){
+            // dx
+            int dx_pref_0 = 0;
+            int dx_pref_1 = 0;
+            const int * dx_level_0_row = dx_level_0_pos + j * buffer_set->offset_1;
+            const int * dx_level_1_row = dx_level_1_pos + j * buffer_set->offset_1;
+            // dy
+            int dy_pref_0 = 0;
+            int dy_pref_1 = 0;
+            const int * dy_level_0_row = dy_level_0_pos + j * buffer_set->offset_1;
+            const int * dy_level_1_row = dy_level_0_pos + (j + 1) * buffer_set->offset_1;
+            for(size_t k=0; k<size.dim3; k++){
+                // dx
+                dx_pref_0 += dx_level_0_row[k];
+                dx_pref_1 += dx_level_1_row[k];
+                lapla_buffer->dx_0[k] += dx_pref_0;
+                lapla_buffer->dx_1[k] += dx_pref_1;
+                // dy
+                dy_pref_0 += dy_level_0_row[k];
+                dy_pref_1 += dy_level_1_row[k];
+                lapla_buffer->dy_0[j][k] += dy_pref_0;
+                lapla_buffer->dy_1[j][k] += dy_pref_1;
+                // dz
+                dz_pref_0[k] += dx_level_0_row[k];
+                dz_pref_1[k] += dx_level_0_row[k+1];
+                lapla_buffer->dz_0[k][j] += dz_pref_0[k];
+                lapla_buffer->dz_1[k][j] += dz_pref_1[k];
+                result_pos[index++] = (-lapla_buffer->dx_0[k] + lapla_buffer->dx_1[k]
+                                       -lapla_buffer->dy_0[j][k] + lapla_buffer->dy_1[j][k]
+                                       -lapla_buffer->dz_0[k][j] + lapla_buffer->dz_1[k][j]) * twicw_eb;
+            }
+        }
+    }
+clock_gettime(CLOCK_REALTIME, &end2);
+op_time += get_elapsed_time(start2, end2);
 }
 
 template <class T>
@@ -1026,6 +1117,40 @@ clock_gettime(CLOCK_REALTIME, &start2);
     }
 clock_gettime(CLOCK_REALTIME, &end2);
 op_time += get_elapsed_time(start2, end2);
+}
+
+template <class T>
+inline void laplacianProcessBlocksPostPred(
+    DSize_3d &size,
+    CmpBufferSet *cmpkit_set,
+    laplaceIntBuffer_3d *lapla_buffer,
+    AppBufferSet_3d *buffer_set,
+    unsigned char *&encode_pos,
+    int *dz_pref_0, int *dz_pref_1,
+    T *result_pos, double errorBound
+){
+    double twice_eb = errorBound * 2;
+    size_t BlockSliceSize = size.Bsize * size.dim2 * size.dim3;
+    buffer_set->reset();
+    int * tempBlockSlice = nullptr;
+    for(size_t x=0; x<size.block_dim1; x++){
+        size_t offset = x * BlockSliceSize;
+        if(x == 0){
+            recoverBlockSlice2PostPred(x, size, encode_pos, buffer_set->currSlice_data_pos, buffer_set, cmpkit_set);
+            recoverBlockSlice2PostPred(x+1, size, encode_pos, buffer_set->nextSlice_data_pos, buffer_set, cmpkit_set);
+            laplacianProcessBlockSlicePostPred(x, size, lapla_buffer, buffer_set, twice_eb, dz_pref_0, dz_pref_1, result_pos+offset, true, false);
+        }else{
+            rotate_buffer(buffer_set->currSlice_data_pos, buffer_set->prevSlice_data_pos, buffer_set->nextSlice_data_pos, tempBlockSlice);
+            if(x == size.block_dim1 - 1){
+                laplacianProcessBlockSlicePostPred(x, size, lapla_buffer, buffer_set, twice_eb, dz_pref_0, dz_pref_1, result_pos+offset, false, true);
+            }else{
+                recoverBlockSlice2PostPred(x+1, size, encode_pos, buffer_set->nextSlice_data_pos, buffer_set, cmpkit_set);
+                laplacianProcessBlockSlicePostPred(x, size, lapla_buffer, buffer_set, twice_eb, dz_pref_0, dz_pref_1, result_pos+offset, false, false);
+            }
+        }
+    }
+    printf("recover_time = %.6f\n", rec_time);
+    printf("process_time = %.6f\n", op_time);
 }
 
 template <class T>
@@ -1073,6 +1198,8 @@ void SZp_laplacian(
     size_t buffer_dim2 = size.dim2 + 2;
     size_t buffer_dim3 = size.dim3 + 2;
     size_t buffer_size = buffer_dim1 * buffer_dim2 * buffer_dim3;
+    int * dz_pref_0 = (int *)malloc(size.dim2*sizeof(int));
+    int * dz_pref_1 = (int *)malloc(size.dim2*sizeof(int));
     int * Buffer_3d = (int *)malloc(buffer_size * 4 * sizeof(int));
     unsigned int * absPredError = (unsigned int *)malloc(size.max_num_block_elements*sizeof(unsigned int));
     unsigned char * signFlag = (unsigned char *)malloc(size.max_num_block_elements*sizeof(unsigned char));
@@ -1082,14 +1209,20 @@ void SZp_laplacian(
     unsigned char * encode_pos = cmpData + FIXED_RATE_PER_BLOCK_BYTES * size.num_blocks;
     T * laplacian_pos = laplacian_result;
 
+    int * dx_0 = allocateAndZero1D(size.dim3);
+    int * dx_1 = allocateAndZero1D(size.dim3);
+    int** dy_0 = allocateAndZero2D(size.dim2, size.dim3);
+    int** dy_1 = allocateAndZero2D(size.dim2, size.dim3);
+    int** dz_0 = allocateAndZero2D(size.dim3, size.dim2);
+    int** dz_1 = allocateAndZero2D(size.dim3, size.dim2);
+    laplaceIntBuffer_3d * lapla_buffer = new laplaceIntBuffer_3d(dx_0, dx_1, dy_0, dy_1, dz_0, dz_1);
+
     struct timespec start, end;
     double elapsed_time;
     clock_gettime(CLOCK_REALTIME, &start);
     switch(state){
         case decmpState::postPred:{
-            // printf("Not implemented\n");
-            printf("recover_time = %.6f\n", rec_time);
-            printf("process_time = %.6f\n", op_time);
+            laplacianProcessBlocksPostPred(size, cmpkit_set, lapla_buffer, buffer_set, encode_pos, dz_pref_0, dz_pref_1, laplacian_pos, errorBound);
             break;
         }
         case decmpState::prePred:{
@@ -1114,8 +1247,24 @@ void SZp_laplacian(
     elapsed_time = get_elapsed_time(start, end);
     printf("elapsed_time = %.6f\n", elapsed_time);
 
+    // for(size_t i=0; i<std::max(size.dim2, size.dim3); i++) {
+    //     if(i<size.dim2) delete[] dy_0[i];
+    //     if(i<size.dim2) delete[] dy_1[i];
+    //     if(i<size.dim3) delete[] dz_0[i];
+    //     if(i<size.dim3) delete[] dz_1[i];
+    // }
+    // delete[] dx_0;
+    // delete[] dx_1;
+    // delete[] dy_0;
+    // delete[] dy_1;
+    // delete[] dx_0;
+    // delete[] dx_1;
+    // delete lapla_buffer;
+
     delete buffer_set;
     delete cmpkit_set;
+    free(dz_pref_0);
+    free(dz_pref_1);
     free(Buffer_3d);
     free(absPredError);
     free(signFlag);
@@ -1169,6 +1318,61 @@ op_time += get_elapsed_time(start2, end2);
 }
 
 template <class T>
+inline void divergenceProcessBlockSlicePostPred(
+    size_t x, DSize_3d size, size_t off_0, size_t off_1,
+    derivIntBuffer_3d *deriv_buffer, int *dz_pref,
+    std::array<AppBufferSet_3d *, 3>& buffer_set,
+    double errorBound, T *result_start_pos,
+    bool isTopSlice, bool isBottomSlice
+){
+clock_gettime(CLOCK_REALTIME, &start2);
+    int size_x = ((x+1)*size.Bsize < size.dim1) ? size.Bsize : size.dim1 - x*size.Bsize;
+    buffer_set[0]->setGhostEle(size, isTopSlice, isBottomSlice);
+    T * result_pos = result_start_pos;
+    int index = 0;
+    for(int i=0; i<size_x; i++){
+        // vx-dx
+        memset(deriv_buffer->dx_buffer, 0, size.dim3*sizeof(int));
+        const int * vx_dx_level_0_pos = buffer_set[0]->currSlice_data_pos + off_0 * i;
+        const int * vx_dx_level_1_pos = buffer_set[0]->currSlice_data_pos + off_0 * (i + 1);
+        // vy-dy
+        const int * vy_dy_level_0_pos = buffer_set[1]->currSlice_data_pos + off_0 * i;
+        // vz-dz
+        memset(dz_pref, 0, size.dim2*sizeof(int));
+        const int * vz_dx_level_0_pos = buffer_set[2]->currSlice_data_pos + off_0 * i;
+        for(size_t j=0; j<size.dim2; j++){
+            // dx
+            int dx_pref = 0;
+            const int * vx_dx_level_0_row = vx_dx_level_0_pos + j * off_1;
+            const int * vx_dx_level_1_row = vx_dx_level_1_pos + j * off_1;
+            // dy
+            int dy_pref = 0;
+            const int * vy_dy_level_0_row = vy_dy_level_0_pos + j * off_1;
+            const int * vy_dy_level_1_row = vy_dy_level_0_pos + (j + 1) * off_1;
+            // dz
+            const int * vz_dx_level_0_row = vz_dx_level_0_pos + j * off_1;
+            for(size_t k=0; k<size.dim3; k++){
+                // dx
+                dx_pref += vx_dx_level_0_row[k] + vx_dx_level_1_row[k];
+                deriv_buffer->dx_buffer[k] += dx_pref;
+                int dfxx = deriv_buffer->dx_buffer[k];
+                // dy
+                dy_pref += vy_dy_level_0_row[k] + vy_dy_level_1_row[k];
+                deriv_buffer->dy_buffer[j][k] += dy_pref;
+                int dfyy = deriv_buffer->dy_buffer[j][k];
+                // dz
+                dz_pref[k] += vz_dx_level_0_row[k] + vz_dx_level_0_row[k+1];
+                deriv_buffer->dz_buffer[k][j] += dz_pref[k];
+                int dfzz = deriv_buffer->dz_buffer[k][j];
+                result_pos[index++] = (dfxx + dfyy + dfzz) * errorBound;
+            }
+        }
+    }
+clock_gettime(CLOCK_REALTIME, &end2);
+op_time += get_elapsed_time(start2, end2);
+}
+
+template <class T>
 inline void divergenceProcessBlocksPrePred(
     DSize_3d &size,
     std::array<CmpBufferSet *, 3>& cmpkit_set,
@@ -1212,6 +1416,47 @@ inline void divergenceProcessBlocksPrePred(
 }
 
 template <class T>
+inline void divergenceProcessBlocksPostPred(
+    DSize_3d &size,
+    std::array<CmpBufferSet *, 3>& cmpkit_set,
+    std::array<AppBufferSet_3d *, 3>& buffer_set,
+    std::array<unsigned char *, 3>& encode_pos,
+    derivIntBuffer_3d *deriv_buffer,
+    int *dz_pref, T *result_pos, double errorBound
+){
+    int i;
+    size_t BlockSliceSize = size.Bsize * size.dim2 * size.dim3;
+    for(i=0; i<3; i++) buffer_set[i]->reset();
+    size_t off_0 = buffer_set[0]->offset_0;
+    size_t off_1 = buffer_set[0]->offset_1;
+    int * tempBlockSlice = nullptr;
+    for(size_t x=0; x<size.block_dim1; x++){
+        size_t offset = x * BlockSliceSize;
+        if(x == 0){
+            for(i=0; i<3; i++){
+                recoverBlockSlice2PostPred(x, size, encode_pos[i], buffer_set[i]->currSlice_data_pos, buffer_set[i], cmpkit_set[i]);
+                recoverBlockSlice2PostPred(x+1, size, encode_pos[i], buffer_set[i]->nextSlice_data_pos, buffer_set[i], cmpkit_set[i]);
+            }
+            divergenceProcessBlockSlicePostPred(x, size, off_0, off_1, deriv_buffer, dz_pref, buffer_set, errorBound, result_pos+offset, true, false);
+        }else{
+            for(i=0; i<3; i++){
+                rotate_buffer(buffer_set[i]->currSlice_data_pos, buffer_set[i]->prevSlice_data_pos, buffer_set[i]->nextSlice_data_pos, tempBlockSlice);
+            }
+            if(x == size.block_dim1 - 1){
+                divergenceProcessBlockSlicePostPred(x, size, off_0, off_1, deriv_buffer, dz_pref, buffer_set, errorBound, result_pos+offset, false, true);
+            }else{
+                for(i=0; i<3; i++){
+                    recoverBlockSlice2PostPred(x+1, size, encode_pos[i], buffer_set[i]->nextSlice_data_pos, buffer_set[i], cmpkit_set[i]);
+                }
+                divergenceProcessBlockSlicePostPred(x, size, off_0, off_1, deriv_buffer, dz_pref, buffer_set, errorBound, result_pos+offset, false, false);
+            }
+        }
+    }
+    printf("recover_time = %.6f\n", rec_time);
+    printf("process_time = %.6f\n", op_time);
+}
+
+template <class T>
 void SZp_divergence(
     std::array<unsigned char *, 3> cmpData,
     size_t dim1, size_t dim2, size_t dim3,
@@ -1223,6 +1468,7 @@ void SZp_divergence(
     size_t buffer_dim2 = size.dim2 + 2;
     size_t buffer_dim3 = size.dim3 + 2;
     size_t buffer_size = buffer_dim1 * buffer_dim2 * buffer_dim3;
+    int * dz_pref = (int *)malloc(size.dim2*sizeof(int));
     std::array<int *, 3> Buffer_3d = {nullptr, nullptr, nullptr};
     std::array<unsigned int *, 3> absPredError = {nullptr, nullptr, nullptr};
     std::array<T *, 3> decData = {nullptr, nullptr, nullptr};
@@ -1230,6 +1476,10 @@ void SZp_divergence(
     std::array<AppBufferSet_3d *, 3> buffer_set = {nullptr, nullptr, nullptr};
     std::array<CmpBufferSet *, 3> cmpkit_set = {nullptr, nullptr, nullptr};
     std::array<unsigned char *, 3> encode_pos = {nullptr, nullptr, nullptr};
+    int * dx_buffer = allocateAndZero1D(size.dim3);
+    int** dy_buffer = allocateAndZero2D(size.dim2, size.dim3);
+    int** dz_buffer = allocateAndZero2D(size.dim3, size.dim2);
+    derivIntBuffer_3d * deriv_buffer = new derivIntBuffer_3d(dx_buffer, dy_buffer, dz_buffer);
     for(int i=0; i<3; i++){
         Buffer_3d[i] = (int *)malloc((buffer_size * 4) * sizeof(int));
         absPredError[i] = (unsigned int *)malloc(size.max_num_block_elements * sizeof(unsigned int));
@@ -1246,8 +1496,7 @@ void SZp_divergence(
     clock_gettime(CLOCK_REALTIME, &start);
     switch(state){
         case decmpState::postPred:{
-            printf("recover_time = 0.0001\n");
-            printf("process_time = 0.0001\n");
+            divergenceProcessBlocksPostPred(size, cmpkit_set, buffer_set, encode_pos, deriv_buffer, dz_pref, divergence_pos, errorBound);
             break;
         }
         case decmpState::prePred:{
@@ -1274,6 +1523,15 @@ void SZp_divergence(
     elapsed_time = get_elapsed_time(start, end);
     printf("elapsed_time = %.6f\n", elapsed_time);
 
+    for(size_t i=0; i<std::max(size.dim2, size.dim3); i++) {
+        if(i<size.dim2) delete[] dy_buffer[i];
+        if(i<size.dim3) delete[] dz_buffer[i];
+    }
+    delete[] dy_buffer;
+    delete[] dz_buffer;
+    delete[] dx_buffer;
+    delete deriv_buffer;
+
     for(int i=0; i<3; i++){
         delete buffer_set[i];
         delete cmpkit_set[i];
@@ -1284,7 +1542,14 @@ void SZp_divergence(
     }
 }
 
-// curl
+/**
+ * curl
+ * cx = zy - yz
+ * 
+ * cy = xz - zx
+ * 
+ * cz = yx - xy
+*/
 template <class T>
 inline void curlProcessBlockSlicePrePred(
     size_t x, DSize_3d& size,
@@ -1321,20 +1586,17 @@ clock_gettime(CLOCK_REALTIME, &start2);
             const int* vx_row_next = vx_plane_base + off_1;
             // vx-dz
             const int* vx_row = vx_plane_base;
-
             // vy-dx
             const int* vy_row_prev = vy_plane_prev + row_offset;
             const int* vy_row_next = vy_plane_next + row_offset;
             // vy-dz
             const int* vy_row = vy_plane_base;
-
             // vz-dx
             const int* vz_row_prev = vz_plane_prev + row_offset;
             const int* vz_row_next = vz_plane_next + row_offset;
             // vz-dy
             const int* vz_row_prev_2 = vz_plane_base - off_1;
             const int* vz_row_next_2 = vz_plane_base + off_1;
-
             const int* vz_row = vz_plane_base;
             for(size_t k=0; k<size.dim3; k++){
                 curlx_pos[index] = ((vz_row_next_2[k] - vz_row_prev_2[k]) - (vy_row[k+1] - vy_row[k-1])) * errorBound;
@@ -1349,6 +1611,96 @@ clock_gettime(CLOCK_REALTIME, &start2);
         vx_curr_plane += off_0;
         vy_curr_plane += off_0;
         vz_curr_plane += off_0;
+    }
+clock_gettime(CLOCK_REALTIME, &end2);
+op_time += get_elapsed_time(start2, end2);
+}
+
+template <class T>
+inline void curlProcessBlockSlicePostPred(
+    size_t x, DSize_3d size, size_t off_0, size_t off_1,
+    std::array<derivIntBuffer_3d *, 3>& deriv_buffer,
+    std::array<int *, 3>& dz_pref,
+    std::array<AppBufferSet_3d *, 3>& buffer_set,
+    T *curlx_start_pos, T *curly_start_pos, T *curlz_start_pos,
+    double errorBound, bool isTopSlice, bool isBottomSlice
+){
+clock_gettime(CLOCK_REALTIME, &start2);
+    int size_x = ((x+1)*size.Bsize < size.dim1) ? size.Bsize : size.dim1 - x*size.Bsize;
+    for(int h=1; h<3; h++) buffer_set[h]->setGhostEle(size, isTopSlice, isBottomSlice);
+    T * curlx_pos = curlx_start_pos;
+    T * curly_pos = curly_start_pos;
+    T * curlz_pos = curlz_start_pos;
+    size_t index = 0;
+    for(int i=0; i<size_x; i++){
+        // vx-dy
+        const int * vx_dy_level_0_pos = buffer_set[0]->currSlice_data_pos + off_0 * i;
+        // vx-dz
+        memset(dz_pref[0], 0, size.dim2*sizeof(int));
+
+        // vy-dx
+        memset(deriv_buffer[1]->dx_buffer, 0, size.dim3*sizeof(int));
+        const int * vy_dx_level_0_pos = buffer_set[1]->currSlice_data_pos + off_0 * i;
+        const int * vy_dx_level_1_pos = buffer_set[1]->currSlice_data_pos + off_0 * (i + 1);
+        // vy-dz
+        memset(dz_pref[1], 0, size.dim2*sizeof(int));
+
+        // vz-dx
+        memset(deriv_buffer[2]->dx_buffer, 0, size.dim3*sizeof(int));
+        const int * vz_dx_level_0_pos = buffer_set[2]->currSlice_data_pos + off_0 * i;
+        const int * vz_dx_level_1_pos = buffer_set[2]->currSlice_data_pos + off_0 * (i + 1);
+        // vz-dy
+        const int * vz_dy_level_0_pos = buffer_set[2]->currSlice_data_pos + off_0 * i;
+        for(size_t j=0; j<size.dim2; j++){
+            // vx-dy
+            int vx_dy_pref = 0;
+            const int * vx_dy_level_0_row = vx_dy_level_0_pos + j * off_1;
+            const int * vx_dy_level_1_row = vx_dy_level_0_pos + (j + 1) * off_1;
+
+            // vy-dx
+            int vy_dx_pref = 0;
+            const int * vy_dx_level_0_row = vy_dx_level_0_pos + j * off_1;
+            const int * vy_dx_level_1_row = vy_dx_level_1_pos + j * off_1;
+            // vz-dx
+            int vz_dx_pref = 0;
+            const int * vz_dx_level_0_row = vz_dx_level_0_pos + j * off_1;
+            const int * vz_dx_level_1_row = vz_dx_level_1_pos + j * off_1;
+
+            // vz-dy
+            int vz_dy_pref = 0;
+            const int * vz_dy_level_0_row = vz_dy_level_0_pos + j * off_1;
+            const int * vz_dy_level_1_row = vz_dy_level_0_pos + (j + 1) * off_1;
+            for(size_t k=0; k<size.dim3; k++){
+                // vy-dx
+                vy_dx_pref += vy_dx_level_0_row[k] + vy_dx_level_1_row[k];
+                deriv_buffer[1]->dx_buffer[k] += vy_dx_pref;
+                int yx = deriv_buffer[1]->dx_buffer[k];
+                // vz-dx
+                vz_dx_pref += vz_dx_level_0_row[k] + vz_dx_level_1_row[k];
+                deriv_buffer[2]->dx_buffer[k] += vz_dx_pref;
+                int zx = deriv_buffer[2]->dx_buffer[k];
+                // vx-dy
+                vx_dy_pref += vx_dy_level_0_row[k] + vx_dy_level_1_row[k];
+                deriv_buffer[0]->dy_buffer[j][k] += vx_dy_pref;
+                int xy = deriv_buffer[0]->dy_buffer[j][k];
+                // vz-dy
+                vz_dy_pref += vz_dy_level_0_row[k] + vz_dy_level_1_row[k];
+                deriv_buffer[2]->dy_buffer[j][k] += vz_dy_pref;
+                int zy = deriv_buffer[2]->dy_buffer[j][k];
+                // vx-dz
+                dz_pref[0][k] += vx_dy_level_0_row[k] + vx_dy_level_0_row[k+1];
+                deriv_buffer[0]->dz_buffer[k][j] += dz_pref[0][k];
+                int xz = deriv_buffer[0]->dz_buffer[k][j];
+                // vy-dz
+                dz_pref[1][k] += vy_dx_level_0_row[k] + vy_dx_level_0_row[k+1];
+                deriv_buffer[1]->dz_buffer[k][j] += dz_pref[1][k];
+                int yz = deriv_buffer[1]->dz_buffer[k][j];
+                curlx_pos[index] = (zy - yz) * errorBound;
+                curly_pos[index] = (xz - zx) * errorBound;
+                curlz_pos[index] = (yx - xy) * errorBound;
+                index++;
+            }
+        }
     }
 clock_gettime(CLOCK_REALTIME, &end2);
 op_time += get_elapsed_time(start2, end2);
@@ -1398,6 +1750,49 @@ inline void curlProcessBlocksPrePred(
 }
 
 template <class T>
+inline void curlProcessBlocksPostPred(
+    DSize_3d &size,
+    std::array<CmpBufferSet *, 3>& cmpkit_set,
+    std::array<derivIntBuffer_3d *, 3>& deriv_buffer,
+    std::array<int *, 3>& dz_pref,
+    std::array<AppBufferSet_3d *, 3>& buffer_set,
+    std::array<unsigned char *, 3>& encode_pos,
+    T *curlx_pos, T *curly_pos, T *curlz_pos,
+    double errorBound
+){
+    int i;
+    size_t BlockSliceSize = size.Bsize * size.dim2 * size.dim3;
+    for(i=0; i<3; i++) buffer_set[i]->reset();
+    size_t off_0 = buffer_set[0]->offset_0;
+    size_t off_1 = buffer_set[0]->offset_1;
+    int * tempBlockSlice = nullptr;
+    for(size_t x=0; x<size.block_dim1; x++){
+        size_t offset = x * BlockSliceSize;
+        if(x == 0){
+            for(i=0; i<3; i++){
+                recoverBlockSlice2PostPred(x, size, encode_pos[i], buffer_set[i]->currSlice_data_pos, buffer_set[i], cmpkit_set[i]);
+                recoverBlockSlice2PostPred(x+1, size, encode_pos[i], buffer_set[i]->nextSlice_data_pos, buffer_set[i], cmpkit_set[i]);
+            }
+            curlProcessBlockSlicePostPred(x, size, off_0, off_1, deriv_buffer, dz_pref, buffer_set, curlx_pos+offset, curly_pos+offset, curlz_pos+offset, errorBound, true, false);
+        }else{
+            for(i=0; i<3; i++){
+                rotate_buffer(buffer_set[i]->currSlice_data_pos, buffer_set[i]->prevSlice_data_pos, buffer_set[i]->nextSlice_data_pos, tempBlockSlice);
+            }
+            if(x == size.block_dim1 - 1){
+                curlProcessBlockSlicePostPred(x, size, off_0, off_1, deriv_buffer, dz_pref, buffer_set, curlx_pos+offset, curly_pos+offset, curlz_pos+offset, errorBound, false, true);
+            }else{
+                for(i=0; i<3; i++){
+                    recoverBlockSlice2PostPred(x+1, size, encode_pos[i], buffer_set[i]->nextSlice_data_pos, buffer_set[i], cmpkit_set[i]);
+                }
+                curlProcessBlockSlicePostPred(x, size, off_0, off_1, deriv_buffer, dz_pref, buffer_set, curlx_pos+offset, curly_pos+offset, curlz_pos+offset, errorBound, false, false);
+            }
+        }
+    }
+    printf("recover_time = %.6f\n", rec_time);
+    printf("process_time = %.6f\n", op_time);
+}
+
+template <class T>
 void SZp_curl(
     std::array<unsigned char *, 3> cmpData,
     size_t dim1, size_t dim2, size_t dim3,
@@ -1410,14 +1805,20 @@ void SZp_curl(
     size_t buffer_dim2 = size.dim2 + 2;
     size_t buffer_dim3 = size.dim3 + 2;
     size_t buffer_size = buffer_dim1 * buffer_dim2 * buffer_dim3;
+    std::array<int *, 3> dz_pref = {nullptr, nullptr, nullptr};
     std::array<int *, 3> Buffer_3d = {nullptr, nullptr, nullptr};
     std::array<unsigned int *, 3> absPredError = {nullptr, nullptr, nullptr};
     std::array<T *, 3> decData = {nullptr, nullptr, nullptr};
     std::array<unsigned char *, 3> signFlag = {nullptr, nullptr, nullptr};
     std::array<AppBufferSet_3d *, 3> buffer_set = {nullptr, nullptr, nullptr};
     std::array<CmpBufferSet *, 3> cmpkit_set = {nullptr, nullptr, nullptr};
+    std::array<int *, 3> dx_buffer = {nullptr, nullptr, nullptr};
+    std::array<int **, 3> dy_buffer = {nullptr, nullptr, nullptr};
+    std::array<int **, 3> dz_buffer = {nullptr, nullptr, nullptr};
+    std::array<derivIntBuffer_3d *, 3> deriv_buffer = {nullptr, nullptr, nullptr};
     std::array<unsigned char *, 3> encode_pos = {nullptr, nullptr, nullptr};
     for(int i=0; i<3; i++){
+        dz_pref[i] = (int *)malloc(size.dim2 * sizeof(int));
         Buffer_3d[i] = (int *)malloc(buffer_size * 4 * sizeof(int));
         absPredError[i] = (unsigned int *)malloc(size.max_num_block_elements * sizeof(unsigned int));
         decData[i] = (T *)malloc(size.nbEle * sizeof(T));
@@ -1425,6 +1826,10 @@ void SZp_curl(
         buffer_set[i] = new AppBufferSet_3d(buffer_dim1, buffer_dim2, buffer_dim3, Buffer_3d[i]);
         cmpkit_set[i] = new CmpBufferSet(cmpData[i], absPredError[i], signFlag[i], nullptr);
         encode_pos[i] = cmpData[i] + FIXED_RATE_PER_BLOCK_BYTES * size.num_blocks;
+        dx_buffer[i] = allocateAndZero1D((size.dim2+1) * (size.dim3+1));
+        dy_buffer[i] = allocateAndZero2D(size.dim2, (size.dim1+1) * (size.dim3+1));
+        dz_buffer[i] = allocateAndZero2D(size.dim3, (size.dim1+1) * (size.dim2+1));
+        deriv_buffer[i] = new derivIntBuffer_3d(dx_buffer[i], dy_buffer[i], dz_buffer[i]);
     }
     T * curlx_pos = curlx_result;
     T * curly_pos = curly_result;
@@ -1435,8 +1840,7 @@ void SZp_curl(
     clock_gettime(CLOCK_REALTIME, &start);
     switch(state){
         case decmpState::postPred:{
-            printf("recover_time = 0.0001\n");
-            printf("process_time = 0.0001\n");
+            curlProcessBlocksPostPred(size, cmpkit_set, deriv_buffer, dz_pref, buffer_set, encode_pos, curlx_pos, curly_pos, curlz_pos, errorBound);
             break;
         }
         case decmpState::prePred:{
@@ -1470,6 +1874,14 @@ void SZp_curl(
         free(absPredError[i]);
         free(signFlag[i]);
         free(decData[i]);
+        // for(size_t j=0; j<std::max(size.dim2, size.dim3); j++) {
+        //     if(j<size.dim2) delete[] dy_buffer[j];
+        //     if(j<size.dim3) delete[] dz_buffer[j];
+        // }
+        delete[] dy_buffer[i];
+        delete[] dz_buffer[i];
+        delete[] dx_buffer[i];
+        delete deriv_buffer[i];
     }
 }
 

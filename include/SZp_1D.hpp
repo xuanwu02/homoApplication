@@ -135,8 +135,10 @@ void SZp_decompress(
                 unsigned int savedbitsbytelength = Jiajun_extract_fixed_length_bits(encode_pos, block_size, absPredError, fixed_rate);
                 encode_pos += savedbitsbytelength;
                 for(j=0; j<block_size; j++){
-                    if(signFlag[j] == 1) err = 0 - absPredError[j];
-                    else err = absPredError[j];
+                    // if(signFlag[j] == 1) err = 0 - absPredError[j];
+                    // else err = absPredError[j];
+                    int s = -(int)signFlag[j];
+                    err = (absPredError[j] ^ s) - s;
                     curr = prior + err;
                     prior = curr;
                     dp[i + j + 1] = (T)curr * twice_eb;
@@ -163,8 +165,10 @@ void SZp_decompress(
                 unsigned int savedbitsbytelength = Jiajun_extract_fixed_length_bits(encode_pos, block_size, absPredError, fixed_rate);
                 encode_pos += savedbitsbytelength;
                 for(j=0; j<block_size; j++){
-                    if(signFlag[j] == 1) err = 0 - absPredError[j];
-                    else err = absPredError[j];
+                    // if(signFlag[j] == 1) err = 0 - absPredError[j];
+                    // else err = absPredError[j];
+                    int s = -(int)signFlag[j];
+                    err = (absPredError[j] ^ s) - s;
                     curr = prior + err;
                     prior = curr;
                     dp[i + j + 1] = (T)curr * twice_eb;
@@ -215,8 +219,10 @@ void SZp_decompress_postPred(
                 unsigned int savedbitsbytelength = Jiajun_extract_fixed_length_bits(encode_pos, block_size, absPredError, fixed_rate);
                 encode_pos += savedbitsbytelength;
                 for(j=0; j<block_size; j++){
-                    if(signFlag[j] == 1) err = 0 - absPredError[j];
-                    else err = absPredError[j];
+                    // if(signFlag[j] == 1) err = 0 - absPredError[j];
+                    // else err = absPredError[j];
+                    int s = -(int)signFlag[j];
+                    err = (absPredError[j] ^ s) - s;
                     dp[i + j + 1] = err;
                 }
             }
@@ -240,8 +246,10 @@ void SZp_decompress_postPred(
                 unsigned int savedbitsbytelength = Jiajun_extract_fixed_length_bits(encode_pos, block_size, absPredError, fixed_rate);
                 encode_pos += savedbitsbytelength;
                 for(j=0; j<block_size; j++){
-                    if(signFlag[j] == 1) err = 0 - absPredError[j];
-                    else err = absPredError[j];
+                    // if(signFlag[j] == 1) err = 0 - absPredError[j];
+                    // else err = absPredError[j];
+                    int s = -(int)signFlag[j];
+                    err = (absPredError[j] ^ s) - s;
                     dp[i + j + 1] = err;
                 }
             }            
@@ -290,8 +298,10 @@ void SZp_decompress_prePred(
                 unsigned int savedbitsbytelength = Jiajun_extract_fixed_length_bits(encode_pos, block_size, absPredError, fixed_rate);
                 encode_pos += savedbitsbytelength;
                 for(j=0; j<block_size; j++){
-                    if(signFlag[j] == 1) err = 0 - absPredError[j];
-                    else err = absPredError[j];
+                    // if(signFlag[j] == 1) err = 0 - absPredError[j];
+                    // else err = absPredError[j];
+                    int s = -(int)signFlag[j];
+                    err = (absPredError[j] ^ s) - s;
                     curr = prior + err;
                     prior = curr;
                     dp[i + j + 1] = curr;
@@ -317,8 +327,10 @@ void SZp_decompress_prePred(
                 unsigned int savedbitsbytelength = Jiajun_extract_fixed_length_bits(encode_pos, block_size, absPredError, fixed_rate);
                 encode_pos += savedbitsbytelength;
                 for(j=0; j<block_size; j++){
-                    if(signFlag[j] == 1) err = 0 - absPredError[j];
-                    else err = absPredError[j];
+                    // if(signFlag[j] == 1) err = 0 - absPredError[j];
+                    // else err = absPredError[j];
+                    int s = -(int)signFlag[j];
+                    err = (absPredError[j] ^ s) - s;
                     curr = prior + err;
                     prior = curr;
                     dp[i + j + 1] = curr;
@@ -365,8 +377,10 @@ double SZp_mean_prePred(
                 unsigned int savedbitsbytelength = Jiajun_extract_fixed_length_bits(encode_pos, block_size, absPredError, fixed_rate);
                 encode_pos += savedbitsbytelength;
                 for(j=0; j<block_size; j++){
-                    if(signFlag[j] == 1) err = 0 - absPredError[j];
-                    else err = absPredError[j];
+                    // if(signFlag[j] == 1) err = 0 - absPredError[j];
+                    // else err = absPredError[j];
+                    int s = -(int)signFlag[j];
+                    err = (absPredError[j] ^ s) - s;
                     curr = prior + err;
                     prior = curr;
                     sum += curr;
@@ -390,8 +404,10 @@ double SZp_mean_prePred(
                 unsigned int savedbitsbytelength = Jiajun_extract_fixed_length_bits(encode_pos, block_size, absPredError, fixed_rate);
                 encode_pos += savedbitsbytelength;
                 for(j=0; j<block_size; j++){
-                    if(signFlag[j] == 1) err = 0 - absPredError[j];
-                    else err = absPredError[j];
+                    // if(signFlag[j] == 1) err = 0 - absPredError[j];
+                    // else err = absPredError[j];
+                    int s = -(int)signFlag[j];
+                    err = (absPredError[j] ^ s) - s;
                     curr = prior + err;
                     prior = curr;
                     sum += curr;
@@ -439,8 +455,10 @@ double SZp_mean_postPred(
                 sum += blockSideLength * prior;
                 index = block_size;
                 for(j=0; j<block_size; j++){
-                    if(signFlag[j] == 1) err = 0 - absPredError[j];
-                    else err = absPredError[j];
+                    // if(signFlag[j] == 1) err = 0 - absPredError[j];
+                    // else err = absPredError[j];
+                    int s = -(int)signFlag[j];
+                    err = (absPredError[j] ^ s) - s;
                     sum += index * err;
                     index--;
                 }
@@ -464,8 +482,10 @@ double SZp_mean_postPred(
                 sum += num_remiander * prior;
                 index = block_size;
                 for(j=0; j<block_size; j++){
-                    if(signFlag[j] == 1) err = 0 - absPredError[j];
-                    else err = absPredError[j];
+                    // if(signFlag[j] == 1) err = 0 - absPredError[j];
+                    // else err = absPredError[j];
+                    int s = -(int)signFlag[j];
+                    err = (absPredError[j] ^ s) - s;
                     sum += index * err;
                     index--;
                 }
@@ -562,8 +582,10 @@ double SZp_variance_postPred(
                 unsigned int savedbitsbytelength = Jiajun_extract_fixed_length_bits(encode_pos, block_size, absPredError, fixed_rate);
                 encode_pos += savedbitsbytelength;
                 for(j=0; j<block_size; j++){
-                    if(signFlag[j] == 1) err = 0 - absPredError[j];
-                    else err = absPredError[j];
+                    // if(signFlag[j] == 1) err = 0 - absPredError[j];
+                    // else err = absPredError[j];
+                    int s = -(int)signFlag[j];
+                    err = (absPredError[j] ^ s) - s;
                     d = static_cast<int64_t>(err);
                     prefix += d;
                     d2 = prefix * prefix;
@@ -594,8 +616,10 @@ double SZp_variance_postPred(
                 unsigned int savedbitsbytelength = Jiajun_extract_fixed_length_bits(encode_pos, block_size, absPredError, fixed_rate);
                 encode_pos += savedbitsbytelength;
                 for(j=0; j<block_size; j++){
-                    if(signFlag[j] == 1) err = 0 - absPredError[j];
-                    else err = absPredError[j];
+                    // if(signFlag[j] == 1) err = 0 - absPredError[j];
+                    // else err = absPredError[j];
+                    int s = -(int)signFlag[j];
+                    err = (absPredError[j] ^ s) - s;
                     d = static_cast<int64_t>(err);
                     prefix += d;
                     d2 = prefix * prefix;
@@ -652,8 +676,10 @@ double SZp_variance_prePred(
                 unsigned int savedbitsbytelength = Jiajun_extract_fixed_length_bits(encode_pos, block_size, absPredError, fixed_rate);
                 encode_pos += savedbitsbytelength;
                 for(j=0; j<block_size; j++){
-                    if(signFlag[j] == 1) err = 0 - absPredError[j];
-                    else err = absPredError[j];
+                    // if(signFlag[j] == 1) err = 0 - absPredError[j];
+                    // else err = absPredError[j];
+                    int s = -(int)signFlag[j];
+                    err = (absPredError[j] ^ s) - s;
                     curr = prior + err;
                     prior = curr;
                     d = static_cast<int64_t>(curr);
@@ -684,8 +710,10 @@ double SZp_variance_prePred(
                 unsigned int savedbitsbytelength = Jiajun_extract_fixed_length_bits(encode_pos, block_size, absPredError, fixed_rate);
                 encode_pos += savedbitsbytelength;
                 for(j=0; j<block_size; j++){
-                    if(signFlag[j] == 1) err = 0 - absPredError[j];
-                    else err = absPredError[j];
+                    // if(signFlag[j] == 1) err = 0 - absPredError[j];
+                    // else err = absPredError[j];
+                    int s = -(int)signFlag[j];
+                    err = (absPredError[j] ^ s) - s;
                     curr = prior + err;
                     prior = curr;
                     curr = prior + err;
@@ -787,8 +815,10 @@ clock_gettime(CLOCK_REALTIME, &start2);
             unsigned int savedbitsbytelength = Jiajun_extract_fixed_length_bits(encode_pos, block_size, cmpkit_set->absPredError, fixed_rate);
             encode_pos += savedbitsbytelength;
             for(j=0; j<block_size; j++){
-                if(cmpkit_set->signFlag[j] == 1) err = 0 - cmpkit_set->absPredError[j];
-                else err = cmpkit_set->absPredError[j];
+                // if(cmpkit_set->signFlag[j] == 1) err = 0 - cmpkit_set->absPredError[j];
+                // else err = cmpkit_set->absPredError[j];
+                int s = -(int)cmpkit_set->signFlag[j];
+                err = (cmpkit_set->absPredError[j] ^ s) - s;
                 curr = prior + err;
                 prior = curr;
                 data_pos[index++] = curr;

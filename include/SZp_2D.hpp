@@ -115,8 +115,8 @@ void SZp_decompress(
             for(int i=0; i<size_x; i++){
                 int * curr_buffer_pos = block_buffer_pos;
                 for(int j=0; j<size_y; j++){
-                    if(signFlag[index]) curr_buffer_pos[0] = 0 - absPredError[index];
-                    else curr_buffer_pos[0] = absPredError[index];
+                    int s = -(int)signFlag[index];
+                    curr_buffer_pos[0] = (absPredError[index] ^ s) - s;
                     index++;
                     recover_lorenzo_2d(curr_buffer_pos, offset_0);
                     curr_data_pos[0] = curr_buffer_pos[0] * twice_eb;
@@ -177,8 +177,10 @@ void SZp_decompress_postPred(
             for(int i=0; i<size_x; i++){
                 int * curr_buffer_pos = block_buffer_pos;
                 for(int j=0; j<size_y; j++){
-                    if(signFlag[index]) curr_buffer_pos[j] = 0 - absPredError[index];
-                    else curr_buffer_pos[j] = absPredError[index];
+                    // if(signFlag[index]) curr_buffer_pos[j] = 0 - absPredError[index];
+                    // else curr_buffer_pos[j] = absPredError[index];
+                    int s = -(int)signFlag[index];
+                    curr_buffer_pos[j] = (absPredError[index] ^ s) - s;
                     index++;
                 }
                 block_buffer_pos += offset_0;
@@ -235,8 +237,8 @@ void SZp_decompress_prePred(
             for(int i=0; i<size_x; i++){
                 int * curr_buffer_pos = block_buffer_pos;
                 for(int j=0; j<size_y; j++){
-                    if(signFlag[index]) curr_buffer_pos[0] = 0 - absPredError[index];
-                    else curr_buffer_pos[0] = absPredError[index];
+                    int s = -(int)signFlag[index];
+                    curr_buffer_pos[0] = (absPredError[index] ^ s) - s;
                     index++;
                     recover_lorenzo_2d(curr_buffer_pos, offset_0);
                     curr_data_pos[0] = curr_buffer_pos[0];
@@ -287,8 +289,10 @@ double SZp_mean_postPred(
                 int index = 0;
                 for(int i=0; i<size_x; i++){
                     for(int j=0; j<size_y; j++){
-                        if(signFlag[index]) curr = 0 - absPredError[index];
-                        else curr = absPredError[index];
+                        // if(signFlag[index]) curr = 0 - absPredError[index];
+                        // else curr = absPredError[index];
+                        int s = -(int)signFlag[index];
+                        curr = (absPredError[index] ^ s) - s;
                         index++;
                         quant_sum += (size.dim1 - (index_x + i)) * (size.dim2 - (index_y + j)) * curr;
                     }
@@ -338,8 +342,10 @@ double SZp_mean_prePred(
             int index = 0;
             for(int i=0; i<size_x; i++){
                 for(int j=0; j<size_y; j++){
-                    if(signFlag[index]) curr_buffer_pos[0] = 0 - absPredError[index];
-                    else curr_buffer_pos[0] = absPredError[index];
+                    // if(signFlag[index]) curr_buffer_pos[0] = 0 - absPredError[index];
+                    // else curr_buffer_pos[0] = absPredError[index];
+                    int s = -(int)signFlag[index];
+                    curr_buffer_pos[0] = (absPredError[index] ^ s) - s;
                     index++;
                     recover_lorenzo_2d(curr_buffer_pos, offset_0);
                     quant_sum += curr_buffer_pos[0];
@@ -440,8 +446,10 @@ double SZp_variance_postPred(
                 for(int i=0; i<size_x; i++){
                     int * curr_buffer_pos = block_buffer_pos;
                     for(int j=0; j<size_y; j++){
-                        if(signFlag[index]) curr_buffer_pos[j] = 0 - absPredError[index];
-                        else curr_buffer_pos[j] = absPredError[index];
+                        // if(signFlag[index]) curr_buffer_pos[j] = 0 - absPredError[index];
+                        // else curr_buffer_pos[j] = absPredError[index];
+                        int s = -(int)signFlag[index];
+                        curr_buffer_pos[j] = (absPredError[index] ^ s) - s;
                         index++;
                     }
                     block_buffer_pos += offset_0;
@@ -514,8 +522,10 @@ double SZp_variance_prePred(
             int index = 0;
             for(int i=0; i<size_x; i++){
                 for(int j=0; j<size_y; j++){
-                    if(signFlag[index]) curr_buffer_pos[0] = 0 - absPredError[index];
-                    else curr_buffer_pos[0] = absPredError[index];
+                    // if(signFlag[index]) curr_buffer_pos[0] = 0 - absPredError[index];
+                    // else curr_buffer_pos[0] = absPredError[index];
+                    int s = -(int)signFlag[index];
+                    curr_buffer_pos[0] = (absPredError[index] ^ s) - s;
                     index++;
                     recover_lorenzo_2d(curr_buffer_pos, offset_0);
                     int64_t d = static_cast<int64_t>(curr_buffer_pos[0]);
@@ -617,8 +627,10 @@ clock_gettime(CLOCK_REALTIME, &start2);
             int index = 0;
             for(int i=0; i<size_x; i++){
                 for(int j=0; j<size_y; j++){
-                    if(cmpkit_set->signFlag[index]) curr_buffer_pos[j] = 0 - cmpkit_set->absPredError[index];
-                    else curr_buffer_pos[j] = cmpkit_set->absPredError[index];
+                    // if(cmpkit_set->signFlag[index]) curr_buffer_pos[j] = 0 - cmpkit_set->absPredError[index];
+                    // else curr_buffer_pos[j] = cmpkit_set->absPredError[index];
+                    int s = -(int)cmpkit_set->signFlag[index];
+                    curr_buffer_pos[j] = (cmpkit_set->absPredError[index] ^ s) - s;
                     index++;
                 }
                 curr_buffer_pos += offset_0;
@@ -659,8 +671,10 @@ clock_gettime(CLOCK_REALTIME, &start2);
         for(int i=0; i<size_x; i++){
             int * curr_buffer_pos = block_buffer_pos;
             for(int j=0; j<size_y; j++){
-                if(cmpkit_set->signFlag[index]) curr_buffer_pos[0] = 0 - cmpkit_set->absPredError[index];
-                else curr_buffer_pos[0] = cmpkit_set->absPredError[index];
+                // if(cmpkit_set->signFlag[index]) curr_buffer_pos[0] = 0 - cmpkit_set->absPredError[index];
+                // else curr_buffer_pos[0] = cmpkit_set->absPredError[index];
+                int s = -(int)cmpkit_set->signFlag[index];         // 0 or -1
+                curr_buffer_pos[0] = (cmpkit_set->absPredError[index] ^ s) - s;
                 index++;
                 recover_lorenzo_2d(curr_buffer_pos, buffer_set->offset_0);
                 curr_buffer_pos++;

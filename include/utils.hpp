@@ -167,7 +167,7 @@ double verify(const T *oriData, const T *decData, size_t dim1, size_t dim2, size
 template <class T>
 double verify_dxdy(const T *oriData, const T *decData, size_t dim1, size_t dim2)
 {
-    int pos = 0, n = 0;
+    size_t x, y;
     double max_error = 0;
     double v1, v2;
     for(size_t i=1; i<dim1-1; i++){
@@ -177,14 +177,13 @@ double verify_dxdy(const T *oriData, const T *decData, size_t dim1, size_t dim2)
             double diff = fabs(ori_pos[j] - dec_pos[j]);
             if(diff > max_error){
                 max_error = diff;
-                pos = n;
+                x = i, y = j;
                 v1 = ori_pos[j];
                 v2 = dec_pos[j];
             }
-            n++;
         }
     }
-    // std::cout << "max_error = " << max_error << ", pos = " << pos << ", x = " << pos / (dim2-2) + 1 << ", y = " << pos % (dim2-2) + 1 << std::endl;
+    // std::cout << "max_error = " << max_error << ", x = " << x << ", y = " << y << std::endl;
     // std::cout << "ori = " << v1 << ", dec = " << v2 << std::endl;
     return max_error;
 }
@@ -194,7 +193,7 @@ double verify_dxdydz(const T *oriData, const T *decData, size_t dim1, size_t dim
 {
     size_t dim0_offset = dim2 * dim3;
     size_t dim1_offset = dim3;
-    int pos = 0, n = 0;
+    size_t x, y, z;
     double max_error = 0;
     double v1, v2;
     for(size_t i=1; i<dim1-1; i++){
@@ -207,15 +206,14 @@ double verify_dxdydz(const T *oriData, const T *decData, size_t dim1, size_t dim
                 double diff = fabs(y_ori_pos[k] - y_dec_pos[k]);
                 if(diff > max_error){
                     max_error = diff;
-                    pos = n;
+                    x = i, y = j, z = k;
                     v1 = y_ori_pos[k];
                     v2 = y_dec_pos[k];
                 }
-                n++;
             }
         }
     }
-    // std::cout << "max_error = " << max_error << ", pos = " << pos << ", x = " << pos / ((dim2-2) * (dim3-2)) + 1 << ", y = " << (pos % ((dim2-2) * (dim3-2))) / (dim3-2) + 1 << ", z = " << pos % (dim3-2) + 1 << std::endl;
+    // std::cout << "max_error = " << max_error << ", x = " << x << ", y = " << y << ", z = " << z << std::endl;
     // std::cout << "ori = " << v1 << ", dec = " << v2 << std::endl;
     return max_error;
 }
@@ -226,7 +224,7 @@ void print_matrix_float(int dim1, int dim2, std::string name, T *mat)
     std::cout << "--------- " << name << " ---------" << std::endl;
     for(int i=0; i<dim1; i++){
         for(int j=0; j<dim2; j++){
-            printf("%.4f  ", mat[i*dim2+j]);
+            printf("%.8f  ", mat[i*dim2+j]);
         }
         printf("\n");
     }

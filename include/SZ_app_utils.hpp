@@ -214,6 +214,56 @@ struct AppBufferSet_3d
     }
 };
 
+struct AppBufferSet_3df
+{
+    size_t buffer_dim1;
+    size_t buffer_dim2;
+    size_t buffer_dim3;
+    size_t buffer_size;
+    size_t offset_0;
+    size_t offset_1;
+    float * buffer_3d;
+    float * prevBlockSlice;
+    float * currBlockSlice;
+    float * nextBlockSlice;
+    float * decmp_buffer;
+    float * currSlice_data_pos;
+    float * prevSlice_data_pos;
+    float * nextSlice_data_pos;
+    AppBufferSet_3df(
+    size_t dim1, size_t dim2, size_t dim3,
+    float *buffer_3d_)
+        : buffer_dim1(dim1),
+          buffer_dim2(dim2),
+          buffer_dim3(dim3),
+          buffer_3d(buffer_3d_)
+    {
+        buffer_size = buffer_dim1 * buffer_dim2 * buffer_dim3;
+        offset_0 = buffer_dim2 * buffer_dim3;
+        offset_1 = buffer_dim3;
+        prevBlockSlice = buffer_3d;
+        currBlockSlice = buffer_3d + buffer_size;
+        nextBlockSlice = buffer_3d + 2 * buffer_size;
+        decmp_buffer = buffer_3d + 3 * buffer_size;
+    }
+    void reset(){
+        currSlice_data_pos = currBlockSlice + offset_0 + offset_1 + 1;
+        prevSlice_data_pos = prevBlockSlice + offset_0 + offset_1 + 1;
+        nextSlice_data_pos = nextBlockSlice + offset_0 + offset_1 + 1;
+        memset(buffer_3d, 0, 4 * buffer_size * sizeof(float));
+    }
+    inline void setGhostEle(DSize_3d& size, bool isTopSlice, bool isBottomSlice){
+        if(!isTopSlice){
+            float * prevBlockSliceBottom_pos = prevSlice_data_pos + (size.Bsize - 1) * offset_0 - offset_1 - 1;
+            memcpy(currSlice_data_pos-offset_0-offset_1-1, prevBlockSliceBottom_pos, offset_0*sizeof(int));
+        }
+        if(!isBottomSlice){
+            float * nextBlockSliceTop_pos = nextSlice_data_pos - offset_1 - 1;
+            memcpy(currSlice_data_pos+size.Bsize*offset_0-offset_1-1, nextBlockSliceTop_pos, offset_0*sizeof(int));
+        }
+    }
+};
+
 inline int* allocateAndZero1D(size_t n) {
     int* ptr = new int[n]();  
     return ptr;
@@ -236,6 +286,26 @@ struct derivIntBuffer_3d
         dx_buffer = px;
         dy_buffer = py;
         dz_buffer = pz;
+    }
+};
+
+struct laplaceIntBuffer_3d
+{
+    int * dx_0;
+    int * dx_1;
+    int ** dy_0;
+    int ** dy_1;
+    int ** dz_0;
+    int ** dz_1;
+    laplaceIntBuffer_3d(
+        int *px0, int *px1, int **py0,
+        int **py1, int **pz0, int **pz1){
+        dx_0 = px0;
+        dx_1 = px1;
+        dy_0 = py0;
+        dy_1 = py1;
+        dz_0 = pz0;
+        dz_1 = pz1;
     }
 };
 
@@ -276,53 +346,121 @@ inline void recover_lorenzo_3d(
                     - buffer_pos[-offset_0 - offset_1] + buffer_pos[-offset_0 - offset_1 - 1];
 }
 
-template <class T>
-inline void deriv_lorenzo_2d(
-    const int *pred_level_0_pos, const int *pred_level_1_pos,
-    int *res_int_buffer_pos, T *res_pos, size_t res_offset_1, double errorBound
-){
-    int res_integer = pred_level_0_pos[0] + pred_level_1_pos[0]
-                    + res_int_buffer_pos[-1] + res_int_buffer_pos[-res_offset_1] - res_int_buffer_pos[-res_offset_1-1];
-    res_int_buffer_pos[0] = res_integer;
-    res_pos[0] = res_integer * errorBound;
-}
-
-
 /**
  * SZx stuff
 */
 
 template <class T>
 inline void dxdy_compute_block_mean_difference(
-    int x, int block_dim2, double errorBound, int *block_mean_buffer,
-    T *dx_top_blockmean_diff, T *dx_bott_blockmean_diff, T *dy_blockmean_diff
+    int block_dim1, int block_dim2, double errorBound,
+    int *block_mean_buffer, T *row_diffs, T *rowpair_diffs
 ){
-    int * currRow_mean_quant = block_mean_buffer + x * block_dim2;
-    int * prevRow_mean_quant = currRow_mean_quant - block_dim2;
-    int * nextRow_mean_quant = currRow_mean_quant + block_dim2;
-    dy_blockmean_diff[0] = 0;
-    dy_blockmean_diff[block_dim2+2] = 0;
-    for(int j=0; j<block_dim2; j++){
-        dy_blockmean_diff[j+1] = (currRow_mean_quant[j+1] - currRow_mean_quant[j]) * errorBound;
-        dx_top_blockmean_diff[j] = (currRow_mean_quant[j] - prevRow_mean_quant[j]) * errorBound;
-        dx_bott_blockmean_diff[j] = (nextRow_mean_quant[j] - currRow_mean_quant[j]) * errorBound;
+    memset(rowpair_diffs, 0, block_dim2*sizeof(T));
+    memset(rowpair_diffs+block_dim1*block_dim2, 0, block_dim2*sizeof(T));
+    int * curr_row = block_mean_buffer;
+    T * row_diff_pos = row_diffs;
+    T * rowpair_diff_pos = rowpair_diffs + block_dim2;
+    for(int x=0; x<block_dim1; x++){
+        row_diff_pos[0] = 0;
+        int * next_row = curr_row + block_dim2;
+        for(int y=0; y<block_dim2; y++){
+            row_diff_pos[y+1] = (curr_row[y+1] - curr_row[y]) * errorBound;
+            rowpair_diff_pos[y] = (next_row[y] - curr_row[y]) * errorBound;
+        }
+        row_diff_pos[block_dim2+1] = 0;
+        row_diff_pos += block_dim2 + 1;
+        rowpair_diff_pos += block_dim2;
+        curr_row += block_dim2;
+    }
+}
+
+template <class T>
+inline void dxdydz_compute_block_mean_difference(
+    size_t nx, size_t ny, size_t nz,
+    double errorBound,
+    const int  *block_mean,
+    T *x_diffs,
+    T *y_diffs,
+    T *z_diffs
+){
+    size_t total = (nx+1) * (ny+1) * (nz+1);
+    memset(x_diffs, 0, total*sizeof(T));
+    memset(y_diffs, 0, total*sizeof(T));
+    memset(z_diffs, 0, total*sizeof(T));
+    int index0, index1;
+    for (size_t x = 0; x < nx; ++x){
+        const int * curr_plane = block_mean + x * ny * nz;
+        const int * next_plane = curr_plane + ny * nz;
+        for (size_t y = 0; y < ny; ++y) {
+            const int * curr_row = curr_plane + y * nz;
+            const int * next_row = curr_row + nz;
+            for (size_t z = 0; z < nz; ++z) {
+                index0 = (x+1) * ny * nz + y * nz + z;
+                index1 = y * nz + z;
+                x_diffs[index0] = (next_plane[index1] - curr_plane[index1]) * errorBound;
+                index0 = x * (ny+1) * nz + (y+1) * nz + z;
+                y_diffs[index0] = (next_row[z] - curr_row[z]) * errorBound;
+                index0 = x * ny * (nz+1) + y * (nz+1) + z+1;
+                z_diffs[index0] = (curr_row[z+1] - curr_row[z]) * errorBound;
+            }
+        }
     }
 }
 
 template <class T>
 inline void laplacian_compute_block_mean_difference(
-    int x, int block_dim2, double errorBound, int *block_mean_buffer,
-    T *dx_top_blockmean_diff, T *dx_bott_blockmean_diff, T *dy_blockmean_diff
+    int block_dim1, int block_dim2, double twice_eb,
+    int *block_mean_buffer, T *row_diffs, T *rowpair_diffs
 ){
-    int * currRow_mean_quant = block_mean_buffer + x * block_dim2;
-    int * prevRow_mean_quant = currRow_mean_quant - block_dim2;
-    int * nextRow_mean_quant = currRow_mean_quant + block_dim2;
-    dy_blockmean_diff[0] = 0;
-    dy_blockmean_diff[block_dim2+2] = 0;
-    for(int j=0; j<block_dim2; j++){
-        dy_blockmean_diff[j+1] = (currRow_mean_quant[j+1] - currRow_mean_quant[j]) * errorBound * 2;
-        dx_top_blockmean_diff[j] = (currRow_mean_quant[j] - prevRow_mean_quant[j]) * errorBound * 2;
-        dx_bott_blockmean_diff[j] = (nextRow_mean_quant[j] - currRow_mean_quant[j]) * errorBound * 2;
+    memset(rowpair_diffs, 0, block_dim2*sizeof(T));
+    memset(rowpair_diffs+block_dim1*block_dim2, 0, block_dim2*sizeof(T));
+    int * curr_row = block_mean_buffer;
+    T * row_diff_pos = row_diffs;
+    T * rowpair_diff_pos = rowpair_diffs + block_dim2;
+    for(int x=0; x<block_dim1; x++){
+        row_diff_pos[0] = 0;
+        int * next_row = curr_row + block_dim2;
+        for(int y=0; y<block_dim2; y++){
+            row_diff_pos[y+1] = (curr_row[y+1] - curr_row[y]) * twice_eb;
+            rowpair_diff_pos[y] = (next_row[y] - curr_row[y]) * twice_eb;
+        }
+        row_diff_pos[block_dim2+1] = 0;
+        row_diff_pos += block_dim2 + 1;
+        rowpair_diff_pos += block_dim2;
+        curr_row += block_dim2;
+    }
+}
+
+template <class T>
+inline void laplacian_compute_block_mean_difference(
+    size_t nx, size_t ny, size_t nz,
+    double twice_eb,
+    const int  *block_mean,
+    T *x_diffs,
+    T *y_diffs,
+    T *z_diffs
+){
+    size_t total = (nx+1) * (ny+1) * (nz+1);
+    memset(x_diffs, 0, total*sizeof(T));
+    memset(y_diffs, 0, total*sizeof(T));
+    memset(z_diffs, 0, total*sizeof(T));
+    int index0, index1;
+    for (size_t x = 0; x < nx; ++x){
+        const int * curr_plane = block_mean + x * ny * nz;
+        const int * next_plane = curr_plane + ny * nz;
+        for (size_t y = 0; y < ny; ++y) {
+            const int * curr_row = curr_plane + y * nz;
+            const int * next_row = curr_row + nz;
+            for (size_t z = 0; z < nz; ++z) {
+                index0 = (x+1) * ny * nz + y * nz + z;
+                index1 = y * nz + z;
+                x_diffs[index0] = (next_plane[index1] - curr_plane[index1]) * twice_eb;
+                index0 = x * (ny+1) * nz + (y+1) * nz + z;
+                y_diffs[index0] = (next_row[z] - curr_row[z]) * twice_eb;
+                index0 = x * ny * (nz+1) + y * (nz+1) + z+1;
+                z_diffs[index0] = (curr_row[z+1] - curr_row[z]) * twice_eb;
+            }
+        }
     }
 }
 

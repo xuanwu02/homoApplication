@@ -116,8 +116,10 @@ void SZx_decompress(
                     for(int i=0; i<size_x; i++){
                         for(int j=0; j<size_y; j++){
                             for(int k=0; k<size_z; k++){
-                                if(signFlag[index]) curr = 0 - absPredError[index];
-                                else curr = absPredError[index];
+                                // if(signFlag[index]) curr = 0 - absPredError[index];
+                                // else curr = absPredError[index];
+                                int s = -(int)signFlag[index];
+                                curr = (absPredError[index] ^ s) - s;
                                 index++;
                                 *curr_data_pos++ = (curr + mean_quant) * twice_eb;
                             }
@@ -199,8 +201,10 @@ void SZx_decompress_postPred(
                     for(int i=0; i<size_x; i++){
                         for(int j=0; j<size_y; j++){
                             for(int k=0; k<size_z; k++){
-                                if(signFlag[index]) curr = 0 - absPredError[index];
-                                else curr = absPredError[index];
+                                // if(signFlag[index]) curr = 0 - absPredError[index];
+                                // else curr = absPredError[index];
+                                int s = -(int)signFlag[index];
+                                curr = (absPredError[index] ^ s) - s;
                                 index++;
                                 *curr_data_pos++ = curr;
                             }
@@ -269,8 +273,10 @@ void SZx_decompress_prePred(
                     for(int i=0; i<size_x; i++){
                         for(int j=0; j<size_y; j++){
                             for(int k=0; k<size_z; k++){
-                                if(signFlag[index]) curr = 0 - absPredError[index];
-                                else curr = absPredError[index];
+                                // if(signFlag[index]) curr = 0 - absPredError[index];
+                                // else curr = absPredError[index];
+                                int s = -(int)signFlag[index];
+                                curr = (absPredError[index] ^ s) - s;
                                 index++;
                                 *curr_data_pos++ = curr + mean_quant;
                             }
@@ -331,8 +337,10 @@ double SZx_mean_prePred(
                     unsigned int savedbitsbytelength = Jiajun_extract_fixed_length_bits(encode_pos, block_size, absPredError, fixed_rate);
                     encode_pos += savedbitsbytelength;
                     for(int i=0; i<block_size; i++){
-                        if(signFlag[i]) curr = 0 - absPredError[i];
-                        else curr = absPredError[i];
+                        // if(signFlag[i]) curr = 0 - absPredError[i];
+                        // else curr = absPredError[i];
+                        int s = -(int)signFlag[i];
+                        curr = (absPredError[i] ^ s) - s;
                         curr += mean_quant;
                         quant_sum += curr;
                     }
@@ -378,8 +386,10 @@ double SZx_mean_postPred(
                     unsigned int savedbitsbytelength = Jiajun_extract_fixed_length_bits(encode_pos, block_size, absPredError, fixed_rate);
                     encode_pos += savedbitsbytelength;
                     for(int i=0; i<block_size; i++){
-                        if(signFlag[i]) curr = 0 - absPredError[i];
-                        else curr = absPredError[i];
+                        // if(signFlag[i]) curr = 0 - absPredError[i];
+                        // else curr = absPredError[i];
+                        int s = -(int)signFlag[i];
+                        curr = (absPredError[i] ^ s) - s;
                         quant_sum += curr;
                     }
                 }
@@ -996,8 +1006,10 @@ clock_gettime(CLOCK_REALTIME, &start2);
                 for(int i=0; i<size_x; i++){
                     for(int j=0; j<size_y; j++){
                         for(int k=0; k<size_z; k++){
-                            if(cmpkit_set->signFlag[index]) curr = 0 - cmpkit_set->absPredError[index];
-                            else curr = cmpkit_set->absPredError[index];
+                            // if(cmpkit_set->signFlag[index]) curr = 0 - cmpkit_set->absPredError[index];
+                            // else curr = cmpkit_set->absPredError[index];
+                            int s = -(int)cmpkit_set->signFlag[index];
+                            curr = (cmpkit_set->absPredError[index] ^ s) - s;
                             index++;
                             curr_buffer_pos[k] = curr + mean_quant;
                         }
@@ -1024,9 +1036,64 @@ clock_gettime(CLOCK_REALTIME, &end2);
 rec_time += get_elapsed_time(start2, end2);
 }
 
+inline void recoverBlockSlice2PostPred(
+    size_t x, DSize_3d size, CmpBufferSet *cmpkit_set,
+    unsigned char *& encode_pos, int *buffer_data_pos,
+    size_t offset_0, size_t offset_1
+){
+clock_gettime(CLOCK_REALTIME, &start2);
+    int block_ind = x * size.block_dim2 * size.block_dim3;
+    int size_x = ((x+1)*size.Bsize < size.dim1) ? size.Bsize : size.dim1 - x*size.Bsize;
+    int * buffer_start_pos = buffer_data_pos;
+    for(size_t y=0; y<size.block_dim2; y++){
+        int size_y = ((y+1)*size.Bsize < size.dim2) ? size.Bsize : size.dim2 - y*size.Bsize;
+        for(size_t z=0; z<size.block_dim3; z++){
+            int size_z = ((z+1)*size.Bsize < size.dim3) ? size.Bsize : size.dim3 - z*size.Bsize;
+            int block_size = size_x * size_y * size_z;
+            int * curr_buffer_pos = buffer_start_pos;
+            int fixed_rate = (int)cmpkit_set->compressed[block_ind++];
+            if(fixed_rate){
+                size_t cmp_block_sign_length = (block_size + 7) / 8;
+                convertByteArray2IntArray_fast_1b_args(block_size, encode_pos, cmp_block_sign_length, cmpkit_set->signFlag);
+                encode_pos += cmp_block_sign_length;
+                unsigned int savedbitsbytelength = Jiajun_extract_fixed_length_bits(encode_pos, block_size, cmpkit_set->absPredError, fixed_rate);
+                encode_pos += savedbitsbytelength;
+                int index = 0;
+                for(int i=0; i<size_x; i++){
+                    for(int j=0; j<size_y; j++){
+                        for(int k=0; k<size_z; k++){
+                            // if(cmpkit_set->signFlag[index]) curr_buffer_pos[k] = 0 - cmpkit_set->absPredError[index];
+                            // else curr_buffer_pos[k] = cmpkit_set->absPredError[index];
+                            int s = -(int)cmpkit_set->signFlag[index];
+                            curr_buffer_pos[k] = (cmpkit_set->absPredError[index] ^ s) - s;
+                            index++;
+                        }
+                        curr_buffer_pos += offset_1;
+                    }
+                    curr_buffer_pos += offset_0 - size_y * offset_1;
+                }
+            }else{
+                for(int i=0; i<size_x; i++){
+                    for(int j=0; j<size_y; j++){
+                        for(int k=0; k<size_z; k++){
+                            curr_buffer_pos[k] =  0;
+                        }
+                        curr_buffer_pos += offset_1;
+                    }
+                    curr_buffer_pos += offset_0 - size_y * offset_1;
+                }
+            }
+            buffer_start_pos += size.Bsize;
+        }
+        buffer_start_pos += size.Bsize * offset_1 - size.Bsize * size.block_dim3;
+    }
+clock_gettime(CLOCK_REALTIME, &end2);
+rec_time += get_elapsed_time(start2, end2);
+}
+
 template <class T>
 inline void dxdydzProcessBlockSlicePrePred(
-    size_t x, DSize_3d size, CmpBufferSet *cmpkit_set,
+    size_t x, DSize_3d size,
     AppBufferSet_3d *buffer_set, double errorBound,
     T *dx_start_pos, T *dy_start_pos, T *dz_start_pos,
     bool isTopSlice, bool isBottomSlice
@@ -1063,6 +1130,103 @@ op_time += get_elapsed_time(start2, end2);
 }
 
 template <class T>
+inline void dxdydzProcessBlockSlicePostPred(
+    size_t x, DSize_3d size, AppBufferSet_3d *buffer_set,
+    double errorBound, T *x_diffs, T *y_diffs, T *z_diffs,
+    T *dx_start_pos, T *dy_start_pos, T *dz_start_pos,
+    bool isTopSlice, bool isBottomSlice
+){
+clock_gettime(CLOCK_REALTIME, &start2);
+    int size_x = ((x+1)*size.Bsize < size.dim1) ? size.Bsize : size.dim1 - x*size.Bsize;
+    buffer_set->setGhostEle(size, isTopSlice, isBottomSlice);
+    auto idx = [&](size_t x, size_t y, size_t z)
+                 { return x * size.block_dim2 * size.block_dim3 + y * size.block_dim3 + z; };
+    auto idx_y = [&](size_t x, size_t y, size_t z)
+                 { return x * (size.block_dim2+1) * size.block_dim3 + y * size.block_dim3 + z; };
+    auto idx_z = [&](size_t x, size_t y, size_t z)
+                 { return x * size.block_dim2 * (size.block_dim3+1) + y * (size.block_dim3+1) + z; };
+    const int * y_buffer_pos = buffer_set->currSlice_data_pos;
+    T * y_dx_pos = dx_start_pos;
+    T * y_dy_pos = dy_start_pos;
+    T * y_dz_pos = dz_start_pos;
+    for(size_t y=0; y<size.block_dim2; y++){
+        const int * z_buffer_pos = y_buffer_pos;
+        T * z_dx_pos = y_dx_pos;
+        T * z_dy_pos = y_dy_pos;
+        T * z_dz_pos = y_dz_pos;
+        for(size_t z=0; z<size.block_dim3; z++){
+            int size_y = ((y+1)*size.Bsize < size.dim2) ? size.Bsize : size.dim2 - y*size.Bsize;
+            int size_z = ((z+1)*size.Bsize < size.dim3) ? size.Bsize : size.dim3 - z*size.Bsize;
+            T * dx_pos = z_dx_pos;
+            T * dy_pos = z_dy_pos;
+            T * dz_pos = z_dz_pos;
+            const int * curr_row_pos = z_buffer_pos;
+            const int * prev_row_pos = z_buffer_pos - buffer_set->offset_1;
+            const int * next_row_pos = z_buffer_pos + buffer_set->offset_1;
+            const int * top_row_pos = z_buffer_pos - buffer_set->offset_0;
+            const int * bott_row_pos = z_buffer_pos + buffer_set->offset_0;
+            for(int i=0; i<size_x; i++){
+                for(int j=0; j<size_y; j++){
+                    for(int k=0; k<size_z; k++){
+                        dx_pos[k] = (bott_row_pos[k] - top_row_pos[k]) * errorBound;
+                        dy_pos[k] = (next_row_pos[k] - prev_row_pos[k]) * errorBound;
+                        dz_pos[k] = (curr_row_pos[k+1] - curr_row_pos[k-1]) * errorBound;
+                    }
+                    if(i == 0){
+                        for(int k=0; k<size_z; k++){
+                            dx_pos[k] += x_diffs[idx(x,y,z)];
+                        }
+                    }
+                    else if(i == size_x-1){
+                        for(int k=0; k<size_z; k++){
+                            dx_pos[k] += x_diffs[idx(x+1,y,z)];
+                        }
+                    }
+                    if(j == 0){
+                        for(int k=0; k<size_z; k++){
+                            dy_pos[k] += y_diffs[idx_y(x,y,z)];
+                        }
+                    }
+                    else if(j == size_y-1){
+                        for(int k=0; k<size_z; k++){
+                            dy_pos[k] += y_diffs[idx_y(x,y+1,z)];
+                        }
+                    }
+                    dz_pos[0] += z_diffs[idx_z(x,y,z)];
+                    dz_pos[size_z-1] += z_diffs[idx_z(x,y,z+1)];
+                    curr_row_pos += buffer_set->offset_1;
+                    prev_row_pos += buffer_set->offset_1;
+                    next_row_pos += buffer_set->offset_1;
+                    top_row_pos += buffer_set->offset_1;
+                    bott_row_pos += buffer_set->offset_1;
+                    dx_pos += size.offset_1;
+                    dy_pos += size.offset_1;
+                    dz_pos += size.offset_1;
+                }
+                curr_row_pos += buffer_set->offset_0 - size_y * buffer_set->offset_1;
+                prev_row_pos += buffer_set->offset_0 - size_y * buffer_set->offset_1;
+                next_row_pos += buffer_set->offset_0 - size_y * buffer_set->offset_1;
+                top_row_pos += buffer_set->offset_0 - size_y * buffer_set->offset_1;
+                bott_row_pos += buffer_set->offset_0 - size_y * buffer_set->offset_1;
+                dx_pos += size.offset_0 - size_y * size.offset_1;
+                dy_pos += size.offset_0 - size_y * size.offset_1;
+                dz_pos += size.offset_0 - size_y * size.offset_1;
+            }
+            z_buffer_pos += size.Bsize;
+            z_dx_pos += size.Bsize;
+            z_dy_pos += size.Bsize;
+            z_dz_pos += size.Bsize;
+        }
+        y_buffer_pos += size.Bsize * buffer_set->offset_1;
+        y_dx_pos += size.Bsize * size.offset_1;
+        y_dy_pos += size.Bsize * size.offset_1;
+        y_dz_pos += size.Bsize * size.offset_1;
+    }
+clock_gettime(CLOCK_REALTIME, &end2);
+op_time += get_elapsed_time(start2, end2);
+}
+
+template <class T>
 inline void dxdydzProcessBlocksPrePred(
     DSize_3d& size,
     CmpBufferSet *cmpkit_set, 
@@ -1080,14 +1244,49 @@ inline void dxdydzProcessBlocksPrePred(
         if(x == 0){
             recoverBlockSlice2PrePred(x, size, cmpkit_set, encode_pos, buffer_set->currSlice_data_pos, buffer_set->offset_0, buffer_set->offset_1);
             recoverBlockSlice2PrePred(x+1, size, cmpkit_set, encode_pos, buffer_set->nextSlice_data_pos, buffer_set->offset_0, buffer_set->offset_1);
-            dxdydzProcessBlockSlicePrePred(x, size, cmpkit_set, buffer_set, errorBound, dx_pos+offset, dy_pos+offset, dz_pos+offset, true, false);
+            dxdydzProcessBlockSlicePrePred(x, size, buffer_set, errorBound, dx_pos+offset, dy_pos+offset, dz_pos+offset, true, false);
         }else{
             rotate_buffer(buffer_set->currSlice_data_pos, buffer_set->prevSlice_data_pos, buffer_set->nextSlice_data_pos, tempBlockSlice);
             if(x == size.block_dim1 - 1){
-                dxdydzProcessBlockSlicePrePred(x, size, cmpkit_set, buffer_set, errorBound, dx_pos+offset, dy_pos+offset, dz_pos+offset, false, true);
+                dxdydzProcessBlockSlicePrePred(x, size, buffer_set, errorBound, dx_pos+offset, dy_pos+offset, dz_pos+offset, false, true);
             }else{
                 recoverBlockSlice2PrePred(x+1, size, cmpkit_set, encode_pos, buffer_set->nextSlice_data_pos, buffer_set->offset_0, buffer_set->offset_1);
-                dxdydzProcessBlockSlicePrePred(x, size, cmpkit_set, buffer_set, errorBound, dx_pos+offset, dy_pos+offset, dz_pos+offset, false, false);
+                dxdydzProcessBlockSlicePrePred(x, size, buffer_set, errorBound, dx_pos+offset, dy_pos+offset, dz_pos+offset, false, false);
+            }
+        }
+    }
+    printf("recover_time = %.6f\n", rec_time);
+    printf("process_time = %.6f\n", op_time);
+}
+
+template <class T>
+inline void dxdydzProcessBlocksPostPred(
+    DSize_3d& size,
+    CmpBufferSet *cmpkit_set, 
+    AppBufferSet_3d *buffer_set,
+    unsigned char *encode_pos,
+    T *x_diffs, T *y_diffs, T *z_diffs,
+    T *dx_pos, T *dy_pos, T *dz_pos,
+    double errorBound
+){
+    size_t BlockSliceSize = size.Bsize * size.dim2 * size.dim3;
+    int * tempBlockSlice = nullptr;
+    buffer_set->reset();
+    extract_block_mean(cmpkit_set->compressed+FIXED_RATE_PER_BLOCK_BYTES*size.num_blocks, cmpkit_set->mean_quant_inds, size.num_blocks);
+    dxdydz_compute_block_mean_difference(size.block_dim1, size.block_dim2, size.block_dim3, errorBound, cmpkit_set->mean_quant_inds, x_diffs, y_diffs, z_diffs);
+    for(size_t x=0; x<size.block_dim1; x++){
+        size_t offset = x * BlockSliceSize;
+        if(x == 0){
+            recoverBlockSlice2PostPred(x, size, cmpkit_set, encode_pos, buffer_set->currSlice_data_pos, buffer_set->offset_0, buffer_set->offset_1);
+            recoverBlockSlice2PostPred(x+1, size, cmpkit_set, encode_pos, buffer_set->nextSlice_data_pos, buffer_set->offset_0, buffer_set->offset_1);
+            dxdydzProcessBlockSlicePostPred(x, size, buffer_set, errorBound, x_diffs, y_diffs, z_diffs, dx_pos+offset, dy_pos+offset, dz_pos+offset, true, false);
+        }else{
+            rotate_buffer(buffer_set->currSlice_data_pos, buffer_set->prevSlice_data_pos, buffer_set->nextSlice_data_pos, tempBlockSlice);
+            if(x == size.block_dim1 - 1){
+                dxdydzProcessBlockSlicePostPred(x, size, buffer_set, errorBound, x_diffs, y_diffs, z_diffs, dx_pos+offset, dy_pos+offset, dz_pos+offset, false, true);
+            }else{
+                recoverBlockSlice2PostPred(x+1, size, cmpkit_set, encode_pos, buffer_set->nextSlice_data_pos, buffer_set->offset_0, buffer_set->offset_1);
+                dxdydzProcessBlockSlicePostPred(x, size, buffer_set, errorBound, x_diffs, y_diffs, z_diffs, dx_pos+offset, dy_pos+offset, dz_pos+offset, false, false);
             }
         }
     }
@@ -1110,6 +1309,9 @@ void SZx_dxdydz(
     unsigned int * absPredError = (unsigned int *)malloc(size.max_num_block_elements*sizeof(unsigned int));
     unsigned char * signFlag = (unsigned char *)malloc(size.max_num_block_elements*sizeof(unsigned char));
     T * decData = (T *)malloc(size.nbEle * sizeof(T));
+    T * x_diffs = (T *)malloc((size.block_dim1+1)*(size.block_dim2+1)*(size.block_dim3+1)*sizeof(T));
+    T * y_diffs = (T *)malloc((size.block_dim1+1)*(size.block_dim2+1)*(size.block_dim3+1)*sizeof(T));
+    T * z_diffs = (T *)malloc((size.block_dim1+1)*(size.block_dim2+1)*(size.block_dim3+1)*sizeof(T));
     int * blocks_mean_quant = (int *)malloc(size.num_blocks * sizeof(int));
     AppBufferSet_3d * buffer_set = new AppBufferSet_3d(buffer_dim1, buffer_dim2, buffer_dim3, Buffer_3d);
     CmpBufferSet * cmpkit_set = new CmpBufferSet(cmpData, absPredError, signFlag, blocks_mean_quant);
@@ -1123,9 +1325,7 @@ void SZx_dxdydz(
     clock_gettime(CLOCK_REALTIME, &start);
     switch(state){
         case decmpState::postPred:{
-            // printf("Not implemented\n");
-            printf("recover_time = %.6f\n", rec_time);
-            printf("process_time = %.6f\n", op_time);
+            dxdydzProcessBlocksPostPred(size, cmpkit_set, buffer_set, encode_pos, x_diffs, y_diffs, z_diffs, dx_pos, dy_pos, dz_pos, errorBound);
             break;
         }
         case decmpState::prePred:{
@@ -1156,6 +1356,9 @@ void SZx_dxdydz(
     free(absPredError);
     free(signFlag);
     free(decData);
+    free(x_diffs);
+    free(y_diffs);
+    free(z_diffs);
     free(blocks_mean_quant);
 }
 
@@ -1188,6 +1391,89 @@ clock_gettime(CLOCK_REALTIME, &start2);
             curr_row += buffer_set->offset_1;
         }
         curr_plane += buffer_set->offset_0;
+    }
+clock_gettime(CLOCK_REALTIME, &end2);
+op_time += get_elapsed_time(start2, end2);
+}
+
+template <class T>
+inline void laplacianProcessBlockSlicePostPred(
+    size_t x, DSize_3d size, AppBufferSet_3d *buffer_set,
+    double twice_eb, T *x_diffs, T *y_diffs, T *z_diffs,
+    T *result_start_pos, bool isTopSlice, bool isBottomSlice
+){
+clock_gettime(CLOCK_REALTIME, &start2);
+    int size_x = ((x+1)*size.Bsize < size.dim1) ? size.Bsize : size.dim1 - x*size.Bsize;
+    buffer_set->setGhostEle(size, isTopSlice, isBottomSlice);
+    auto idx = [&](size_t x, size_t y, size_t z)
+                 { return x * size.block_dim2 * size.block_dim3 + y * size.block_dim3 + z; };
+    auto idx_y = [&](size_t x, size_t y, size_t z)
+                 { return x * (size.block_dim2+1) * size.block_dim3 + y * size.block_dim3 + z; };
+    auto idx_z = [&](size_t x, size_t y, size_t z)
+                 { return x * size.block_dim2 * (size.block_dim3+1) + y * (size.block_dim3+1) + z; };
+    const int * y_buffer_pos = buffer_set->currSlice_data_pos;
+    T * y_result_pos = result_start_pos;
+    for(size_t y=0; y<size.block_dim2; y++){
+        const int * z_buffer_pos = y_buffer_pos;
+        T * z_result_pos = y_result_pos;
+        for(size_t z=0; z<size.block_dim3; z++){
+            int size_y = ((y+1)*size.Bsize < size.dim2) ? size.Bsize : size.dim2 - y*size.Bsize;
+            int size_z = ((z+1)*size.Bsize < size.dim3) ? size.Bsize : size.dim3 - z*size.Bsize;
+            T * result_pos = z_result_pos;
+            const int * curr_row_pos = z_buffer_pos;
+            const int * prev_row_pos = z_buffer_pos - buffer_set->offset_1;
+            const int * next_row_pos = z_buffer_pos + buffer_set->offset_1;
+            const int * top_row_pos = z_buffer_pos - buffer_set->offset_0;
+            const int * bott_row_pos = z_buffer_pos + buffer_set->offset_0;
+            for(int i=0; i<size_x; i++){
+                for(int j=0; j<size_y; j++){
+                    for(int k=0; k<size_z; k++){
+                        result_pos[k] = (top_row_pos[k] + bott_row_pos[k] + 
+                                        prev_row_pos[k] + next_row_pos[k] + 
+                                        curr_row_pos[k-1] + curr_row_pos[k+1] -
+                                        6 * curr_row_pos[k]) * twice_eb;
+                    }
+                    if(i == 0){
+                        for(int k=0; k<size_z; k++){
+                            result_pos[k] -= x_diffs[idx(x,y,z)];
+                        }
+                    }
+                    else if(i == size_x-1){
+                        for(int k=0; k<size_z; k++){
+                            result_pos[k] += x_diffs[idx(x+1,y,z)];
+                        }
+                    }
+                    if(j == 0){
+                        for(int k=0; k<size_z; k++){
+                            result_pos[k] -= y_diffs[idx_y(x,y,z)];
+                        }
+                    }
+                    else if(j == size_y-1){
+                        for(int k=0; k<size_z; k++){
+                            result_pos[k] += y_diffs[idx_y(x,y+1,z)];
+                        }
+                    }
+                    result_pos[0] -= z_diffs[idx_z(x,y,z)];
+                    result_pos[size_z-1] += z_diffs[idx_z(x,y,z+1)];
+                    curr_row_pos += buffer_set->offset_1;
+                    prev_row_pos += buffer_set->offset_1;
+                    next_row_pos += buffer_set->offset_1;
+                    top_row_pos += buffer_set->offset_1;
+                    bott_row_pos += buffer_set->offset_1;
+                    result_pos += size.offset_1;
+                }
+                curr_row_pos += buffer_set->offset_0 - size_y * buffer_set->offset_1;
+                prev_row_pos += buffer_set->offset_0 - size_y * buffer_set->offset_1;
+                next_row_pos += buffer_set->offset_0 - size_y * buffer_set->offset_1;
+                top_row_pos += buffer_set->offset_0 - size_y * buffer_set->offset_1;
+                bott_row_pos += buffer_set->offset_0 - size_y * buffer_set->offset_1;
+                result_pos += size.offset_0 - size_y * size.offset_1;
+            }
+            z_buffer_pos += size.Bsize;
+            z_result_pos += size.Bsize;
+        }
+        y_buffer_pos += size.Bsize * buffer_set->offset_1;
+        y_result_pos += size.Bsize * size.offset_1;
     }
 clock_gettime(CLOCK_REALTIME, &end2);
 op_time += get_elapsed_time(start2, end2);
@@ -1227,6 +1513,42 @@ inline void laplacianProcessBlocksPrePred(
 }
 
 template <class T>
+inline void laplacianProcessBlocksPostPred(
+    DSize_3d& size,
+    CmpBufferSet *cmpkit_set,
+    T *x_diffs, T *y_diffs, T *z_diffs,
+    AppBufferSet_3d *buffer_set,
+    unsigned char *encode_pos,
+    T *result_pos,
+    double errorBound
+){
+    double twice_eb = errorBound * 2;
+    size_t BlockSliceSize = size.Bsize * size.dim2 * size.dim3;
+    int * tempBlockSlice = nullptr;
+    buffer_set->reset();
+    extract_block_mean(cmpkit_set->compressed+FIXED_RATE_PER_BLOCK_BYTES*size.num_blocks, cmpkit_set->mean_quant_inds, size.num_blocks);
+    laplacian_compute_block_mean_difference(size.block_dim1, size.block_dim2, size.block_dim3, twice_eb, cmpkit_set->mean_quant_inds, x_diffs, y_diffs, z_diffs);
+    for(size_t x=0; x<size.block_dim1; x++){
+        size_t offset = x * BlockSliceSize;
+        if(x == 0){
+            recoverBlockSlice2PostPred(x, size, cmpkit_set, encode_pos, buffer_set->currSlice_data_pos, buffer_set->offset_0, buffer_set->offset_1);
+            recoverBlockSlice2PostPred(x+1, size, cmpkit_set, encode_pos, buffer_set->nextSlice_data_pos, buffer_set->offset_0, buffer_set->offset_1);
+            laplacianProcessBlockSlicePostPred(x, size, buffer_set, twice_eb, x_diffs, y_diffs, z_diffs, result_pos+offset, true, false);
+        }else{
+            rotate_buffer(buffer_set->currSlice_data_pos, buffer_set->prevSlice_data_pos, buffer_set->nextSlice_data_pos, tempBlockSlice);
+            if(x == size.block_dim1 - 1){
+                laplacianProcessBlockSlicePostPred(x, size, buffer_set, twice_eb, x_diffs, y_diffs, z_diffs, result_pos+offset, false, true);
+            }else{
+                recoverBlockSlice2PostPred(x+1, size, cmpkit_set, encode_pos, buffer_set->nextSlice_data_pos, buffer_set->offset_0, buffer_set->offset_1);
+                laplacianProcessBlockSlicePostPred(x, size, buffer_set, twice_eb, x_diffs, y_diffs, z_diffs, result_pos+offset, false, false);
+            }
+        }
+    }
+    printf("recover_time = %.6f\n", rec_time);
+    printf("process_time = %.6f\n", op_time);
+}
+
+template <class T>
 void SZx_laplacian(
     unsigned char *cmpData, size_t dim1, size_t dim2, size_t dim3,
     int blockSideLength, double errorBound,
@@ -1241,6 +1563,9 @@ void SZx_laplacian(
     unsigned int * absPredError = (unsigned int *)malloc(size.max_num_block_elements*sizeof(unsigned int));
     unsigned char * signFlag = (unsigned char *)malloc(size.max_num_block_elements*sizeof(unsigned char));
     T * decData = (T *)malloc(size.nbEle * sizeof(T));
+    T * x_diffs = (T *)malloc((size.block_dim1+1)*(size.block_dim2+1)*(size.block_dim3+1)*sizeof(T));
+    T * y_diffs = (T *)malloc((size.block_dim1+1)*(size.block_dim2+1)*(size.block_dim3+1)*sizeof(T));
+    T * z_diffs = (T *)malloc((size.block_dim1+1)*(size.block_dim2+1)*(size.block_dim3+1)*sizeof(T));
     int * blocks_mean_quant = (int *)malloc(size.num_blocks * sizeof(int));
     AppBufferSet_3d * buffer_set = new AppBufferSet_3d(buffer_dim1, buffer_dim2, buffer_dim3, Buffer_3d);
     CmpBufferSet * cmpkit_set = new CmpBufferSet(cmpData, absPredError, signFlag, blocks_mean_quant);
@@ -1252,9 +1577,7 @@ void SZx_laplacian(
     clock_gettime(CLOCK_REALTIME, &start);
     switch(state){
         case decmpState::postPred:{
-            // printf("Not implemented\n");
-            printf("recover_time = %.6f\n", rec_time);
-            printf("process_time = %.6f\n", op_time);
+            laplacianProcessBlocksPostPred(size, cmpkit_set, x_diffs, y_diffs, z_diffs, buffer_set, encode_pos, laplacian_pos, errorBound);
             break;
         }
         case decmpState::prePred:{
@@ -1285,6 +1608,9 @@ void SZx_laplacian(
     free(absPredError);
     free(signFlag);
     free(decData);
+    free(x_diffs);
+    free(y_diffs);
+    free(z_diffs);
     free(blocks_mean_quant);
 }
 
@@ -1335,6 +1661,102 @@ op_time += get_elapsed_time(start2, end2);
 }
 
 template <class T>
+inline void divergenceProcessBlockSlicePostPred(
+    size_t x, DSize_3d size,
+    std::array<AppBufferSet_3d *, 3>& buffer_set,
+    std::array<T *, 3>& x_diffs,
+    std::array<T *, 3>& y_diffs,
+    std::array<T *, 3>& z_diffs,
+    T *result_start_pos, double errorBound,
+    size_t off_0, size_t off_1,
+    bool isTopSlice, bool isBottomSlice
+){
+clock_gettime(CLOCK_REALTIME, &start2);
+    int size_x = ((x+1)*size.Bsize < size.dim1) ? size.Bsize : size.dim1 - x*size.Bsize;
+    buffer_set[0]->setGhostEle(size, isTopSlice, isBottomSlice);
+    auto idx = [&](size_t x, size_t y, size_t z)
+                 { return x * size.block_dim2 * size.block_dim3 + y * size.block_dim3 + z; };
+    auto idx_y = [&](size_t x, size_t y, size_t z)
+                 { return x * (size.block_dim2+1) * size.block_dim3 + y * size.block_dim3 + z; };
+    auto idx_z = [&](size_t x, size_t y, size_t z)
+                 { return x * size.block_dim2 * (size.block_dim3+1) + y * (size.block_dim3+1) + z; };
+    const int * vx_y_buffer_pos = buffer_set[0]->currSlice_data_pos;
+    const int * vy_y_buffer_pos = buffer_set[1]->currSlice_data_pos;
+    const int * vz_y_buffer_pos = buffer_set[2]->currSlice_data_pos;
+    T * y_result_pos = result_start_pos;
+    for(size_t y=0; y<size.block_dim2; y++){
+        const int * vx_z_buffer_pos = vx_y_buffer_pos;
+        const int * vy_z_buffer_pos = vy_y_buffer_pos;
+        const int * vz_z_buffer_pos = vz_y_buffer_pos;
+        T * z_result_pos = y_result_pos;
+        for(size_t z=0; z<size.block_dim3; z++){
+            int size_y = ((y+1)*size.Bsize < size.dim2) ? size.Bsize : size.dim2 - y*size.Bsize;
+            int size_z = ((z+1)*size.Bsize < size.dim3) ? size.Bsize : size.dim3 - z*size.Bsize;
+            const int * vx_top_row_pos = vx_z_buffer_pos - off_0;
+            const int * vx_bott_row_pos = vx_z_buffer_pos + off_0;
+            const int * vy_prev_row_pos = vy_z_buffer_pos - off_1;
+            const int * vy_next_row_pos = vy_z_buffer_pos + off_1;
+            const int * vz_curr_row_pos = vz_z_buffer_pos;
+            T * result_pos = z_result_pos;
+            for(int i=0; i<size_x; i++){
+                for(int j=0; j<size_y; j++){
+                    for(int k=0; k<size_z; k++){
+                        int dfxx = vx_bott_row_pos[k] - vx_top_row_pos[k];
+                        int dfyy = vy_next_row_pos[k] - vy_prev_row_pos[k];
+                        int dfzz = vz_curr_row_pos[k+1] - vz_curr_row_pos[k-1];
+                        result_pos[k] = (dfxx + dfyy + dfzz) * errorBound;
+                    }
+                    if(i == 0){
+                        for(int k=0; k<size_z; k++){
+                            result_pos[k] += x_diffs[0][idx(x,y,z)];
+                        }
+                    }
+                    else if(i == size_x-1){
+                        for(int k=0; k<size_z; k++){
+                            result_pos[k] += x_diffs[0][idx(x+1,y,z)];
+                        }
+                    }
+                    if(j == 0){
+                        for(int k=0; k<size_z; k++){
+                            result_pos[k] += y_diffs[1][idx_y(x,y,z)];
+                        }
+                    }
+                    else if(j == size_y-1){
+                        for(int k=0; k<size_z; k++){
+                            result_pos[k] += y_diffs[1][idx_y(x,y+1,z)];
+                        }
+                    }
+                    result_pos[0] += z_diffs[2][idx_z(x,y,z)];
+                    result_pos[size_z-1] += z_diffs[2][idx_z(x,y,z+1)];
+                    vz_curr_row_pos += off_1;
+                    vy_prev_row_pos += off_1;
+                    vy_next_row_pos += off_1;
+                    vx_top_row_pos += off_1;
+                    vx_bott_row_pos += off_1;
+                    result_pos += size.offset_1;
+                }
+                vz_curr_row_pos += off_0 - size_y * off_1;
+                vy_prev_row_pos += off_0 - size_y * off_1;
+                vy_next_row_pos += off_0 - size_y * off_1;
+                vx_top_row_pos += off_0 - size_y * off_1;
+                vx_bott_row_pos += off_0 - size_y * off_1;
+                result_pos += size.offset_0 - size_y * size.offset_1;
+            }
+            vx_z_buffer_pos += size.Bsize;
+            vy_z_buffer_pos += size.Bsize;
+            vz_z_buffer_pos += size.Bsize;
+            z_result_pos += size.Bsize;
+        }
+        vx_y_buffer_pos += size.Bsize * off_1;
+        vy_y_buffer_pos += size.Bsize * off_1;
+        vz_y_buffer_pos += size.Bsize * off_1;
+        y_result_pos += size.Bsize * size.offset_1;
+    }
+clock_gettime(CLOCK_REALTIME, &end2);
+op_time += get_elapsed_time(start2, end2);
+}
+
+template <class T>
 inline void divergence3DProcessBlocksPrePred(
     DSize_3d& size,
     std::array<CmpBufferSet *, 3>& cmpkit_set,
@@ -1379,6 +1801,54 @@ inline void divergence3DProcessBlocksPrePred(
 }
 
 template <class T>
+inline void divergence3DProcessBlocksPostPred(
+    DSize_3d& size,
+    std::array<CmpBufferSet *, 3>& cmpkit_set,
+    std::array<AppBufferSet_3d *, 3>& buffer_set,
+    std::array<unsigned char *, 3>& encode_pos,
+    std::array<T *, 3>& x_diffs,
+    std::array<T *, 3>& y_diffs,
+    std::array<T *, 3>& z_diffs,
+    T *result_pos,
+    double errorBound
+){
+    int i;
+    size_t BlockSliceSize = size.Bsize * size.dim2 * size.dim3;
+    for(i=0; i<3; i++){
+        buffer_set[i]->reset();
+        extract_block_mean(cmpkit_set[i]->compressed+FIXED_RATE_PER_BLOCK_BYTES*size.num_blocks, cmpkit_set[i]->mean_quant_inds, size.num_blocks);
+        dxdydz_compute_block_mean_difference(size.block_dim1, size.block_dim2, size.block_dim3, errorBound, cmpkit_set[i]->mean_quant_inds, x_diffs[i], y_diffs[i], z_diffs[i]);
+    }
+    size_t off_0 = buffer_set[0]->offset_0;
+    size_t off_1 = buffer_set[0]->offset_1;
+    int * tempBlockSlice = nullptr;
+    for(size_t x=0; x<size.block_dim1; x++){
+        size_t offset = x * BlockSliceSize;
+        if(x == 0){
+            for(i=0; i<3; i++){
+                recoverBlockSlice2PostPred(x, size, cmpkit_set[i], encode_pos[i], buffer_set[i]->currSlice_data_pos, off_0, off_1);
+                recoverBlockSlice2PostPred(x+1, size, cmpkit_set[i], encode_pos[i], buffer_set[i]->nextSlice_data_pos, off_0, off_1);
+            }
+            divergenceProcessBlockSlicePostPred(x, size, buffer_set, x_diffs, y_diffs, z_diffs, result_pos+offset, errorBound, off_0, off_1, true, false);
+        }else{
+            for(i=0; i<3; i++){
+                rotate_buffer(buffer_set[i]->currSlice_data_pos, buffer_set[i]->prevSlice_data_pos, buffer_set[i]->nextSlice_data_pos, tempBlockSlice);
+            }
+            if(x == size.block_dim1 - 1){
+                divergenceProcessBlockSlicePostPred(x, size, buffer_set, x_diffs, y_diffs, z_diffs, result_pos+offset, errorBound, off_0, off_1, false, true);
+            }else{
+                for(i=0; i<3; i++){
+                    recoverBlockSlice2PostPred(x+1, size, cmpkit_set[i], encode_pos[i], buffer_set[i]->nextSlice_data_pos, off_0, off_1);
+                }
+                divergenceProcessBlockSlicePostPred(x, size, buffer_set, x_diffs, y_diffs, z_diffs, result_pos+offset, errorBound, off_0, off_1, false, false);
+            }
+        }
+    }
+    printf("recover_time = %.6f\n", rec_time);
+    printf("process_time = %.6f\n", op_time);
+}
+
+template <class T>
 void SZx_divergence(
     std::array<unsigned char *, 3> cmpData,
     size_t dim1, size_t dim2, size_t dim3,
@@ -1398,6 +1868,9 @@ void SZx_divergence(
     std::array<unsigned char *, 3> signFlag = {nullptr, nullptr, nullptr};
     std::array<AppBufferSet_3d *, 3> buffer_set = {nullptr, nullptr, nullptr};
     std::array<CmpBufferSet *, 3> cmpkit_set = {nullptr, nullptr, nullptr};
+    std::array<T *, 3> x_diffs = {nullptr, nullptr, nullptr};
+    std::array<T *, 3> y_diffs = {nullptr, nullptr, nullptr};
+    std::array<T *, 3> z_diffs = {nullptr, nullptr, nullptr};
     std::array<unsigned char *, 3> encode_pos = {nullptr, nullptr, nullptr};
     for(int i=0; i<3; i++){
         Buffer_3d[i] = (int *)malloc(buffer_size * 4 * sizeof(int));
@@ -1407,6 +1880,9 @@ void SZx_divergence(
         signFlag[i] = (unsigned char *)malloc(size.max_num_block_elements * sizeof(unsigned char));
         buffer_set[i] = new AppBufferSet_3d(buffer_dim1, buffer_dim2, buffer_dim3, Buffer_3d[i]);
         cmpkit_set[i] = new CmpBufferSet(cmpData[i], absPredError[i], signFlag[i], blocks_mean_quant[i]);
+        x_diffs[i] = (T *)malloc((size.block_dim1+1)*(size.block_dim2+1)*(size.block_dim3+1)*sizeof(T));
+        y_diffs[i] = (T *)malloc((size.block_dim1+1)*(size.block_dim2+1)*(size.block_dim3+1)*sizeof(T));
+        z_diffs[i] = (T *)malloc((size.block_dim1+1)*(size.block_dim2+1)*(size.block_dim3+1)*sizeof(T));
         encode_pos[i] = cmpData[i] + (FIXED_RATE_PER_BLOCK_BYTES + INT_BYTES) * size.num_blocks;
     }
     T * divergence_pos = divergence_result;
@@ -1416,8 +1892,7 @@ void SZx_divergence(
     clock_gettime(CLOCK_REALTIME, &start);
     switch(state){
         case decmpState::postPred:{
-            printf("recover_time = 0.00001\n");
-            printf("process_time = 0.00001\n");
+            divergence3DProcessBlocksPostPred(size, cmpkit_set, buffer_set, encode_pos, x_diffs, y_diffs, z_diffs, divergence_pos, errorBound);
             break;
         }
         case decmpState::prePred:{
@@ -1452,6 +1927,9 @@ void SZx_divergence(
         free(blocks_mean_quant[i]);
         free(signFlag[i]);
         free(decData[i]);
+        free(x_diffs[i]);
+        free(y_diffs[i]);
+        free(z_diffs[i]);
     }
 }
 
@@ -1526,6 +2004,145 @@ op_time += get_elapsed_time(start2, end2);
 }
 
 template <class T>
+inline void curlProcessBlockSlicePostPred(
+    size_t x, DSize_3d size,
+    std::array<AppBufferSet_3d *, 3>& buffer_set,
+    std::array<T *, 3>& x_diffs,
+    std::array<T *, 3>& y_diffs,
+    std::array<T *, 3>& z_diffs,
+    T *curlx_start_pos, T *curly_start_pos, T *curlz_start_pos, 
+    double errorBound, size_t off_0, size_t off_1,
+    bool isTopSlice, bool isBottomSlice
+){
+clock_gettime(CLOCK_REALTIME, &start2);
+    int size_x = ((x+1)*size.Bsize < size.dim1) ? size.Bsize : size.dim1 - x*size.Bsize;
+    for(int h=0; h<3; h++) buffer_set[h]->setGhostEle(size, isTopSlice, isBottomSlice);
+    auto idx = [&](size_t x, size_t y, size_t z)
+                 { return x * size.block_dim2 * size.block_dim3 + y * size.block_dim3 + z; };
+    auto idx_y = [&](size_t x, size_t y, size_t z)
+                 { return x * (size.block_dim2+1) * size.block_dim3 + y * size.block_dim3 + z; };
+    auto idx_z = [&](size_t x, size_t y, size_t z)
+                 { return x * size.block_dim2 * (size.block_dim3+1) + y * (size.block_dim3+1) + z; };
+    const int * vx_y_buffer_pos = buffer_set[0]->currSlice_data_pos;
+    const int * vy_y_buffer_pos = buffer_set[1]->currSlice_data_pos;
+    const int * vz_y_buffer_pos = buffer_set[2]->currSlice_data_pos;
+    T * y_curlx_pos = curlx_start_pos;
+    T * y_curly_pos = curly_start_pos;
+    T * y_curlz_pos = curlz_start_pos;
+    for(size_t y=0; y<size.block_dim2; y++){
+        const int * vx_z_buffer_pos = vx_y_buffer_pos;
+        const int * vy_z_buffer_pos = vy_y_buffer_pos;
+        const int * vz_z_buffer_pos = vz_y_buffer_pos;
+        T * z_curlx_pos = y_curlx_pos;
+        T * z_curly_pos = y_curly_pos;
+        T * z_curlz_pos = y_curlz_pos;
+        for(size_t z=0; z<size.block_dim3; z++){
+            int size_y = ((y+1)*size.Bsize < size.dim2) ? size.Bsize : size.dim2 - y*size.Bsize;
+            int size_z = ((z+1)*size.Bsize < size.dim3) ? size.Bsize : size.dim3 - z*size.Bsize;
+            // vx
+            const int * vx_prev_row_pos = vx_z_buffer_pos - off_1;
+            const int * vx_next_row_pos = vx_z_buffer_pos + off_1;
+            const int * vx_curr_row_pos = vx_z_buffer_pos;
+            // vy
+            const int * vy_top_row_pos = vy_z_buffer_pos - off_0;
+            const int * vy_bott_row_pos = vy_z_buffer_pos + off_0;
+            const int * vy_curr_row_pos = vy_z_buffer_pos;
+            // vx
+            const int * vz_top_row_pos = vz_z_buffer_pos - off_0;
+            const int * vz_bott_row_pos = vz_z_buffer_pos + off_0;
+            const int * vz_prev_row_pos = vz_z_buffer_pos - off_1;
+            const int * vz_next_row_pos = vz_z_buffer_pos + off_1;
+            T * curlx_pos = z_curlx_pos;
+            T * curly_pos = z_curly_pos;
+            T * curlz_pos = z_curlz_pos;
+            for(int i=0; i<size_x; i++){
+                for(int j=0; j<size_y; j++){
+                    for(int k=0; k<size_z; k++){
+                        int xy = vx_next_row_pos[k] - vx_prev_row_pos[k];
+                        int xz = vx_curr_row_pos[k+1] - vx_curr_row_pos[k-1];
+                        int yx = vy_bott_row_pos[k] - vy_top_row_pos[k];
+                        int yz = vy_curr_row_pos[k+1] - vy_curr_row_pos[k-1];
+                        int zx = vz_bott_row_pos[k] - vz_top_row_pos[k];
+                        int zy = vz_next_row_pos[k] - vz_prev_row_pos[k];
+                        curlx_pos[k] = (zy - yz) * errorBound;
+                        curly_pos[k] = (xz - zx) * errorBound;
+                        curlz_pos[k] = (yx - xy) * errorBound;
+                    }
+                    if(i == 0){
+                        for(int k=0; k<size_z; k++){
+                            curly_pos[k] -= x_diffs[2][idx(x,y,z)];
+                            curlz_pos[k] += x_diffs[1][idx(x,y,z)];
+                        }
+                    }
+                    else if(i == size_x-1){
+                        for(int k=0; k<size_z; k++){
+                            curly_pos[k] -= x_diffs[2][idx(x+1,y,z)];
+                            curlz_pos[k] += x_diffs[1][idx(x+1,y,z)];
+                        }
+                    }
+                    if(j == 0){
+                        for(int k=0; k<size_z; k++){
+                            curlx_pos[k] += y_diffs[2][idx_y(x,y,z)];
+                            curlz_pos[k] -= y_diffs[0][idx_y(x,y,z)];
+                        }
+                    }
+                    else if(j == size_y-1){
+                        for(int k=0; k<size_z; k++){
+                            curlx_pos[k] += y_diffs[2][idx_y(x,y+1,z)];
+                            curlz_pos[k] -= y_diffs[0][idx_y(x,y+1,z)];
+                        }
+                    }
+                    curlx_pos[0] -= z_diffs[1][idx_z(x,y,z)];
+                    curlx_pos[size_z-1] -= z_diffs[1][idx_z(x,y,z+1)];
+                    curly_pos[0] += z_diffs[0][idx_z(x,y,z)];
+                    curly_pos[size_z-1] += z_diffs[0][idx_z(x,y,z+1)];
+                    vx_prev_row_pos += off_1;
+                    vx_next_row_pos += off_1;
+                    vx_curr_row_pos += off_1;
+                    vy_top_row_pos += off_1;
+                    vy_bott_row_pos += off_1;
+                    vy_curr_row_pos += off_1;
+                    vz_top_row_pos += off_1;
+                    vz_bott_row_pos += off_1;
+                    vz_prev_row_pos += off_1;
+                    vz_next_row_pos += off_1;
+                    curlx_pos += size.offset_1;
+                    curly_pos += size.offset_1;
+                    curlz_pos += size.offset_1;
+                }
+                vx_prev_row_pos += off_0 - size_y * off_1;
+                vx_next_row_pos += off_0 - size_y * off_1;
+                vx_curr_row_pos += off_0 - size_y * off_1;
+                vy_top_row_pos += off_0 - size_y * off_1;
+                vy_bott_row_pos += off_0 - size_y * off_1;
+                vy_curr_row_pos += off_0 - size_y * off_1;
+                vz_top_row_pos += off_0 - size_y * off_1;
+                vz_bott_row_pos += off_0 - size_y * off_1;
+                vz_prev_row_pos += off_0 - size_y * off_1;
+                vz_next_row_pos += off_0 - size_y * off_1;
+                curlx_pos += size.offset_0 - size_y * size.offset_1;
+                curly_pos += size.offset_0 - size_y * size.offset_1;
+                curlz_pos += size.offset_0 - size_y * size.offset_1;
+            }
+            vx_z_buffer_pos += size.Bsize;
+            vy_z_buffer_pos += size.Bsize;
+            vz_z_buffer_pos += size.Bsize;
+            z_curlx_pos += size.Bsize;
+            z_curly_pos += size.Bsize;
+            z_curlz_pos += size.Bsize;
+        }
+        vx_y_buffer_pos += size.Bsize * off_1;
+        vy_y_buffer_pos += size.Bsize * off_1;
+        vz_y_buffer_pos += size.Bsize * off_1;
+        y_curlx_pos += size.Bsize * size.offset_1;
+        y_curly_pos += size.Bsize * size.offset_1;
+        y_curlz_pos += size.Bsize * size.offset_1;
+    }
+clock_gettime(CLOCK_REALTIME, &end2);
+op_time += get_elapsed_time(start2, end2);
+}
+
+template <class T>
 inline void curl3DProcessBlocksPrePred(
     DSize_3d& size,
     std::array<CmpBufferSet *, 3>& cmpkit_set,
@@ -1570,6 +2187,54 @@ inline void curl3DProcessBlocksPrePred(
 }
 
 template <class T>
+inline void curl3DProcessBlocksPostPred(
+    DSize_3d& size,
+    std::array<CmpBufferSet *, 3>& cmpkit_set,
+    std::array<AppBufferSet_3d *, 3>& buffer_set,
+    std::array<unsigned char *, 3>& encode_pos,
+    std::array<T *, 3>& x_diffs,
+    std::array<T *, 3>& y_diffs,
+    std::array<T *, 3>& z_diffs,
+    T *curlx_pos, T *curly_pos, T *curlz_pos,
+    double errorBound
+){
+    int i;
+    size_t BlockSliceSize = size.Bsize * size.dim2 * size.dim3;
+    for(i=0; i<3; i++){
+        buffer_set[i]->reset();
+        extract_block_mean(cmpkit_set[i]->compressed+FIXED_RATE_PER_BLOCK_BYTES*size.num_blocks, cmpkit_set[i]->mean_quant_inds, size.num_blocks);
+        dxdydz_compute_block_mean_difference(size.block_dim1, size.block_dim2, size.block_dim3, errorBound, cmpkit_set[i]->mean_quant_inds, x_diffs[i], y_diffs[i], z_diffs[i]);
+    }
+    size_t off_0 = buffer_set[0]->offset_0;
+    size_t off_1 = buffer_set[0]->offset_1;
+    int * tempBlockSlice = nullptr;
+    for(size_t x=0; x<size.block_dim1; x++){
+        size_t offset = x * BlockSliceSize;
+        if(x == 0){
+            for(i=0; i<3; i++){
+                recoverBlockSlice2PostPred(x, size, cmpkit_set[i], encode_pos[i], buffer_set[i]->currSlice_data_pos, off_0, off_1);
+                recoverBlockSlice2PostPred(x+1, size, cmpkit_set[i], encode_pos[i], buffer_set[i]->nextSlice_data_pos, off_0, off_1);
+            }
+            curlProcessBlockSlicePostPred(x, size, buffer_set, x_diffs, y_diffs, z_diffs, curlx_pos+offset, curly_pos+offset, curlz_pos+offset, errorBound, off_0, off_1, true, false);
+        }else{
+            for(i=0; i<3; i++){
+                rotate_buffer(buffer_set[i]->currSlice_data_pos, buffer_set[i]->prevSlice_data_pos, buffer_set[i]->nextSlice_data_pos, tempBlockSlice);
+            }
+            if(x == size.block_dim1 - 1){
+                curlProcessBlockSlicePostPred(x, size, buffer_set, x_diffs, y_diffs, z_diffs, curlx_pos+offset, curly_pos+offset, curlz_pos+offset, errorBound, off_0, off_1, false, true);
+            }else{
+                for(i=0; i<3; i++){
+                    recoverBlockSlice2PostPred(x+1, size, cmpkit_set[i], encode_pos[i], buffer_set[i]->nextSlice_data_pos, off_0, off_1);
+                }
+                curlProcessBlockSlicePostPred(x, size, buffer_set, x_diffs, y_diffs, z_diffs, curlx_pos+offset, curly_pos+offset, curlz_pos+offset, errorBound, off_0, off_1, false, false);
+            }
+        }
+    }
+    printf("recover_time = %.6f\n", rec_time);
+    printf("process_time = %.6f\n", op_time);
+}
+
+template <class T>
 void SZx_curl(
     std::array<unsigned char *, 3> cmpData,
     size_t dim1, size_t dim2, size_t dim3,
@@ -1590,6 +2255,9 @@ void SZx_curl(
     std::array<unsigned char *, 3> signFlag = {nullptr, nullptr, nullptr};
     std::array<AppBufferSet_3d *, 3> buffer_set = {nullptr, nullptr, nullptr};
     std::array<CmpBufferSet *, 3> cmpkit_set = {nullptr, nullptr, nullptr};
+    std::array<T *, 3> x_diffs = {nullptr, nullptr, nullptr};
+    std::array<T *, 3> y_diffs = {nullptr, nullptr, nullptr};
+    std::array<T *, 3> z_diffs = {nullptr, nullptr, nullptr};
     std::array<unsigned char *, 3> encode_pos = {nullptr, nullptr, nullptr};
     for(int i=0; i<3; i++){
         Buffer_3d[i] = (int *)malloc(buffer_size * 4 * sizeof(int));
@@ -1599,6 +2267,9 @@ void SZx_curl(
         signFlag[i] = (unsigned char *)malloc(size.max_num_block_elements * sizeof(unsigned char));
         buffer_set[i] = new AppBufferSet_3d(buffer_dim1, buffer_dim2, buffer_dim3, Buffer_3d[i]);
         cmpkit_set[i] = new CmpBufferSet(cmpData[i], absPredError[i], signFlag[i], blocks_mean_quant[i]);
+        x_diffs[i] = (T *)malloc((size.block_dim1+1)*(size.block_dim2+1)*(size.block_dim3+1)*sizeof(T));
+        y_diffs[i] = (T *)malloc((size.block_dim1+1)*(size.block_dim2+1)*(size.block_dim3+1)*sizeof(T));
+        z_diffs[i] = (T *)malloc((size.block_dim1+1)*(size.block_dim2+1)*(size.block_dim3+1)*sizeof(T));
         encode_pos[i] = cmpData[i] + (FIXED_RATE_PER_BLOCK_BYTES + INT_BYTES) * size.num_blocks;
     }
     T * curlx_pos = curlx_result;
@@ -1610,8 +2281,7 @@ void SZx_curl(
     clock_gettime(CLOCK_REALTIME, &start);
     switch(state){
         case decmpState::postPred:{
-            printf("recover_time = 0.00001\n");
-            printf("process_time = 0.00001\n");
+            curl3DProcessBlocksPostPred(size, cmpkit_set, buffer_set, encode_pos, x_diffs, y_diffs, z_diffs, curlx_pos, curly_pos, curlz_pos, errorBound);
             break;
         }
         case decmpState::prePred:{
@@ -1646,6 +2316,9 @@ void SZx_curl(
         free(blocks_mean_quant[i]);
         free(signFlag[i]);
         free(decData[i]);
+        free(x_diffs[i]);
+        free(y_diffs[i]);
+        free(z_diffs[i]);
     }
 }
 

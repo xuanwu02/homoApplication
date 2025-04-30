@@ -27,7 +27,6 @@ int main(int argc, char **argv)
     int i;
 
     auto data_files = getFiles(data_dir);
-    // std::cout << data_files[0] << " " << data_files[1] << " " << data_files[2] << std::endl;
     assert(data_files.size() == dim);
     size_t nbEle;
     std::vector<std::vector<T>> oriData_vec(dim);

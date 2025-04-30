@@ -9,7 +9,14 @@
 
 #define INT_BITS 32
 #define INT_BYTES 4
+#define FLOAT_BYTES 4
 #define FIXED_RATE_PER_BLOCK_BYTES 1
+
+enum class appType
+{
+    STAT,
+    DIFF
+};
 
 enum class decmpState
 {
@@ -131,7 +138,6 @@ struct DSize_3d
 // {
 //     return static_cast<int>(std::floor((data + errorBound) / (2 * errorBound)));
 // }
-
 template <class T>
 inline int SZ_quantize(const T& data, const double& inver_eb)
 {
