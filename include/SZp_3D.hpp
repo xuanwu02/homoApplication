@@ -103,7 +103,6 @@ void SZp_decompress(
     T * x_data_pos = decData;
     unsigned char * cmpData_pos = cmpData + size.num_blocks;
     int block_ind = 0;
-// clock_gettime(CLOCK_REALTIME, &start2);
     for(size_t x=0; x<size.block_dim1; x++){
         T * y_data_pos = x_data_pos;
         int * buffer_start_pos = pred_buffer + offset_0 + offset_1 + 1;
@@ -131,8 +130,6 @@ void SZp_decompress(
                     for(int j=0; j<size_y; j++){
                         int * curr_buffer_pos = block_buffer_pos;
                         for(int k=0; k<size_z; k++){
-                            // if(signFlag[index]) curr_buffer_pos[0] = 0 - absPredError[index];
-                            // else curr_buffer_pos[0] = absPredError[index];
                             int s = -(int)signFlag[index];
                             curr_buffer_pos[0] = (absPredError[index] ^ s) - s;
                             index++;
@@ -156,8 +153,6 @@ void SZp_decompress(
         memcpy(pred_buffer, pred_buffer+size.Bsize*offset_0, offset_0*sizeof(int));
         x_data_pos += size.Bsize * size.offset_0;
     }
-// clock_gettime(CLOCK_REALTIME, &end2);
-// rec_time = get_elapsed_time(start2, end2);
     free(pred_buffer);
     free(absPredError);
     free(signFlag);
@@ -178,7 +173,6 @@ void SZp_decompress_postPred(
     int * x_data_pos = decData;
     unsigned char * cmpData_pos = cmpData + size.num_blocks;
     int block_ind = 0;
-// clock_gettime(CLOCK_REALTIME, &start2);
     for(size_t x=0; x<size.block_dim1; x++){
         int * y_data_pos = x_data_pos;
         int * buffer_start_pos = pred_buffer + offset_0 + offset_1 + 1;
@@ -206,8 +200,6 @@ void SZp_decompress_postPred(
                     for(int j=0; j<size_y; j++){
                         int * curr_buffer_pos = block_buffer_pos;
                         for(int k=0; k<size_z; k++){
-                            // if(signFlag[index]) curr_buffer_pos[k] = 0 - absPredError[index];
-                            // else curr_buffer_pos[k] = absPredError[index];
                             int s = -(int)signFlag[index];
                             curr_buffer_pos[k] = (absPredError[index] ^ s) - s;
                             index++;
@@ -227,8 +219,6 @@ void SZp_decompress_postPred(
         memcpy(pred_buffer, pred_buffer+size.Bsize*offset_0, offset_0*sizeof(int));
         x_data_pos += size.Bsize * size.offset_0;
     }
-// clock_gettime(CLOCK_REALTIME, &end2);
-// rec_time = get_elapsed_time(start2, end2);
     free(pred_buffer);
     free(absPredError);
     free(signFlag);
@@ -249,7 +239,6 @@ void SZp_decompress_prePred(
     int * x_data_pos = decData;
     unsigned char * cmpData_pos = cmpData + size.num_blocks;
     int block_ind = 0;
-// clock_gettime(CLOCK_REALTIME, &start2);
     for(size_t x=0; x<size.block_dim1; x++){
         int * y_data_pos = x_data_pos;
         int * buffer_start_pos = pred_buffer + offset_0 + offset_1 + 1;
@@ -277,8 +266,6 @@ void SZp_decompress_prePred(
                     for(int j=0; j<size_y; j++){
                         int * curr_buffer_pos = block_buffer_pos;
                         for(int k=0; k<size_z; k++){
-                            // if(signFlag[index]) curr_buffer_pos[0] = 0 - absPredError[index];
-                            // else curr_buffer_pos[0] = absPredError[index];
                             int s = -(int)signFlag[index];
                             curr_buffer_pos[0] = (absPredError[index] ^ s) - s;
                             index++;
@@ -302,8 +289,6 @@ void SZp_decompress_prePred(
         memcpy(pred_buffer, pred_buffer+size.Bsize*offset_0, offset_0*sizeof(int));
         x_data_pos += size.Bsize * size.offset_0;
     }
-// clock_gettime(CLOCK_REALTIME, &end2);
-// rec_time = get_elapsed_time(start2, end2);
     free(pred_buffer);
     free(absPredError);
     free(signFlag);
@@ -343,8 +328,6 @@ double SZp_mean_postPred(
                     for(int i=0; i<size_x; i++){
                         for(int j=0; j<size_y; j++){
                             for(int k=0; k<size_z; k++){
-                                // if(signFlag[index]) curr = 0 - absPredError[index];
-                                // else curr = absPredError[index];
                                 int s = -(int)signFlag[index];
                                 curr = (absPredError[index] ^ s) - s;
                                 index++;
@@ -403,8 +386,6 @@ double SZp_mean_prePred(
                     for(int j=0; j<size_y; j++){
                         int * curr_buffer_pos = block_buffer_pos;
                         for(int k=0; k<size_z; k++){
-                            // if(signFlag[index]) curr_buffer_pos[0] = 0 - absPredError[index];
-                            // else curr_buffer_pos[0] = absPredError[index];
                             int s = -(int)signFlag[index];
                             curr_buffer_pos[0] = (absPredError[index] ^ s) - s;
                             index++;
@@ -513,8 +494,6 @@ double SZp_variance_postPred(
                         for(int j=0; j<size_y; j++){
                             int * curr_buffer_pos = block_buffer_pos;
                             for(int k=0; k<size_z; k++){
-                                // if(signFlag[index]) curr_buffer_pos[k] = 0 - absPredError[index];
-                                // else curr_buffer_pos[k] = absPredError[index];
                                 int s = -(int)signFlag[index];
                                 curr_buffer_pos[k] = (absPredError[index] ^ s) - s;
                                 index++;
@@ -566,7 +545,6 @@ double SZp_variance_postPred(
     free(signFlag);
     free(colSum);
     free(prefix);
-    // double var = (2 * errorBound) * (2 * errorBound) * ((double)squared_quant_sum - (double)quant_sum * quant_sum / size.nbEle) / (size.nbEle - 1);
     double var = (2 * errorBound) * sqrt(((double)squared_quant_sum - (double)quant_sum * quant_sum / size.nbEle) / (size.nbEle - 1));
     return var;
 }
@@ -610,8 +588,6 @@ double SZp_variance_prePred(
                     for(int j=0; j<size_y; j++){
                         int * curr_buffer_pos = block_buffer_pos;
                         for(int k=0; k<size_z; k++){
-                            // if(signFlag[index]) curr_buffer_pos[0] = 0 - absPredError[index];
-                            // else curr_buffer_pos[0] = absPredError[index];
                             int s = -(int)signFlag[index];
                             curr_buffer_pos[0] = (absPredError[index] ^ s) - s;
                             index++;
@@ -635,7 +611,6 @@ double SZp_variance_prePred(
     free(quant_buffer);
     free(absPredError);
     free(signFlag);
-    // double var = (2 * errorBound) * (2 * errorBound) * ((double)squared_quant_sum - (double)quant_sum * quant_sum / size.nbEle) / (size.nbEle - 1);
     double var = (2 * errorBound) * sqrt(((double)squared_quant_sum - (double)quant_sum * quant_sum / size.nbEle) / (size.nbEle - 1));
     return var;
 }
@@ -653,7 +628,6 @@ double SZp_variance_decOp(
     double var = 0;
     for(size_t i=0; i<nbEle; i++) var += (decData[i] - mean) * (decData[i] - mean);
     var /= (nbEle - 1);
-    // return var;
     return sqrt(var);
 }
 
@@ -714,8 +688,6 @@ clock_gettime(CLOCK_REALTIME, &start2);
                     for(int j=0; j<size_y; j++){
                         int * curr_buffer_pos = block_buffer_pos;
                         for(int k=0; k<size_z; k++){
-                            // if(cmpkit_set->signFlag[index]) curr_buffer_pos[k] = 0 - cmpkit_set->absPredError[index];
-                            // else curr_buffer_pos[k] = cmpkit_set->absPredError[index];
                             int s = -(int)cmpkit_set->signFlag[index];
                             curr_buffer_pos[k] = (cmpkit_set->absPredError[index] ^ s) - s;
                             index++;
@@ -772,8 +744,6 @@ clock_gettime(CLOCK_REALTIME, &start2);
             for(int i=0; i<size_x; i++){
                 for(int j=0; j<size_y; j++){
                     for(int k=0; k<size_z; k++){
-                        // if(cmpkit_set->signFlag[index]) curr_buffer_pos[0] = 0 - cmpkit_set->absPredError[index];
-                        // else curr_buffer_pos[0] = cmpkit_set->absPredError[index];
                         int s = -(int)cmpkit_set->signFlag[index];
                         curr_buffer_pos[0] = (cmpkit_set->absPredError[index] ^ s) - s;
                         index++;
@@ -1247,20 +1217,19 @@ void SZp_laplacian(
     elapsed_time = get_elapsed_time(start, end);
     printf("elapsed_time = %.6f\n", elapsed_time);
 
-    // for(size_t i=0; i<std::max(size.dim2, size.dim3); i++) {
-    //     if(i<size.dim2) delete[] dy_0[i];
-    //     if(i<size.dim2) delete[] dy_1[i];
-    //     if(i<size.dim3) delete[] dz_0[i];
-    //     if(i<size.dim3) delete[] dz_1[i];
-    // }
-    // delete[] dx_0;
-    // delete[] dx_1;
-    // delete[] dy_0;
-    // delete[] dy_1;
-    // delete[] dx_0;
-    // delete[] dx_1;
-    // delete lapla_buffer;
-
+    for(size_t i=0; i<std::max(size.dim2, size.dim3); i++) {
+        if(i<size.dim2) delete[] dy_0[i];
+        if(i<size.dim2) delete[] dy_1[i];
+        if(i<size.dim3) delete[] dz_0[i];
+        if(i<size.dim3) delete[] dz_1[i];
+    }
+    delete[] dx_0;
+    delete[] dx_1;
+    delete[] dy_0;
+    delete[] dy_1;
+    delete[] dz_0;
+    delete[] dz_1;
+    delete lapla_buffer;
     delete buffer_set;
     delete cmpkit_set;
     free(dz_pref_0);
@@ -1874,10 +1843,10 @@ void SZp_curl(
         free(absPredError[i]);
         free(signFlag[i]);
         free(decData[i]);
-        // for(size_t j=0; j<std::max(size.dim2, size.dim3); j++) {
-        //     if(j<size.dim2) delete[] dy_buffer[j];
-        //     if(j<size.dim3) delete[] dz_buffer[j];
-        // }
+        for(size_t j=0; j<std::max(size.dim2, size.dim3); j++) {
+            if(j<size.dim2) delete[] dy_buffer[i][j];
+            if(j<size.dim3) delete[] dz_buffer[i][j];
+        }
         delete[] dy_buffer[i];
         delete[] dz_buffer[i];
         delete[] dx_buffer[i];

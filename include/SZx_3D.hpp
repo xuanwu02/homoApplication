@@ -91,7 +91,6 @@ void SZx_decompress(
     unsigned char * encode_pos = cmpData + (FIXED_RATE_PER_BLOCK_BYTES + INT_BYTES) * size.num_blocks;
     T * x_data_pos = decData;
     int block_ind = 0;
-// clock_gettime(CLOCK_REALTIME, &start2);
     extract_block_mean(cmpData+size.num_blocks, blocks_mean_quant, size.num_blocks);
     for(size_t x=0; x<size.block_dim1; x++){
         T * y_data_pos = x_data_pos;
@@ -116,8 +115,6 @@ void SZx_decompress(
                     for(int i=0; i<size_x; i++){
                         for(int j=0; j<size_y; j++){
                             for(int k=0; k<size_z; k++){
-                                // if(signFlag[index]) curr = 0 - absPredError[index];
-                                // else curr = absPredError[index];
                                 int s = -(int)signFlag[index];
                                 curr = (absPredError[index] ^ s) - s;
                                 index++;
@@ -144,8 +141,6 @@ void SZx_decompress(
         }
         x_data_pos += size.Bsize * size.offset_0;
     }
-// clock_gettime(CLOCK_REALTIME, &end2);
-// rec_time = get_elapsed_time(start2, end2);
     free(absPredError);
     free(signFlag);
     free(blocks_mean_quant);
@@ -177,7 +172,6 @@ void SZx_decompress_postPred(
     unsigned char * encode_pos = cmpData + (FIXED_RATE_PER_BLOCK_BYTES + INT_BYTES) * size.num_blocks;
     int * x_data_pos = decData;
     int block_ind = 0;
-// clock_gettime(CLOCK_REALTIME, &start2);
     extract_block_mean(cmpData+size.num_blocks, blocks_mean_quant, size.num_blocks);
     for(size_t x=0; x<size.block_dim1; x++){
         int * y_data_pos = x_data_pos;
@@ -201,8 +195,6 @@ void SZx_decompress_postPred(
                     for(int i=0; i<size_x; i++){
                         for(int j=0; j<size_y; j++){
                             for(int k=0; k<size_z; k++){
-                                // if(signFlag[index]) curr = 0 - absPredError[index];
-                                // else curr = absPredError[index];
                                 int s = -(int)signFlag[index];
                                 curr = (absPredError[index] ^ s) - s;
                                 index++;
@@ -229,8 +221,6 @@ void SZx_decompress_postPred(
         }
         x_data_pos += size.Bsize * size.offset_0;
     }
-// clock_gettime(CLOCK_REALTIME, &end2);
-// rec_time = get_elapsed_time(start2, end2);
     free(absPredError);
     free(signFlag);
     free(blocks_mean_quant);
@@ -248,7 +238,6 @@ void SZx_decompress_prePred(
     unsigned char * encode_pos = cmpData + (FIXED_RATE_PER_BLOCK_BYTES + INT_BYTES) * size.num_blocks;
     int * x_data_pos = decData;
     int block_ind = 0;
-// clock_gettime(CLOCK_REALTIME, &start2);
     extract_block_mean(cmpData+size.num_blocks, blocks_mean_quant, size.num_blocks);
     for(size_t x=0; x<size.block_dim1; x++){
         int * y_data_pos = x_data_pos;
@@ -273,8 +262,6 @@ void SZx_decompress_prePred(
                     for(int i=0; i<size_x; i++){
                         for(int j=0; j<size_y; j++){
                             for(int k=0; k<size_z; k++){
-                                // if(signFlag[index]) curr = 0 - absPredError[index];
-                                // else curr = absPredError[index];
                                 int s = -(int)signFlag[index];
                                 curr = (absPredError[index] ^ s) - s;
                                 index++;
@@ -301,8 +288,6 @@ void SZx_decompress_prePred(
         }
         x_data_pos += size.Bsize * size.offset_0;
     }
-// clock_gettime(CLOCK_REALTIME, &end2);
-// rec_time = get_elapsed_time(start2, end2);
     free(absPredError);
     free(signFlag);
     free(blocks_mean_quant);
@@ -337,8 +322,6 @@ double SZx_mean_prePred(
                     unsigned int savedbitsbytelength = Jiajun_extract_fixed_length_bits(encode_pos, block_size, absPredError, fixed_rate);
                     encode_pos += savedbitsbytelength;
                     for(int i=0; i<block_size; i++){
-                        // if(signFlag[i]) curr = 0 - absPredError[i];
-                        // else curr = absPredError[i];
                         int s = -(int)signFlag[i];
                         curr = (absPredError[i] ^ s) - s;
                         curr += mean_quant;
@@ -386,8 +369,6 @@ double SZx_mean_postPred(
                     unsigned int savedbitsbytelength = Jiajun_extract_fixed_length_bits(encode_pos, block_size, absPredError, fixed_rate);
                     encode_pos += savedbitsbytelength;
                     for(int i=0; i<block_size; i++){
-                        // if(signFlag[i]) curr = 0 - absPredError[i];
-                        // else curr = absPredError[i];
                         int s = -(int)signFlag[i];
                         curr = (absPredError[i] ^ s) - s;
                         quant_sum += curr;
@@ -865,7 +846,6 @@ double SZx_variance_postPred(
     free(absPredError);
     free(signFlag);
     free(blocks_mean_quant);
-    // double var = (2 * errorBound) * (2 * errorBound) * (double)squared_sum / (size.nbEle - 1);
     double var = (2 * errorBound) * sqrt((double)squared_sum / (size.nbEle - 1));
     return var;
 }
@@ -925,7 +905,6 @@ double SZx_variance_prePred(
     free(absPredError);
     free(signFlag);
     free(blocks_mean_quant);
-    // double var = ((double)squared_quant_sum - (double)quant_sum * quant_sum / size.nbEle) / (size.nbEle - 1) * (2 * errorBound) * (2 * errorBound);
     double var = (2 * errorBound) * sqrt(((double)squared_quant_sum - (double)quant_sum * quant_sum / size.nbEle) / (size.nbEle - 1));
     return var;
 }
@@ -1006,8 +985,6 @@ clock_gettime(CLOCK_REALTIME, &start2);
                 for(int i=0; i<size_x; i++){
                     for(int j=0; j<size_y; j++){
                         for(int k=0; k<size_z; k++){
-                            // if(cmpkit_set->signFlag[index]) curr = 0 - cmpkit_set->absPredError[index];
-                            // else curr = cmpkit_set->absPredError[index];
                             int s = -(int)cmpkit_set->signFlag[index];
                             curr = (cmpkit_set->absPredError[index] ^ s) - s;
                             index++;
@@ -1062,8 +1039,6 @@ clock_gettime(CLOCK_REALTIME, &start2);
                 for(int i=0; i<size_x; i++){
                     for(int j=0; j<size_y; j++){
                         for(int k=0; k<size_z; k++){
-                            // if(cmpkit_set->signFlag[index]) curr_buffer_pos[k] = 0 - cmpkit_set->absPredError[index];
-                            // else curr_buffer_pos[k] = cmpkit_set->absPredError[index];
                             int s = -(int)cmpkit_set->signFlag[index];
                             curr_buffer_pos[k] = (cmpkit_set->absPredError[index] ^ s) - s;
                             index++;

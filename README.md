@@ -4,7 +4,7 @@ cmake .. <br>
 make <br>
 
 # Example data dimensions
-ocean_uv.f32 (2D): 3600 x 2400 <br>
+ocean_uv.f32 (2D): 2400 x 3600 <br>
 hurricane_uv.f32 (3D): 100 x 500 x 500 <br>
 
 # Run tests: Mean
