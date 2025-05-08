@@ -453,8 +453,7 @@ double SZp_mean(
     return mean;
 }
 
-// TODO
-double SZp_variance_postPred(
+double SZp_stddev_postPred(
     unsigned char *cmpData, size_t dim1, size_t dim2, size_t dim3,
     int blockSideLength, double errorBound
 ){
@@ -545,11 +544,11 @@ double SZp_variance_postPred(
     free(signFlag);
     free(colSum);
     free(prefix);
-    double var = (2 * errorBound) * sqrt(((double)squared_quant_sum - (double)quant_sum * quant_sum / size.nbEle) / (size.nbEle - 1));
-    return var;
+    double std = (2 * errorBound) * sqrt(((double)squared_quant_sum - (double)quant_sum * quant_sum / size.nbEle) / (size.nbEle - 1));
+    return std;
 }
 
-double SZp_variance_prePred(
+double SZp_stddev_prePred(
     unsigned char *cmpData, size_t dim1, size_t dim2, size_t dim3,
     int blockSideLength, double errorBound
 ){
@@ -611,12 +610,12 @@ double SZp_variance_prePred(
     free(quant_buffer);
     free(absPredError);
     free(signFlag);
-    double var = (2 * errorBound) * sqrt(((double)squared_quant_sum - (double)quant_sum * quant_sum / size.nbEle) / (size.nbEle - 1));
-    return var;
+    double std = (2 * errorBound) * sqrt(((double)squared_quant_sum - (double)quant_sum * quant_sum / size.nbEle) / (size.nbEle - 1));
+    return std;
 }
 
 template <class T>
-double SZp_variance_decOp(
+double SZp_stddev_decOp(
     unsigned char *cmpData, size_t dim1, size_t dim2, size_t dim3,
     T *decData, int blockSideLength, double errorBound
 ){
@@ -625,33 +624,33 @@ double SZp_variance_decOp(
     double mean = 0;
     for(size_t i=0; i<nbEle; i++) mean += decData[i];
     mean /= nbEle;
-    double var = 0;
-    for(size_t i=0; i<nbEle; i++) var += (decData[i] - mean) * (decData[i] - mean);
-    var /= (nbEle - 1);
-    return sqrt(var);
+    double std = 0;
+    for(size_t i=0; i<nbEle; i++) std += (decData[i] - mean) * (decData[i] - mean);
+    std /= (nbEle - 1);
+    return sqrt(std);
 }
 
 template <class T>
-double SZp_variance(
+double SZp_stddev(
     unsigned char *cmpData, size_t dim1, size_t dim2, size_t dim3, T *decData,
     int blockSideLength, double errorBound, decmpState state
 ){
-    double var;
+    double std;
 
     struct timespec start, end;
     double elapsed_time;
     clock_gettime(CLOCK_REALTIME, &start);
     switch(state){
         case decmpState::full:{
-            var = SZp_variance_decOp(cmpData, dim1, dim2, dim3, decData, blockSideLength, errorBound);            
+            std = SZp_stddev_decOp(cmpData, dim1, dim2, dim3, decData, blockSideLength, errorBound);            
             break;
         }
         case decmpState::prePred:{
-            var = SZp_variance_prePred(cmpData, dim1, dim2, dim3, blockSideLength, errorBound);            
+            std = SZp_stddev_prePred(cmpData, dim1, dim2, dim3, blockSideLength, errorBound);            
             break;
         }
         case decmpState::postPred:{
-            var = SZp_variance_postPred(cmpData, dim1, dim2, dim3, blockSideLength, errorBound);            
+            std = SZp_stddev_postPred(cmpData, dim1, dim2, dim3, blockSideLength, errorBound);            
             break;
         }
     }
@@ -659,7 +658,7 @@ double SZp_variance(
     elapsed_time = get_elapsed_time(start, end);
     printf("elapsed_time = %.6f\n", elapsed_time);
 
-    return var;
+    return std;
 }
 
 inline void recoverBlockSlice2PostPred(

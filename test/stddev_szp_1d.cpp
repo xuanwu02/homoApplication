@@ -5,7 +5,7 @@
 #include <cmath>
 #include <ctime>
 #include <cassert>
-#include "SZx_2D.hpp"
+#include "SZp_1D.hpp"
 #include "utils.hpp"
 
 int main(int argc, char **argv)
@@ -19,7 +19,6 @@ int main(int argc, char **argv)
     int blockSideLength = atoi(argv[argv_id++]);
     double eb = atof(argv[argv_id++]);
     int stateType = atoi(argv[argv_id++]);
-    if(dim == 2) dim3 = 1;
 
     using T = float;
 
@@ -33,29 +32,21 @@ int main(int argc, char **argv)
     T * decData = (T *)malloc(nbEle * sizeof(T));
 
     size_t cmpSize = 0;
-    SZx_compress(oriData, cmpData, dim1, dim2, blockSideLength, eb, cmpSize);
+    SZp_compress(oriData, cmpData, dim1, dim2, dim3, blockSideLength, eb, cmpSize);
     printf("cr = %.2f\n", 1.0 * nbEle * sizeof(T) / cmpSize);
 
-    double var = SZx_variance(cmpData, dim1, dim2, decData, blockSideLength, eb, intToDecmpState(stateType));
-    printf("variance = %.6f\n", var);
+    double std = SZp_stddev(cmpData, dim1, dim2, dim3, decData, blockSideLength, eb, intToDecmpState(stateType));
+    printf("stddev = %.6f\n", std);
 
-    // double act_mean = 0;
-    // for(size_t i=0; i<nbEle; i++) act_mean += oriData[i];
-    // act_mean /= nbEle;
-    // double act_var = 0;
-    // for(size_t i=0; i<nbEle; i++) act_var += (oriData[i] - act_mean) * (oriData[i] - act_mean);
-    // act_var /= (nbEle - 1);
-    // printf("error = %.6f\n", fabs(act_var - var));
-
-    SZx_decompress(decData, cmpData, dim1, dim2, blockSideLength, eb);
+    SZp_decompress(decData, cmpData, dim1, dim2, dim3, blockSideLength, eb);
     double doc_mean = 0;
     for(size_t i=0; i<nbEle; i++) doc_mean += decData[i];
     doc_mean /= nbEle;
-    double doc_var = 0;
-    for(size_t i=0; i<nbEle; i++) doc_var += (decData[i] - doc_mean) * (decData[i] - doc_mean);
-    doc_var /= (nbEle - 1);
-    doc_var = sqrt(doc_var);
-    printf("rel error = %.6e\n", fabs((doc_var - var) / eb));
+    double doc_std = 0;
+    for(size_t i=0; i<nbEle; i++) doc_std += (decData[i] - doc_mean) * (decData[i] - doc_mean);
+    doc_std /= (nbEle - 1);
+    doc_std = sqrt(doc_std);
+    printf("rel error = %.6e\n", fabs((doc_std - std) / eb));
 
     free(decData);
     free(cmpData);

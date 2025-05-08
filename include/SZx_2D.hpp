@@ -680,7 +680,7 @@ double SZx_region_mean(
     return mean;
 }
 
-double SZx_variance_postPred(
+double SZx_stddev_postPred(
     unsigned char *cmpData, size_t dim1, size_t dim2,
     int blockSideLength, double errorBound
 ){
@@ -729,12 +729,11 @@ double SZx_variance_postPred(
     free(absPredError);
     free(signFlag);
     free(blocks_mean_quant);
-    // double var = (2 * errorBound) * (2 * errorBound) * (double)squared_sum / (size.nbEle - 1);
-    double var = (2 * errorBound) * sqrt((double)squared_sum / (size.nbEle - 1));
-    return var;
+    double std = (2 * errorBound) * sqrt((double)squared_sum / (size.nbEle - 1));
+    return std;
 }
 
-double SZx_variance_prePred(
+double SZx_stddev_prePred(
     unsigned char *cmpData, size_t dim1, size_t dim2,
     int blockSideLength, double errorBound
 ){
@@ -785,13 +784,12 @@ double SZx_variance_prePred(
     free(absPredError);
     free(signFlag);
     free(blocks_mean_quant);
-    // double var = (2 * errorBound) * (2 * errorBound) * ((double)squared_quant_sum - (double)quant_sum * quant_sum / (int)(size.nbEle)) / (int(size.nbEle) - 1);
-    double var = (2 * errorBound) * sqrt(((double)squared_quant_sum - (double)quant_sum * quant_sum / size.nbEle) / (size.nbEle - 1));
-    return var;
+    double std = (2 * errorBound) * sqrt(((double)squared_quant_sum - (double)quant_sum * quant_sum / size.nbEle) / (size.nbEle - 1));
+    return std;
 }
 
 template <class T>
-double SZx_variance_decOp(
+double SZx_stddev_decOp(
     unsigned char *cmpData, size_t dim1, size_t dim2,
     T *decData, int blockSideLength, double errorBound
 ){
@@ -800,34 +798,33 @@ double SZx_variance_decOp(
     double mean = 0;
     for(size_t i=0; i<nbEle; i++) mean += decData[i];
     mean /= nbEle;
-    double var = 0;
-    for(size_t i=0; i<nbEle; i++) var += (decData[i] - mean) * (decData[i] - mean);
-    var /= (nbEle - 1);
-    // return var;
-    return sqrt(var);
+    double std = 0;
+    for(size_t i=0; i<nbEle; i++) std += (decData[i] - mean) * (decData[i] - mean);
+    std /= (nbEle - 1);
+    return sqrt(std);
 }
 
 template <class T>
-double SZx_variance(
+double SZx_stddev(
     unsigned char *cmpData, size_t dim1, size_t dim2, T *decData,
     int blockSideLength, double errorBound, decmpState state
 ){
-    double var;
+    double std;
 
     struct timespec start, end;
     double elapsed_time;
     clock_gettime(CLOCK_REALTIME, &start);
     switch(state){
         case decmpState::full:{
-            var = SZx_variance_decOp(cmpData, dim1, dim2, decData, blockSideLength, errorBound);            
+            std = SZx_stddev_decOp(cmpData, dim1, dim2, decData, blockSideLength, errorBound);            
             break;
         }
         case decmpState::prePred:{
-            var = SZx_variance_prePred(cmpData, dim1, dim2, blockSideLength, errorBound);            
+            std = SZx_stddev_prePred(cmpData, dim1, dim2, blockSideLength, errorBound);            
             break;
         }
         case decmpState::postPred:{
-            var = SZx_variance_postPred(cmpData, dim1, dim2, blockSideLength, errorBound);            
+            std = SZx_stddev_postPred(cmpData, dim1, dim2, blockSideLength, errorBound);            
             break;
         }
     }
@@ -835,7 +832,7 @@ double SZx_variance(
     elapsed_time = get_elapsed_time(start, end);
     printf("elapsed_time = %.6f\n", elapsed_time);
 
-    return var;
+    return std;
 }
 
 // TODO
