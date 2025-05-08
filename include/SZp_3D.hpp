@@ -87,6 +87,100 @@ void SZp_compress(
 }
 
 template <class T>
+void SZp_decompress_fast(
+    T *decData, unsigned char *cmpData,
+    size_t dim1, size_t dim2, size_t dim3, int blockSideLength,
+    double errorBound
+){
+    double twice_eb = 2 * errorBound;
+    DSize_3d size(dim1, dim2, dim3, blockSideLength);
+    size_t offset_0 = (size.dim2 + 1) * (size.dim3 + 1);
+    size_t offset_1 = size.dim3 + 1;
+    int * quant_buffer = (int *)malloc((size.Bsize+1)*(size.dim2+1)*(size.dim3+1)*sizeof(int));
+    memset(quant_buffer, 0, (size.Bsize+1)*(size.dim2+1)*(size.dim3+1)*sizeof(int));
+    unsigned int * absPredError = (unsigned int *)malloc(size.max_num_block_elements*sizeof(unsigned int));
+    unsigned char * signFlag = (unsigned char *)malloc(size.max_num_block_elements*sizeof(unsigned char));
+    unsigned char * cmpData_pos = cmpData + size.num_blocks;
+    int * prefix = (int *)malloc((size.dim2+1)*(size.dim3+1)*sizeof(int));
+    memset(prefix, 0, (size.dim2+1)*(size.dim3+1)*sizeof(int));
+    int * colSum = (int *)malloc((size.dim2)*(size.dim3)*sizeof(int));
+    memset(colSum, 0, (size.dim2)*(size.dim3)*sizeof(int));
+    int block_ind = 0;
+    for(size_t x=0; x<size.block_dim1; x++){
+        int size_x = ((x+1)*size.Bsize < size.dim1) ? size.Bsize : size.dim1 - x*size.Bsize;
+        int * buffer_start_pos = quant_buffer + offset_0 + offset_1 + 1;
+        for(size_t y=0; y<size.block_dim2; y++){
+            int size_y = ((y+1)*size.Bsize < size.dim2) ? size.Bsize : size.dim2 - y*size.Bsize;
+            for(size_t z=0; z<size.block_dim3; z++){
+                int size_z = ((z+1)*size.Bsize < size.dim3) ? size.Bsize : size.dim3 - z*size.Bsize;
+                int block_size = size_x * size_y * size_z;
+                int fixed_rate = (int)cmpData[block_ind++];
+                int * block_buffer_pos = buffer_start_pos;
+                if(fixed_rate){
+                    size_t cmp_block_sign_length = (block_size + 7) / 8;
+                    convertByteArray2IntArray_fast_1b_args(block_size, cmpData_pos, cmp_block_sign_length, signFlag);
+                    cmpData_pos += cmp_block_sign_length;
+                    unsigned int savedbitsbytelength = Jiajun_extract_fixed_length_bits(cmpData_pos, block_size, absPredError, fixed_rate);
+                    cmpData_pos += savedbitsbytelength;
+                    int index = 0;
+                    for(int i=0; i<size_x; i++){
+                        for(int j=0; j<size_y; j++){
+                            int * curr_buffer_pos = block_buffer_pos;
+                            for(int k=0; k<size_z; k++){
+                                int s = -(int)signFlag[index];
+                                curr_buffer_pos[k] = (absPredError[index] ^ s) - s;
+                                index++;
+                            }
+                            block_buffer_pos += offset_1;
+                        }
+                        block_buffer_pos += offset_0 - size_y * offset_1;
+                    }
+                }else{
+                    for(int i=0; i<size_x; i++){
+                        for(int j=0; j<size_y; j++){
+                            int * curr_buffer_pos = block_buffer_pos;
+                            for(int k=0; k<size_z; k++){
+                                curr_buffer_pos[k] = 0;
+                            }
+                            block_buffer_pos += offset_1;
+                        }
+                        block_buffer_pos += offset_0 - size_y * offset_1;
+                    }
+                }
+                buffer_start_pos += size.Bsize;
+            }
+            buffer_start_pos += size.Bsize * offset_1 - size.Bsize * size.block_dim3;
+        }
+        int * curr_pos_0 = quant_buffer + offset_0 + offset_1 + 1;
+        int curr;
+        for(int i=0; i<size_x; i++){
+            T * curr_data_pos = decData + (x * size.Bsize + i) * size.offset_0;
+            for(int j = 0; j < size.dim2; ++j){
+                int * prefix_above = prefix + j * offset_1;
+                int * prefix_curr  = prefix_above + offset_1;
+                int row_acc = 0;
+                int * curr_pos_1 = curr_pos_0;
+                for(int k = 0; k < size.dim3; ++k){
+                    colSum[j*size.dim3 + k] += curr_pos_1[k];
+                    row_acc += colSum[j*size.dim3 + k];
+                    int curr = row_acc + prefix_above[k+1];
+                    prefix_curr[k+1] = curr;
+                    curr_data_pos[j*size.dim3 + k] = curr * twice_eb;
+                }
+                curr_pos_0 += offset_1;
+            }
+            curr_pos_0 += offset_0 - size.dim3 * offset_1;
+        }
+        memcpy(quant_buffer, quant_buffer+size.Bsize*offset_0, offset_0*sizeof(int));
+    }
+    free(quant_buffer);
+    free(absPredError);
+    free(signFlag);
+    free(colSum);
+    free(prefix);
+}
+
+template <class T>
 void SZp_decompress(
     T *decData, unsigned char *cmpData,
     size_t dim1, size_t dim2, size_t dim3, int blockSideLength,
@@ -524,18 +618,14 @@ double SZp_stddev_postPred(
                 int * curr_pos_1 = curr_pos_0;
                 for(int k=0; k<size.dim3; k++){
                     colSum[j*size.dim3+k] += static_cast<int64_t>(curr_pos_1[k]);
-                }
-                curr_pos_0 += offset_1;
-            }
-            curr_pos_0 += offset_0 - size.dim3 * offset_1;
-            for(int j=0; j<size.dim2; j++){
-                for(int k=0; k<size.dim3; k++){
                     curr = colSum[j*size.dim3+k] + prefix[j*offset_1+k+1] + prefix[(j+1)*offset_1+k] - prefix[j*offset_1+k];
                     prefix[(j+1)*offset_1+(k+1)] = curr;
                     quant_sum += curr;
                     squared_quant_sum += static_cast<uint64_t>(curr * curr);
                 }
+                curr_pos_0 += offset_1;
             }
+            curr_pos_0 += offset_0 - size.dim3 * offset_1;
         }
         memcpy(quant_buffer, quant_buffer+size.Bsize*offset_0, offset_0*sizeof(int));
     }

@@ -53,10 +53,17 @@ int main(int argc, char **argv)
             SZp_decompress_postPred(intData, cmpData, dim1, dim2, blockSideLength, eb);
             break;
         }
+        case 4:{
+            SZp_decompress_fast(decData, cmpData, dim1, dim2, blockSideLength, eb);
+            break;
+        }
     }
     clock_gettime(CLOCK_REALTIME, &end);
     elapsed_time = get_elapsed_time(start, end);
     printf("eb=%s, state=%d, elapsed_time=%.6f\n", rel_eb.c_str(), stateType, elapsed_time);
+
+    double err = verify(oriData, decData, dim1, dim2);
+    printf("err = %.6e\n", err);
 
     free(decData);
     free(intData);
