@@ -16,6 +16,71 @@ double rec_time = 0;
 double op_time = 0;
 
 template <class T>
+void SZp_compress_fast(
+    const T *oriData, unsigned char *cmpData,
+    size_t dim1, size_t dim2, int blockSideLength,
+    double errorBound, size_t& cmpSize
+){
+    double inver_eb = 0.5 / errorBound;
+    DSize_2d size(dim1, dim2, blockSideLength);
+    size_t offset_0 = size.dim2 + 1;
+    int * col_buffer = (int *)calloc(size.Bsize, sizeof(int));
+    int * prevRow_buffer = (int *)calloc((size.dim2+1), sizeof(int));
+    unsigned int * absPredError = (unsigned int *)malloc(size.max_num_block_elements*sizeof(unsigned int));
+    unsigned char * signFlag = (unsigned char *)malloc(size.max_num_block_elements*sizeof(unsigned char));
+    const T * x_data_pos = oriData;
+    unsigned char * cmpData_pos = cmpData + FIXED_RATE_PER_BLOCK_BYTES * size.num_blocks;
+    int block_ind = 0;
+    for(size_t x=0; x<size.block_dim1; x++){
+        int size_x = ((x+1)*size.Bsize < size.dim1) ? size.Bsize : size.dim1 - x*size.Bsize;
+        const T * y_data_pos = x_data_pos;
+        int * prevRow = prevRow_buffer;
+        memset(col_buffer, 0, size.Bsize*sizeof(int));
+        for(size_t y=0; y<size.block_dim2; y++){
+            int size_y = ((y+1)*size.Bsize < size.dim2) ? size.Bsize : size.dim2 - y*size.Bsize;
+            int block_size = size_x * size_y;
+            unsigned int * abs_err_pos = absPredError;
+            unsigned char * sign_pos = signFlag;
+            const T * curr_data_pos = y_data_pos;
+            int max_err = 0;
+            for(int i=0; i<size_x; i++){
+                int prevLeft = col_buffer[i];
+                for(int j=0; j<size_y; j++){
+                    int q = SZ_quantize(*curr_data_pos, inver_eb);
+                    int err_l = q - prevLeft;
+                    int derr = err_l - prevRow[j];
+                    prevRow[j] = err_l;
+                    prevLeft = q;
+                    if(j == size_y-1) col_buffer[i] = q;
+                    (*sign_pos++) = (derr < 0);
+                    unsigned u = abs(derr);
+                    (*abs_err_pos++) = u;
+                    max_err = max_err > u ? max_err : u;
+                    curr_data_pos++;
+                }
+                curr_data_pos += size.offset_0 - size_y;
+            }
+            prevRow += size_y; 
+            y_data_pos += size.Bsize;
+            int fixed_rate = max_err == 0 ? 0 : INT_BITS - __builtin_clz(max_err);
+            cmpData[block_ind++] = (unsigned char)fixed_rate;
+            if(fixed_rate){
+                unsigned int signbyteLength = convertIntArray2ByteArray_fast_1b_args(signFlag, block_size, cmpData_pos);
+                cmpData_pos += signbyteLength;
+                unsigned int savedbitsbyteLength = Jiajun_save_fixed_length_bits(absPredError, block_size, cmpData_pos, fixed_rate);
+                cmpData_pos += savedbitsbyteLength;
+            }
+        }
+        x_data_pos += size.Bsize * size.offset_0;
+    }
+    cmpSize = cmpData_pos - cmpData;
+    free(col_buffer);
+    free(prevRow_buffer);
+    free(absPredError);
+    free(signFlag);
+}
+
+template <class T>
 void SZp_compress(
     const T *oriData, unsigned char *cmpData,
     size_t dim1, size_t dim2, int blockSideLength,
