@@ -458,165 +458,124 @@ double SZx_mean(
     return mean;
 }
 
-double SZx_region_mean_meta(
+double SZx_mean_region_meta(
     unsigned char *cmpData, size_t dim1, size_t dim2, size_t dim3,
-    double ratio, int blockSideLength, double errorBound
+    size_t lo1, size_t hi1, size_t lo2, size_t hi2, size_t lo3, size_t hi3,
+    int blockSideLength, double errorBound
 ){
-    const DSize_3d size(dim1, dim2, dim3, blockSideLength);
-    size_t dlo1 = floor(dim1 * (1.0 - ratio) * 0.5);
-    size_t dhi1 = floor(dim1 * (1.0 + ratio) * 0.5);
-    size_t dlo2 = floor(dim2 * (1.0 - ratio) * 0.5);
-    size_t dhi2 = floor(dim2 * (1.0 + ratio) * 0.5);
-    size_t dlo3 = floor(dim3 * (1.0 - ratio) * 0.5);
-    size_t dhi3 = floor(dim3 * (1.0 + ratio) * 0.5);
-    size_t lo1 = dlo1 / size.Bsize;
-    size_t hi1 = dhi1 / size.Bsize + 1;
-    size_t lo2 = dlo2 / size.Bsize;
-    size_t hi2 = dhi2 / size.Bsize + 1;
-    size_t lo3 = dlo3 / size.Bsize;
-    size_t hi3 = dhi3 / size.Bsize + 1;
-    size_t region_size = (hi1 - lo1) * (hi2 - lo2) * (hi3 - lo3) * size.Bsize * size.Bsize * size.Bsize;
-    int * blocks_mean_quant = (int *)malloc(size.num_blocks * sizeof(int));
-    extract_block_mean(cmpData+FIXED_RATE_PER_BLOCK_BYTES*size.num_blocks, blocks_mean_quant, size.num_blocks);
-    int64_t quant_sum = 0;
-    int block_ind, mean_quant;
-    int size_x, size_y, size_z, block_size;
-    size_t x, y, z;
-    for(x=lo1; x<hi1; x++){
-        size_x = ((x+1)*size.Bsize < size.dim1) ? size.Bsize : size.dim1 - x*size.Bsize;
-        for(y=lo2; y<hi2; y++){
-            size_y = ((y+1)*size.Bsize < size.dim2) ? size.Bsize : size.dim2 - y*size.Bsize;
-            block_ind = x * size.block_dim2 * size.block_dim3 + y * size.block_dim3 + lo3;
-            for(z=lo3; z<hi3; z++){
-                size_z = ((z+1)*size.Bsize < size.dim3) ? size.Bsize : size.dim3 - z*size.Bsize;
-                block_size = size_x * size_y * size_z;
-                mean_quant = blocks_mean_quant[block_ind++];
-                quant_sum += mean_quant * block_size;
+    lo1 = lo1 < dim1 ? lo1 : dim1;
+    lo2 = lo2 < dim2 ? lo2 : dim2;
+    lo3 = lo3 < dim3 ? lo3 : dim3;
+    hi1 = hi1 < dim1 ? hi1 : dim1;
+    hi2 = hi2 < dim2 ? hi2 : dim2;
+    hi3 = hi3 < dim3 ? hi3 : dim3;
+    if(lo1 >= hi1 || lo2 >= hi2 || lo3 >= hi3) return 0;
+
+    DSize_3d size(dim1, dim2, dim3, blockSideLength);
+    const size_t region_nbEle = (hi1 - lo1) * (hi2 - lo2) * (hi3 - lo3);
+    unsigned char * qmean_pos = cmpData + FIXED_RATE_PER_BLOCK_BYTES * size.num_blocks;
+    int64_t sum = 0;
+    int mean_quant;
+    for(size_t x=0; x<size.block_dim1; x++){
+        const size_t x0 = x * size.Bsize;
+        int size_x = ((x+1) * size.Bsize < size.dim1) ? size.Bsize : size.dim1 - x*size.Bsize;
+        const size_t overlap_x = std::min(hi1, x0 + size_x) > std::max(lo1, x0) ?
+            std::min(hi1, x0 + size_x) - std::max(lo1, x0) : 0;
+        for(size_t y=0; y<size.block_dim2; y++){
+            const size_t y0 = y * size.Bsize;
+            int size_y = ((y+1)*size.Bsize < size.dim2) ? size.Bsize : size.dim2 - y*size.Bsize;
+            const size_t overlap_y = std::min(hi2, y0 + size_y) > std::max(lo2, y0) ?
+                std::min(hi2, y0 + size_y) - std::max(lo2, y0) : 0;
+            for(size_t z=0; z<size.block_dim3; z++){
+                const size_t z0 = z * size.Bsize;
+                int size_z = ((z+1)*size.Bsize < size.dim3) ? size.Bsize : size.dim3 - z*size.Bsize;
+                const size_t overlap_z = std::min(hi3, z0 + size_z) > std::max(lo3, z0) ?
+                    std::min(hi3, z0 + size_z) - std::max(lo3, z0) : 0;
+                memcpy(&mean_quant, qmean_pos, sizeof(int));
+                qmean_pos += INT_BYTES;
+                if(overlap_x && overlap_y && overlap_z){
+                    sum += mean_quant * overlap_x * overlap_y * overlap_z;
+                }
             }
         }
     }
-    free(blocks_mean_quant);
-    double mean = quant_sum * 2 * errorBound / region_size;
+    double mean = 2 * errorBound * sum / region_nbEle;
     return mean;
 }
 
-double SZx_region_mean_postPred(
+double SZx_mean_region_postPred(
     unsigned char *cmpData, size_t dim1, size_t dim2, size_t dim3,
-    double ratio, int blockSideLength, double errorBound
+    size_t lo1, size_t hi1, size_t lo2, size_t hi2, size_t lo3, size_t hi3,
+    int blockSideLength, double errorBound
 ){
-    const DSize_3d size(dim1, dim2, dim3, blockSideLength);
-    size_t dlo1 = floor(dim1 * (1.0 - ratio) * 0.5);
-    size_t dhi1 = floor(dim1 * (1.0 + ratio) * 0.5);
-    size_t dlo2 = floor(dim2 * (1.0 - ratio) * 0.5);
-    size_t dhi2 = floor(dim2 * (1.0 + ratio) * 0.5);
-    size_t dlo3 = floor(dim3 * (1.0 - ratio) * 0.5);
-    size_t dhi3 = floor(dim3 * (1.0 + ratio) * 0.5);
-    size_t lo1 = dlo1 / size.Bsize;
-    size_t hi1 = dhi1 / size.Bsize + 1;
-    size_t lo2 = dlo2 / size.Bsize;
-    size_t hi2 = dhi2 / size.Bsize + 1;
-    size_t lo3 = dlo3 / size.Bsize;
-    size_t hi3 = dhi3 / size.Bsize + 1;
-    size_t region_size = (hi1 - lo1) * (hi2 - lo2) * (hi3 - lo3) * size.Bsize * size.Bsize * size.Bsize;
+    lo1 = lo1 < dim1 ? lo1 : dim1;
+    lo2 = lo2 < dim2 ? lo2 : dim2;
+    lo3 = lo3 < dim3 ? lo3 : dim3;
+    hi1 = hi1 < dim1 ? hi1 : dim1;
+    hi2 = hi2 < dim2 ? hi2 : dim2;
+    hi3 = hi3 < dim3 ? hi3 : dim3;
+    if(lo1 >= hi1 || lo2 >= hi2 || lo3 >= hi3) return 0;
+
+    DSize_3d size(dim1, dim2, dim3, blockSideLength);
+    const size_t region_nbEle = (hi1 - lo1) * (hi2 - lo2) * (hi3 - lo3);
     unsigned int * absPredError = (unsigned int *)malloc(size.max_num_block_elements*sizeof(unsigned int));
     unsigned char * signFlag = (unsigned char *)malloc(size.max_num_block_elements*sizeof(unsigned char));
     int * blocks_mean_quant = (int *)malloc(size.num_blocks * sizeof(int));
-    const unsigned char * rate_start_pos = cmpData;
-    unsigned char * encode_start_pos = cmpData + (FIXED_RATE_PER_BLOCK_BYTES + INT_BYTES) * size.num_blocks;
-    std::vector<std::vector<size_t>> prefix(hi1 - lo1, std::vector<size_t>(hi2 - lo2,  0));
-    extract_block_mean(cmpData+FIXED_RATE_PER_BLOCK_BYTES*size.num_blocks, blocks_mean_quant, size.num_blocks);
+    unsigned char * encode_pos = cmpData + (FIXED_RATE_PER_BLOCK_BYTES + INT_BYTES) * size.num_blocks;
     int64_t quant_sum = 0;
-    size_t x, y, z, i, j;
-    size_t byteLengthPrefix = 0;
     int block_ind = 0;
-    int size_x, size_y, size_z, block_size, fixed_rate;
-    int mean_quant, curr;
-    for(x=0; x<lo1; x++){
-        for(y=0; y<size.block_dim2; y++){
-            for(z=0; z<size.block_dim3; z++){
-                size_x = ((x+1)*size.Bsize < size.dim1) ? size.Bsize : size.dim1 - x*size.Bsize;
-                size_y = ((y+1)*size.Bsize < size.dim2) ? size.Bsize : size.dim2 - y*size.Bsize;
-                size_z = ((z+1)*size.Bsize < size.dim3) ? size.Bsize : size.dim3 - z*size.Bsize;
-                block_size = size_x * size_y * size_z;
-                fixed_rate = (int)rate_start_pos[block_ind++];
-                if(fixed_rate){
-                    byteLengthPrefix += (block_size + 7) / 8 + getByteLength(block_size, fixed_rate);
+    extract_block_mean(cmpData + size.num_blocks, blocks_mean_quant, size.num_blocks);
+    for(size_t x=0; x<size.block_dim1; x++){
+        const size_t x0 = x * size.Bsize;
+        int size_x = ((x+1)*size.Bsize < size.dim1) ? size.Bsize : size.dim1 - x*size.Bsize;
+        const size_t overlap_x0 = std::max(lo1, x0);
+        const size_t overlap_x1 = std::min(hi1, x0 + size_x);
+        for(size_t y=0; y<size.block_dim2; y++){
+            const size_t y0 = y * size.Bsize;
+            int size_y = ((y+1)*size.Bsize < size.dim2) ? size.Bsize : size.dim2 - y*size.Bsize;
+            const size_t overlap_y0 = std::max(lo2, y0);
+            const size_t overlap_y1 = std::min(hi2, y0 + size_y);
+            for(size_t z=0; z<size.block_dim3; z++){
+                const size_t z0 = z * size.Bsize;
+                int size_z = ((z+1)*size.Bsize < size.dim3) ? size.Bsize : size.dim3 - z*size.Bsize;
+                const size_t overlap_z0 = std::max(lo3, z0);
+                const size_t overlap_z1 = std::min(hi3, z0 + size_z);
+                int block_size = size_x * size_y * size_z;
+                int mean_quant = blocks_mean_quant[block_ind];
+                int fixed_rate = (int)cmpData[block_ind++];
+                bool intersects_region = (overlap_x0 < overlap_x1) && (overlap_y0 < overlap_y1) && (overlap_z0 < overlap_z1);
+                if(intersects_region){
+                    quant_sum += mean_quant * (overlap_x1 - overlap_x0) * (overlap_y1 - overlap_y0) * (overlap_z1 - overlap_z0);
                 }
-            }
-        }
-    }
-    i = 0;
-    for(x=lo1; x<hi1; x++){
-        size_x = ((x+1)*size.Bsize < size.dim1) ? size.Bsize : size.dim1 - x*size.Bsize;
-        j = 0;
-        for(y=0; y<lo2; y++){
-            size_y = ((y+1)*size.Bsize < size.dim2) ? size.Bsize : size.dim2 - y*size.Bsize;
-            for(z=0; z<size.block_dim3; z++){
-                size_z = ((z+1)*size.Bsize < size.dim3) ? size.Bsize : size.dim3 - z*size.Bsize;
-                block_size = size_x * size_y * size_z;
-                fixed_rate = (int)rate_start_pos[block_ind++];
-                if(fixed_rate){
-                    byteLengthPrefix += (block_size + 7) / 8 + getByteLength(block_size, fixed_rate);
-                }                
-            }
-        }
-        for(y=lo2; y<hi2; y++){
-            size_y = ((y+1)*size.Bsize < size.dim2) ? size.Bsize : size.dim2 - y*size.Bsize;
-            for(z=0; z<lo3; z++){
-                size_z = ((z+1)*size.Bsize < size.dim3) ? size.Bsize : size.dim3 - z*size.Bsize;
-                block_size = size_x * size_y * size_z;
-                fixed_rate = (int)rate_start_pos[block_ind++];
-                if(fixed_rate){
-                    byteLengthPrefix += (block_size + 7) / 8 + getByteLength(block_size, fixed_rate);
-                }
-            }
-            prefix[i][j++] = byteLengthPrefix;
-            for(z=lo3; z<size.block_dim3; z++){
-                size_x = ((x+1)*size.Bsize < size.dim1) ? size.Bsize : size.dim1 - x*size.Bsize;
-                size_y = ((y+1)*size.Bsize < size.dim2) ? size.Bsize : size.dim2 - y*size.Bsize;
-                size_z = ((z+1)*size.Bsize < size.dim3) ? size.Bsize : size.dim3 - z*size.Bsize;
-                block_size = size_x * size_y * size_z;
-                fixed_rate = (int)rate_start_pos[block_ind++];
-                if(fixed_rate){
-                    byteLengthPrefix += (block_size + 7) / 8 + getByteLength(block_size, fixed_rate);
-                }
-            }
-        }
-        for(y=hi2; y<size.block_dim2; y++){
-            size_y = ((y+1)*size.Bsize < size.dim2) ? size.Bsize : size.dim2 - y*size.Bsize;
-            for(z=0; z<size.block_dim3; z++){
-                size_z = ((z+1)*size.Bsize < size.dim3) ? size.Bsize : size.dim3 - z*size.Bsize;
-                block_size = size_x * size_y * size_z;
-                fixed_rate = (int)rate_start_pos[block_ind++];
-                if(fixed_rate){
-                    byteLengthPrefix += (block_size + 7) / 8 + getByteLength(block_size, fixed_rate);
-                }                
-            }
-        }
-        i++;
-    }
-    for(x=lo1; x<hi1; x++){
-        size_x = ((x+1)*size.Bsize < size.dim1) ? size.Bsize : size.dim1 - x*size.Bsize;
-        for(y=lo2; y<hi2; y++){
-            size_y = ((y+1)*size.Bsize < size.dim2) ? size.Bsize : size.dim2 - y*size.Bsize;
-            block_ind = x * size.block_dim2 * size.block_dim3 + y * size.block_dim3 + lo3;
-            unsigned char * encode_pos = encode_start_pos + prefix[x - lo1][y - lo2];
-            for(z=lo3; z<hi3; z++){
-                size_z = ((z+1)*size.Bsize < size.dim3) ? size.Bsize : size.dim3 - z*size.Bsize;
-                block_size = size_x * size_y * size_z;
-                mean_quant = blocks_mean_quant[block_ind];
-                fixed_rate = (int)rate_start_pos[block_ind++];
-                quant_sum += mean_quant * block_size;
                 if(fixed_rate){
                     size_t cmp_block_sign_length = (block_size + 7) / 8;
-                    convertByteArray2IntArray_fast_1b_args(block_size, encode_pos, cmp_block_sign_length, signFlag);
+                    if(intersects_region){
+                        convertByteArray2IntArray_fast_1b_args(block_size, encode_pos, cmp_block_sign_length, signFlag);
+                    }
                     encode_pos += cmp_block_sign_length;
-                    unsigned int savedbitsbytelength = Jiajun_extract_fixed_length_bits(encode_pos, block_size, absPredError, fixed_rate);
+                    unsigned int savedbitsbytelength;
+                    if(intersects_region){
+                        savedbitsbytelength = Jiajun_extract_fixed_length_bits(encode_pos, block_size, absPredError, fixed_rate);
+                    }else{
+                        savedbitsbytelength = getByteLength(block_size, fixed_rate);
+                    }
                     encode_pos += savedbitsbytelength;
-                    for(i=0; i<block_size; i++){
-                        if(signFlag[i]) curr = 0 - absPredError[i];
-                        else curr = absPredError[i];
-                        quant_sum += curr;
+                    if(intersects_region){
+                        int index = 0;
+                        for(int i=0; i<size_x; i++){
+                            for(int j=0; j<size_y; j++){
+                                for(int k=0; k<size_z; k++){
+                                    if((x0 + i >= overlap_x0) && (x0 + i < overlap_x1) &&
+                                       (y0 + j >= overlap_y0) && (y0 + j < overlap_y1) &&
+                                       (z0 + k >= overlap_z0) && (z0 + k < overlap_z1)){
+                                        int s = -(int)signFlag[index];
+                                        int curr = (absPredError[index] ^ s) - s;
+                                        quant_sum += curr;
+                                    }
+                                    index++;
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -625,147 +584,26 @@ double SZx_region_mean_postPred(
     free(absPredError);
     free(signFlag);
     free(blocks_mean_quant);
-    double mean = quant_sum * 2 * errorBound / region_size;
-    return mean;
-}
-
-double SZx_region_mean_prePred(
-    unsigned char *cmpData, size_t dim1, size_t dim2, size_t dim3,
-    double ratio, int blockSideLength, double errorBound
-){
-    const DSize_3d size(dim1, dim2, dim3, blockSideLength);
-    size_t dlo1 = floor(dim1 * (1.0 - ratio) * 0.5);
-    size_t dhi1 = floor(dim1 * (1.0 + ratio) * 0.5);
-    size_t dlo2 = floor(dim2 * (1.0 - ratio) * 0.5);
-    size_t dhi2 = floor(dim2 * (1.0 + ratio) * 0.5);
-    size_t dlo3 = floor(dim3 * (1.0 - ratio) * 0.5);
-    size_t dhi3 = floor(dim3 * (1.0 + ratio) * 0.5);
-    size_t lo1 = dlo1 / size.Bsize;
-    size_t hi1 = dhi1 / size.Bsize + 1;
-    size_t lo2 = dlo2 / size.Bsize;
-    size_t hi2 = dhi2 / size.Bsize + 1;
-    size_t lo3 = dlo3 / size.Bsize;
-    size_t hi3 = dhi3 / size.Bsize + 1;
-    size_t region_size = (hi1 - lo1) * (hi2 - lo2) * (hi3 - lo3) * size.Bsize * size.Bsize * size.Bsize;
-    unsigned int * absPredError = (unsigned int *)malloc(size.max_num_block_elements*sizeof(unsigned int));
-    unsigned char * signFlag = (unsigned char *)malloc(size.max_num_block_elements*sizeof(unsigned char));
-    int * blocks_mean_quant = (int *)malloc(size.num_blocks * sizeof(int));
-    const unsigned char * rate_start_pos = cmpData;
-    unsigned char * encode_start_pos = cmpData + (FIXED_RATE_PER_BLOCK_BYTES + INT_BYTES) * size.num_blocks;
-    std::vector<std::vector<size_t>> prefix(hi1 - lo1, std::vector<size_t>(hi2 - lo2,  0));
-    extract_block_mean(cmpData+FIXED_RATE_PER_BLOCK_BYTES*size.num_blocks, blocks_mean_quant, size.num_blocks);
-    int64_t quant_sum = 0;
-    size_t x, y, z, i, j;
-    size_t byteLengthPrefix = 0;
-    int block_ind = 0;
-    int size_x, size_y, size_z, block_size, fixed_rate;
-    int mean_quant, curr;
-    for(x=0; x<lo1; x++){
-        for(y=0; y<size.block_dim2; y++){
-            for(z=0; z<size.block_dim3; z++){
-                size_x = ((x+1)*size.Bsize < size.dim1) ? size.Bsize : size.dim1 - x*size.Bsize;
-                size_y = ((y+1)*size.Bsize < size.dim2) ? size.Bsize : size.dim2 - y*size.Bsize;
-                size_z = ((z+1)*size.Bsize < size.dim3) ? size.Bsize : size.dim3 - z*size.Bsize;
-                block_size = size_x * size_y * size_z;
-                fixed_rate = (int)rate_start_pos[block_ind++];
-                if(fixed_rate){
-                    byteLengthPrefix += (block_size + 7) / 8 + getByteLength(block_size, fixed_rate);
-                }
-            }
-        }
-    }
-    i = 0;
-    for(x=lo1; x<hi1; x++){
-        size_x = ((x+1)*size.Bsize < size.dim1) ? size.Bsize : size.dim1 - x*size.Bsize;
-        j = 0;
-        for(y=0; y<lo2; y++){
-            size_y = ((y+1)*size.Bsize < size.dim2) ? size.Bsize : size.dim2 - y*size.Bsize;
-            for(z=0; z<size.block_dim3; z++){
-                size_z = ((z+1)*size.Bsize < size.dim3) ? size.Bsize : size.dim3 - z*size.Bsize;
-                block_size = size_x * size_y * size_z;
-                fixed_rate = (int)rate_start_pos[block_ind++];
-                if(fixed_rate){
-                    byteLengthPrefix += (block_size + 7) / 8 + getByteLength(block_size, fixed_rate);
-                }                
-            }
-        }
-        for(y=lo2; y<hi2; y++){
-            size_y = ((y+1)*size.Bsize < size.dim2) ? size.Bsize : size.dim2 - y*size.Bsize;
-            for(z=0; z<lo3; z++){
-                size_z = ((z+1)*size.Bsize < size.dim3) ? size.Bsize : size.dim3 - z*size.Bsize;
-                block_size = size_x * size_y * size_z;
-                fixed_rate = (int)rate_start_pos[block_ind++];
-                if(fixed_rate){
-                    byteLengthPrefix += (block_size + 7) / 8 + getByteLength(block_size, fixed_rate);
-                }
-            }
-            prefix[i][j++] = byteLengthPrefix;
-            for(z=lo3; z<size.block_dim3; z++){
-                size_x = ((x+1)*size.Bsize < size.dim1) ? size.Bsize : size.dim1 - x*size.Bsize;
-                size_y = ((y+1)*size.Bsize < size.dim2) ? size.Bsize : size.dim2 - y*size.Bsize;
-                size_z = ((z+1)*size.Bsize < size.dim3) ? size.Bsize : size.dim3 - z*size.Bsize;
-                block_size = size_x * size_y * size_z;
-                fixed_rate = (int)rate_start_pos[block_ind++];
-                if(fixed_rate){
-                    byteLengthPrefix += (block_size + 7) / 8 + getByteLength(block_size, fixed_rate);
-                }
-            }
-        }
-        for(y=hi2; y<size.block_dim2; y++){
-            size_y = ((y+1)*size.Bsize < size.dim2) ? size.Bsize : size.dim2 - y*size.Bsize;
-            for(z=0; z<size.block_dim3; z++){
-                size_z = ((z+1)*size.Bsize < size.dim3) ? size.Bsize : size.dim3 - z*size.Bsize;
-                block_size = size_x * size_y * size_z;
-                fixed_rate = (int)rate_start_pos[block_ind++];
-                if(fixed_rate){
-                    byteLengthPrefix += (block_size + 7) / 8 + getByteLength(block_size, fixed_rate);
-                }                
-            }
-        }
-        i++;
-    }
-    for(x=lo1; x<hi1; x++){
-        size_x = ((x+1)*size.Bsize < size.dim1) ? size.Bsize : size.dim1 - x*size.Bsize;
-        for(y=lo2; y<hi2; y++){
-            size_y = ((y+1)*size.Bsize < size.dim2) ? size.Bsize : size.dim2 - y*size.Bsize;
-            block_ind = x * size.block_dim2 * size.block_dim3 + y * size.block_dim3 + lo3;
-            unsigned char * encode_pos = encode_start_pos + prefix[x - lo1][y - lo2];
-            for(z=lo3; z<hi3; z++){
-                size_z = ((z+1)*size.Bsize < size.dim3) ? size.Bsize : size.dim3 - z*size.Bsize;
-                block_size = size_x * size_y * size_z;
-                mean_quant = blocks_mean_quant[block_ind];
-                fixed_rate = (int)rate_start_pos[block_ind++];
-                if(fixed_rate){
-                    size_t cmp_block_sign_length = (block_size + 7) / 8;
-                    convertByteArray2IntArray_fast_1b_args(block_size, encode_pos, cmp_block_sign_length, signFlag);
-                    encode_pos += cmp_block_sign_length;
-                    unsigned int savedbitsbytelength = Jiajun_extract_fixed_length_bits(encode_pos, block_size, absPredError, fixed_rate);
-                    encode_pos += savedbitsbytelength;
-                    for(i=0; i<block_size; i++){
-                        if(signFlag[i]) curr = 0 - absPredError[i];
-                        else curr = absPredError[i];
-                        curr += mean_quant;
-                        quant_sum += curr;
-                    }
-                }else{
-                    quant_sum += mean_quant * block_size;
-                }
-            }
-        }
-    }
-    free(absPredError);
-    free(signFlag);
-    free(blocks_mean_quant);
-    double mean = quant_sum * 2 * errorBound / region_size;
+    double mean = quant_sum * 2 * errorBound / region_nbEle;
     return mean;
 }
 
 template <class T>
-double SZx_region_mean(
-    unsigned char *cmpData, size_t dim1, size_t dim2, size_t dim3, T *decData,
-    double ratio, int blockSideLength, double errorBound, decmpState state
+double SZx_mean_region(
+    unsigned char *cmpData, size_t dim1, size_t dim2, size_t dim3,
+    size_t lo1, size_t hi1, size_t lo2, size_t hi2, size_t lo3, size_t hi3,
+    T *decData, int blockSideLength, double errorBound, decmpState state
 ){
-    double mean;
+    lo1 = lo1 < dim1 ? lo1 : dim1;
+    lo2 = lo2 < dim2 ? lo2 : dim2;
+    lo3 = lo3 < dim3 ? lo3 : dim3;
+    hi1 = hi1 < dim1 ? hi1 : dim1;
+    hi2 = hi2 < dim2 ? hi2 : dim2;
+    hi3 = hi3 < dim3 ? hi3 : dim3;
+    if(lo1 >= hi1 || lo2 >= hi2 || lo3 >= hi3) return 0;
+
+    double mean = 0;
+    const size_t region_nbEle = (hi1 - lo1) * (hi2 - lo2) * (hi3 - lo3);
 
     struct timespec start, end;
     double elapsed_time;
@@ -773,19 +611,26 @@ double SZx_region_mean(
     switch(state){
         case decmpState::full:{
             SZx_decompress(decData, cmpData, dim1, dim2, dim3, blockSideLength, errorBound);
-            mean = compute_region_mean(dim1, dim2, dim3, blockSideLength, ratio, decData);
+            for(size_t i=lo1; i<hi1; i++){
+                for(size_t j=lo2; j<hi2; j++){
+                    for(size_t k=lo3; k<hi3; k++){
+                        mean += decData[i * dim2 * dim3 + j * dim3 + k];
+                    }
+                }
+            }
+            mean /= region_nbEle;
             break;
         }
         case decmpState::prePred:{
-            mean = SZx_region_mean_prePred(cmpData, dim1, dim2, dim3, ratio, blockSideLength, errorBound);            
+            fprintf(stderr, "SZx_mean_region does not support prePred yet.\n");
             break;
         }
         case decmpState::postPred:{
-            mean = SZx_region_mean_postPred(cmpData, dim1, dim2, dim3, ratio, blockSideLength, errorBound);            
+            mean = SZx_mean_region_postPred(cmpData, dim1, dim2, dim3, lo1, hi1, lo2, hi2, lo3, hi3, blockSideLength, errorBound);
             break;
         }
         case decmpState::meta:{
-            mean = SZx_region_mean_meta(cmpData, dim1, dim2, dim3, ratio, blockSideLength, errorBound);            
+            mean = SZx_mean_region_meta(cmpData, dim1, dim2, dim3, lo1, hi1, lo2, hi2, lo3, hi3, blockSideLength, errorBound);
             break;
         }
     }

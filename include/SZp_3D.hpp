@@ -631,6 +631,174 @@ double SZp_mean(
     return mean;
 }
 
+static int64_t SZp_decoded_sum_prefix_postPred(
+    unsigned char *cmpData, size_t dim1, size_t dim2, size_t dim3,
+    size_t m1, size_t m2, size_t m3, int blockSideLength
+){
+    if(m1 == 0 || m2 == 0 || m3 == 0) return 0;
+
+    DSize_3d size(dim1, dim2, dim3, blockSideLength);
+    m1 = m1 < dim1 ? m1 : dim1;
+    m2 = m2 < dim2 ? m2 : dim2;
+    m3 = m3 < dim3 ? m3 : dim3;
+
+    const size_t block_m1 = (m1 + size.Bsize - 1) / size.Bsize;
+    const size_t block_m2 = (m2 + size.Bsize - 1) / size.Bsize;
+    const size_t block_m3 = (m3 + size.Bsize - 1) / size.Bsize;
+    unsigned int * absPredError = (unsigned int *)malloc(size.max_num_block_elements*sizeof(unsigned int));
+    unsigned char * signFlag = (unsigned char *)malloc(size.max_num_block_elements*sizeof(unsigned char));
+    unsigned char * cmpData_pos = cmpData + size.num_blocks;
+    int block_ind = 0;
+    int64_t quant_sum = 0;
+    size_t index_x = 0;
+    for(size_t x=0; x<size.block_dim1; x++){
+        if(x >= block_m1) break;
+        int size_x = ((x+1)*size.Bsize < size.dim1) ? size.Bsize : size.dim1 - x*size.Bsize;
+        size_t index_y = 0;
+        for(size_t y=0; y<size.block_dim2; y++){
+            int size_y = ((y+1)*size.Bsize < size.dim2) ? size.Bsize : size.dim2 - y*size.Bsize;
+            size_t index_z = 0;
+            for(size_t z=0; z<size.block_dim3; z++){
+                int size_z = ((z+1)*size.Bsize < size.dim3) ? size.Bsize : size.dim3 - z*size.Bsize;
+                int block_size = size_x * size_y * size_z;
+                int fixed_rate = (int)cmpData[block_ind++];
+                bool intersects_prefix = (x < block_m1) && (y < block_m2) && (z < block_m3);
+                if(fixed_rate){
+                    size_t cmp_block_sign_length = (block_size + 7) / 8;
+                    if(intersects_prefix){
+                        convertByteArray2IntArray_fast_1b_args(block_size, cmpData_pos, cmp_block_sign_length, signFlag);
+                    }
+                    cmpData_pos += cmp_block_sign_length;
+                    unsigned int savedbitsbytelength;
+                    if(intersects_prefix){
+                        savedbitsbytelength = Jiajun_extract_fixed_length_bits(cmpData_pos, block_size, absPredError, fixed_rate);
+                    }else{
+                        savedbitsbytelength = getByteLength(block_size, fixed_rate);
+                    }
+                    cmpData_pos += savedbitsbytelength;
+                    if(intersects_prefix){
+                        int index = 0;
+                        for(int i=0; i<size_x; i++){
+                            const size_t rem_x = (index_x + i < m1) ? (m1 - (index_x + i)) : 0;
+                            for(int j=0; j<size_y; j++){
+                                const size_t rem_y = (index_y + j < m2) ? (m2 - (index_y + j)) : 0;
+                                for(int k=0; k<size_z; k++){
+                                    int s = -(int)signFlag[index];
+                                    int curr = (absPredError[index] ^ s) - s;
+                                    index++;
+                                    const size_t rem_z = (index_z + k < m3) ? (m3 - (index_z + k)) : 0;
+                                    quant_sum += rem_x * rem_y * rem_z * curr;
+                                }
+                            }
+                        }
+                    }
+                }
+                index_z += size.Bsize;
+            }
+            index_y += size.Bsize;
+        }
+        index_x += size.Bsize;
+    }
+    free(absPredError);
+    free(signFlag);
+    return quant_sum;
+}
+
+double SZp_mean_prefix_postPred(
+    unsigned char *cmpData, size_t dim1, size_t dim2, size_t dim3,
+    size_t m1, size_t m2, size_t m3, int blockSideLength, double errorBound
+){
+    if(m1 == 0 || m2 == 0 || m3 == 0) return 0;
+
+    m1 = m1 < dim1 ? m1 : dim1;
+    m2 = m2 < dim2 ? m2 : dim2;
+    m3 = m3 < dim3 ? m3 : dim3;
+    const size_t prefix_nbEle = m1 * m2 * m3;
+    int64_t quant_sum = SZp_decoded_sum_prefix_postPred(cmpData, dim1, dim2, dim3, m1, m2, m3, blockSideLength);
+    double mean = quant_sum * 2 * errorBound / prefix_nbEle;
+    return mean;
+}
+
+double SZp_mean_region_postPred(
+    unsigned char *cmpData, size_t dim1, size_t dim2, size_t dim3,
+    size_t lo1, size_t hi1, size_t lo2, size_t hi2, size_t lo3, size_t hi3,
+    int blockSideLength, double errorBound
+){
+    lo1 = lo1 < dim1 ? lo1 : dim1;
+    lo2 = lo2 < dim2 ? lo2 : dim2;
+    lo3 = lo3 < dim3 ? lo3 : dim3;
+    hi1 = hi1 < dim1 ? hi1 : dim1;
+    hi2 = hi2 < dim2 ? hi2 : dim2;
+    hi3 = hi3 < dim3 ? hi3 : dim3;
+    if(lo1 >= hi1 || lo2 >= hi2 || lo3 >= hi3) return 0;
+
+    const size_t region_nbEle = (hi1 - lo1) * (hi2 - lo2) * (hi3 - lo3);
+    int64_t quant_sum =
+        SZp_decoded_sum_prefix_postPred(cmpData, dim1, dim2, dim3, hi1, hi2, hi3, blockSideLength)
+        - SZp_decoded_sum_prefix_postPred(cmpData, dim1, dim2, dim3, lo1, hi2, hi3, blockSideLength)
+        - SZp_decoded_sum_prefix_postPred(cmpData, dim1, dim2, dim3, hi1, lo2, hi3, blockSideLength)
+        - SZp_decoded_sum_prefix_postPred(cmpData, dim1, dim2, dim3, hi1, hi2, lo3, blockSideLength)
+        + SZp_decoded_sum_prefix_postPred(cmpData, dim1, dim2, dim3, lo1, lo2, hi3, blockSideLength)
+        + SZp_decoded_sum_prefix_postPred(cmpData, dim1, dim2, dim3, lo1, hi2, lo3, blockSideLength)
+        + SZp_decoded_sum_prefix_postPred(cmpData, dim1, dim2, dim3, hi1, lo2, lo3, blockSideLength)
+        - SZp_decoded_sum_prefix_postPred(cmpData, dim1, dim2, dim3, lo1, lo2, lo3, blockSideLength);
+    double mean = quant_sum * 2 * errorBound / region_nbEle;
+    return mean;
+}
+
+template <class T>
+double SZp_mean_region(
+    unsigned char *cmpData, size_t dim1, size_t dim2, size_t dim3,
+    size_t lo1, size_t hi1, size_t lo2, size_t hi2, size_t lo3, size_t hi3,
+    T *decData, int blockSideLength, double errorBound, decmpState state
+){
+    lo1 = lo1 < dim1 ? lo1 : dim1;
+    lo2 = lo2 < dim2 ? lo2 : dim2;
+    lo3 = lo3 < dim3 ? lo3 : dim3;
+    hi1 = hi1 < dim1 ? hi1 : dim1;
+    hi2 = hi2 < dim2 ? hi2 : dim2;
+    hi3 = hi3 < dim3 ? hi3 : dim3;
+    if(lo1 >= hi1 || lo2 >= hi2 || lo3 >= hi3) return 0;
+
+    double mean = 0;
+    const size_t region_nbEle = (hi1 - lo1) * (hi2 - lo2) * (hi3 - lo3);
+
+    struct timespec start, end;
+    double elapsed_time;
+    clock_gettime(CLOCK_REALTIME, &start);
+    switch(state){
+        case decmpState::postPred:{
+            mean = SZp_mean_region_postPred(cmpData, dim1, dim2, dim3, lo1, hi1, lo2, hi2, lo3, hi3, blockSideLength, errorBound);
+            break;
+        }
+        case decmpState::prePred:{
+            fprintf(stderr, "Not supported yet.\n");
+            break;
+        }
+        case decmpState::full:{
+            SZp_decompress(decData, cmpData, dim1, dim2, dim3, blockSideLength, errorBound);
+            for(size_t i=lo1; i<hi1; i++){
+                for(size_t j=lo2; j<hi2; j++){
+                    for(size_t k=lo3; k<hi3; k++){
+                        mean += decData[i * dim2 * dim3 + j * dim3 + k];
+                    }
+                }
+            }
+            mean /= region_nbEle;
+            break;
+        }
+        case decmpState::meta:{
+            fprintf(stderr, "Not supported.\n");
+            break;
+        }
+    }
+    clock_gettime(CLOCK_REALTIME, &end);
+    elapsed_time = get_elapsed_time(start, end);
+    printf("elapsed_time = %.6f\n", elapsed_time);
+
+    return mean;
+}
+
 double SZp_stddev_postPred(
     unsigned char *cmpData, size_t dim1, size_t dim2, size_t dim3,
     int blockSideLength, double errorBound
